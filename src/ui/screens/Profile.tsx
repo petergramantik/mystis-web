@@ -176,7 +176,8 @@ function TeamBlock({ t, year, newest, isMe }: { t: TeamMembership; year: number;
 
 /**
  * Největší nárůst STR během jedné sezóny podle grafu STR (stejná data jako graf na profilu).
- * V první sezóně se přeskočí zahajovací fáze: začátek = první bod > 0, po kterém se STR změní méně než o 30.
+ * V první sezóně se přeskočí zahajovací fáze: začátek = bod po posledním velkém skoku (≥ 150) z úvodního zařazení
+ * (počáteční hodnota se v grafu může opakovat, např. 13, 13, 830, 1180, 1185 …).
  */
 export function biggestJump(pts: [number, number][]): readonly [number, number] | null {
   const bySeason = new Map<number, number[]>();
@@ -190,8 +191,10 @@ export function biggestJump(pts: [number, number][]): readonly [number, number] 
   for (const [y, vs] of bySeason) {
     let i = 0;
     if (y === firstSeason) {
-      i = vs.findIndex((v, k) => v > 0 && k + 1 < vs.length && Math.abs(vs[k + 1] - v) < 30);
-      if (i < 0) continue;
+      let last = -1;
+      for (let k = 1; k < vs.length; k++) if (Math.abs(vs[k] - vs[k - 1]) >= 150) last = k;
+      i = last >= 0 ? last : vs.findIndex((v) => v > 0);
+      if (i < 0 || i >= vs.length - 1) continue;
     } else {
       i = vs.findIndex((v) => v > 0);
       if (i < 0) continue;
