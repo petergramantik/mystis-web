@@ -4,6 +4,9 @@ import { vm } from "../../app/vm";
 import type { PlayerPage, ZapisGame } from "../../core/models";
 import { Stats, StrModel, sum } from "../../core/stats";
 import { Live } from "../../core/live";
+import { Parsers } from "../../core/parsers";
+import { today } from "../../core/dates";
+import { roundScore } from "../../core/search";
 import { HallCard } from "../hall";
 import {
   AppCard, BigNumber, C, DMY, Divider, Empty, HeaderPlayer, KeyValue, ListCard, Loading, Muted, NavyHeader, ProbBar, ResultBadge, SectionTitle, T, dec1, signedInt,
@@ -184,6 +187,7 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
             </AppCard>
           );
         })}
+        {z.games.some((g) => g.result != null) && <PredictionCard path={path} myHome={myHome} isMe={isMe} />}
         <SectionTitle text={`Všechny hry (${z.games.length})`} />
         <ListCard>
           {z.games.map((g) => {
@@ -225,3 +229,125 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
   );
 }
 
+
+/** Rozdělí [total] na celá čísla podle podílů [parts] (metoda největších zbytků), aby součet seděl. */
+function apportion(parts: number[], total: number): number[] {
+  const base = parts.map((x) => Math.floor(x));
+  let rest = total - sum(base);
+  const order = parts.map((x, i) => [x - Math.floor(x), i] as [number, number]).sort((a, b) => b[0] - a[0]);
+  for (const [, i] of order) { if (rest <= 0) break; base[i]++; rest--; }
+  for (let i = parts.length - 1; rest < 0 && i >= 0; i--) if (base[i] > 0) { base[i]--; rest++; }
+  return base;
+}
+
+/**
+ * Výkon proti predikci: šance každé hry podle STR hráčů před utkáním (ze stránek hráčů, kde zápas už STIS
+ * započítal), jinak podle aktuálního STR. Predikce v celých bodech; součet hráčů + čtyřher = predikce družstva.
+ */
+function PredictionCard({ path, myHome, isMe }: { path: string; myHome: boolean; isMe: (id: string | null | undefined, name: string) => boolean }) {
+  const z = vm.zapisy.get(path)!;
+  const ids = Array.from(new Set(z.games.flatMap((g) => [...g.homeIds, ...g.awayIds]).filter((x) => !!x)));
+  // STR před utkáním z oficiálně započítaných zápasů tohoto zápisu
+  const pre = new Map<string, number>();
+  const pages = [vm.me, ...vm.players.values()].filter((p): p is PlayerPage => !!p);
+  for (const p of pages) for (const m of p.chronological) {
+    if (m.zapisPath !== path) continue;
+    if (m.strBefore != null && !pre.has(p.id)) pre.set(p.id, m.strBefore);
+    if (m.oppStrBefore != null && m.opponentId && !pre.has(m.opponentId)) pre.set(m.opponentId, m.oppStrBefore);
+  }
+  const missing = ids.filter((id) => !pre.has(id));
+  const official = !!vm.me?.matches.some((m) => m.zapisPath === path) || pre.size > 0;
+  useEffect(() => { if (official) for (const id of missing.slice(0, 10)) vm.loadPlayer(vm.playerPathById(id)); }, [path, official, missing.length]);
+  const games = Live.fromZapis(z, (id, n) => (id && pre.has(id) ? pre.get(id)! : vm.strOf(id, n)), (id, n) => (id && pre.has(id) ? null : vm.rangeOf(id, n)));
+  const st = Live.evaluate(games, vm.format);
+  const played = games.map((g, i) => [g, st.gameProb[i]] as const).filter(([g]) => g.result != null);
+  const date = Parsers.date(z.dateText);
+  const estimate = missing.length > 0 && date != null && today() - date > 7;
+  const hExp = sum(played.map(([, p]) => p));
+  const [hTotal, aTotal] = roundScore(hExp, played.length - hExp);
+
+  const sideRows = (home: boolean) => {
+    const mineSide = played.map(([g, p]) => ({ g, p: home ? p : 1 - p, won: (g.result === 1) === home }));
+    const actual = mineSide.filter((x) => x.won).length;
+    const players = st.players.filter((p) => p.home === home);
+    // jen dohrané dvouhry hráče
+    const rows = players.map((pl) => {
+      const gs = mineSide.filter((x) => !x.g.doubles && (home ? x.g.home : x.g.away)[0] && ((home ? x.g.home : x.g.away)[0].id || (home ? x.g.home : x.g.away)[0].name) === (pl.id || pl.name));
+      return { name: pl.name, id: pl.id, won: gs.filter((x) => x.won).length, exp: sum(gs.map((x) => x.p)) };
+    }).filter((r) => r.exp > 0 || r.won > 0);
+    const dbl = mineSide.filter((x) => x.g.doubles);
+    const parts = [...rows.map((r) => r.exp), sum(dbl.map((x) => x.p))];
+    const total = home ? hTotal : aTotal;
+    const ints = apportion(parts, total);
+    const out = rows.map((r, i) => ({ ...r, pred: ints[i] }));
+    if (dbl.length) out.push({ name: "Čtyřhry", id: null as any, won: dbl.filter((x) => x.won).length, exp: parts[parts.length - 1], pred: ints[ints.length - 1] });
+    out.sort((a, b) => (a.name === "Čtyřhry" ? 1 : b.name === "Čtyřhry" ? -1 : (b.won - b.pred) - (a.won - a.pred)));
+    return { actual, pred: total, rows: out };
+  };
+  const signed = (x: number) => (x > 0 ? `+${x}` : x < 0 ? `−${-x}` : "0");
+  const col = (x: number) => (x > 0 ? C.Win : x < 0 ? C.OrangeText : C.Muted);
+  const sides = [myHome, !myHome];
+  const surprises = played.map(([g, p]) => ({ g, pWin: g.result === 1 ? p : 1 - p }))
+    .filter((x) => x.pWin < 0.5).sort((a, b) => a.pWin - b.pWin).slice(0, 3);
+  const surname = (n: string) => n.replace(/\(.*?\)/g, "").trim().split(" ")[0];
+  return (
+    <>
+      <SectionTitle text="Výkon proti predikci" />
+      <AppCard>
+        {sides.map((home) => {
+          const s = sideRows(home);
+          const d = s.actual - s.pred;
+          return (
+            <div key={String(home)} className="col g4" style={{ paddingBottom: 6 }}>
+              <div className="row">
+                <T bold lines={1} style={{ flex: 1 }}>{home ? z.home : z.away}</T>
+                <T size={13} color={C.Muted} style={{ flex: "none" }}>{`predikce ${s.pred} · uhráno ${s.actual} · `}</T>
+                <T size={14} bold color={col(d)} style={{ flex: "none", paddingLeft: 4 }}>{signed(d)}</T>
+              </div>
+              <div className="row">
+                <Muted text="HRÁČ" size={11} style={{ flex: 1 }} />
+                <Muted text="VÝHRY" size={11} style={{ width: 52 }} />
+                <Muted text="PREDIKCE" size={11} style={{ width: 64 }} />
+                <Muted text="+/−" size={11} style={{ width: 34, textAlign: "right" }} />
+              </div>
+              {s.rows.map((r, i) => {
+                const me = r.id !== null && isMe(r.id, r.name);
+                const dd = r.won - r.pred;
+                return (
+                  <div className="row" key={i} style={me ? { padding: "2px 6px", margin: "0 -6px", background: C.Tint, borderRadius: 6 } : { padding: "2px 0" }}>
+                    <T size={14} semi={r.name !== "Čtyřhry"} lines={1} color={me ? C.Blue : r.name === "Čtyřhry" ? C.Muted : undefined} style={{ flex: 1 }}>{r.name}</T>
+                    <T size={14} style={{ width: 52, flex: "none" }}>{String(r.won)}</T>
+                    <T size={14} style={{ width: 64, flex: "none" }}>{String(r.pred)}</T>
+                    <T size={14} bold color={col(dd)} style={{ width: 34, flex: "none", textAlign: "right" }}>{signed(dd)}</T>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+        {surprises.length > 0 && (
+          <div className="col g4" style={{ paddingTop: 4 }}>
+            <T bold size={13}>Překvapení utkání <span style={{ fontWeight: 400, color: C.Muted }}>· vítěz tučně</span></T>
+            {surprises.map(({ g, pWin }) => {
+              const w = g.result === 1 ? g.home : g.away, l = g.result === 1 ? g.away : g.home;
+              const single = !g.doubles && w[0] && l[0];
+              return (
+                <div key={g.no} className={single ? "row clickable" : "row"} style={{ padding: "2px 0" }}
+                  onClick={single ? () => vm.go({ t: "Duel", aId: g.home[0].id ?? "", aName: g.home[0].name, bId: g.away[0].id ?? "", bName: g.away[0].name, pA: st.gameProb[games.indexOf(g)] }) : undefined}>
+                  <T size={13} lines={1} style={{ flex: 1 }}>
+                    {`${g.no}. `}
+                    <span style={{ fontWeight: g.result === 1 ? 800 : 400 }}>{g.home.map((p) => surname(p.name)).join("+")}</span>
+                    {" – "}
+                    <span style={{ fontWeight: g.result === -1 ? 800 : 400 }}>{g.away.map((p) => surname(p.name)).join("+")}</span>
+                  </T>
+                  <T size={13} bold color={(g.result === 1) === myHome ? C.Win : C.OrangeText} style={{ flex: "none", paddingLeft: 6 }}>{`šance ${Stats.pct(pWin)}${single ? " ›" : ""}`}</T>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <Muted size={11} maxLines={3} text={estimate ? "Odhad z aktuálního STR – STR hráčů před utkáním se nepodařilo zjistit." : official && missing.length === 0 ? "Šance her podle STR hráčů před utkáním." : "Šance her podle aktuálního STR hráčů."} />
+      </AppCard>
+    </>
+  );
+}
