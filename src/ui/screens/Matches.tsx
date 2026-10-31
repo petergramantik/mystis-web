@@ -54,7 +54,8 @@ function TeamFixtures() {
     const path = m.zapisPath || (state === "live" ? vm.liveLinks.get(key) ?? "" : "");
     const onClick = state === "live" ? () => vm.go({ t: "Live", team: idx })
       : path && state === "played" ? () => vm.go({ t: "ZapisDetail", path, myTeam: ctx.myTeam.name })
-        : m === nextM ? () => vm.go(S.NextMatch) : null;
+        : m === nextM ? () => vm.go(S.NextMatch)
+          : state === "future" ? () => vm.go({ t: "Fixture", team: idx, round: m.round, home: m.home, away: m.away }) : null;
     const d = m.dateTime;
     return (
       <div key={m.round + m.home + m.away}>
@@ -85,7 +86,7 @@ function TeamFixtures() {
       {live.length > 0 && <><T size={13} bold color={C.Muted} style={{ paddingLeft: 4 }}>PRÁVĚ SE HRAJE</T><ListCard>{live.map((m) => row(m, "live"))}</ListCard></>}
       {future.length > 0 && <><T size={13} bold color={C.Muted} style={{ paddingLeft: 4, paddingTop: 6 }}>NADCHÁZEJÍCÍ</T><ListCard>{future.map((m) => row(m, "future"))}</ListCard></>}
       {played.length > 0 && <><T size={13} bold color={C.Muted} style={{ paddingLeft: 4, paddingTop: 6 }}>ODEHRANÉ</T><ListCard>{played.map((m) => row(m, "played"))}</ListCard></>}
-      <Muted size={12} maxLines={3} text="Klepnutím na odehrané nebo probíhající utkání otevřete zápis, na příští utkání rozbor soupeřů. Místo je herna domácího družstva podle zápisů STIS." />
+      <Muted size={12} maxLines={3} text="Klepnutím na odehrané nebo probíhající utkání otevřete zápis, na budoucí utkání rozbor soupeřů. Místo je herna domácího družstva podle zápisů STIS." />
       <div style={{ height: 8 }} />
     </div>
   );

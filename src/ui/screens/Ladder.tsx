@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { vm, S } from "../../app/vm";
-import { Clubs, Stis, type StandingRow, type StrLadder } from "../../core/models";
+import { Clubs, Stis, type StandingRow, type StrLadder, type StrLadderRow } from "../../core/models";
 import { Stats, avg, maxBy, type LadderEntry } from "../../core/stats";
 import { AppCard, BigNumber, C, Chips, Dialog, Divider, Empty, ErrorBox, ErrorWithDiagnostics, ListCard, Loading, Muted, Segmented, StatTile, T, TileRow, dec1, f0, signedInt } from "../components";
 
@@ -126,10 +126,26 @@ function OfficialLadder({ comp, data, loading }: { comp: Comp; data: StrLadder |
   for (const r of vm.club.rosters) for (const p of r.players) if (p.id) clubIds.add(p.id);
   if (meId) clubIds.add(meId);
   const onlyMine = vm.strLadderMine;
-  const sections = data.sections.map((s) => ({ ...s, rows: onlyMine ? s.rows.filter((r) => r.id != null && clubIds.has(r.id)) : s.rows })).filter((s) => s.rows.length);
+  const byPct = vm.strLadderSort === "pct";
+  const pctOf = (r: StrLadderRow) => {
+    const m = /^(\d+):(\d+)$/.exec(r.bilance ?? "");
+    if (!m) return null;
+    const w = parseInt(m[1], 10), l = parseInt(m[2], 10);
+    return w + l ? w / (w + l) : null;
+  };
+  const sections = data.sections.map((s) => {
+    let rows = s.rows;
+    if (byPct) rows = [...rows].sort((a, b) => (pctOf(b) ?? -1) - (pctOf(a) ?? -1) || (b.matches ?? 0) - (a.matches ?? 0))
+      .map((r, i) => ({ ...r, rank: i + 1 }));
+    if (onlyMine) rows = rows.filter((r) => r.id != null && clubIds.has(r.id));
+    return { ...s, rows };
+  }).filter((s) => s.rows.length);
   return (
     <>
-      <Segmented options={[["all", "Všichni"], ["mine", "Můj oddíl"]]} selected={onlyMine ? "mine" : "all"} onSelect={(k) => vm.set("strLadderMine", k === "mine")} />
+      <div className="row g8">
+        <div style={{ flex: 1 }}><Segmented options={[["str", "STR"], ["pct", "Úspěšnost"]]} selected={byPct ? "pct" : "str"} onSelect={(k) => vm.set("strLadderSort", k)} /></div>
+        <div style={{ flex: 1 }}><Segmented options={[["all", "Všichni"], ["mine", "Můj oddíl"]]} selected={onlyMine ? "mine" : "all"} onSelect={(k) => vm.set("strLadderMine", k === "mine")} /></div>
+      </div>
       <Muted text={data.title || `${comp.label} · ${comp.rocnik}/${(comp.rocnik + 1) % 100}`} size={14} maxLines={2} />
       {!sections.length && <Empty text="V žebříčku této soutěže nikdo z vašeho oddílu není." />}
       {sections.map((s, si) => (
@@ -140,7 +156,7 @@ function OfficialLadder({ comp, data, loading }: { comp: Comp; data: StrLadder |
               <Muted text="#" size={12} style={{ width: 34 }} />
               <Muted text="HRÁČ" size={12} style={{ flex: 1 }} />
               <Muted text="ZÁPASY" size={12} style={{ width: 66 }} />
-              <Muted text="STR" size={12} style={{ width: 52, textAlign: "right" }} />
+              <Muted text={byPct ? "ÚSPĚŠ." : "STR"} size={12} style={{ width: 52, textAlign: "right" }} />
             </div>
           )}
           <ListCard>
@@ -154,13 +170,16 @@ function OfficialLadder({ comp, data, loading }: { comp: Comp; data: StrLadder |
                     <BigNumber text={r.rank != null ? `${r.rank}` : "–"} size={18} color={mine ? C.Blue : C.Ink} style={{ width: 34, flex: "none" }} />
                     <div className="col w1">
                       <T size={15} bold={mine} semi={!mine} lines={1}>{r.name + (isMe ? " (vy)" : "")}</T>
-                      <Muted text={[r.birthYear != null ? `nar. ${r.birthYear}` : null, r.stabil != null ? `stabil ${dec1(r.stabil)}` : null].filter((x) => x).join(" · ")} size={12} maxLines={1} />
+                      <Muted text={[byPct ? (r.str != null ? `STR ${r.str}` : null) : (pctOf(r) != null ? `úspěšnost ${Stats.pct(pctOf(r)!)}` : null),
+                        r.birthYear != null ? `nar. ${r.birthYear}` : null, !byPct && r.stabil != null ? `stabil ${dec1(r.stabil)}` : null].filter((x) => x).join(" · ")} size={12} maxLines={1} />
                     </div>
                     <div className="col" style={{ width: 66, flex: "none" }}>
                       <T size={14}>{r.matches ?? "–"}</T>
                       {r.bilance && <Muted text={r.bilance} size={12} />}
                     </div>
-                    <BigNumber text={r.str != null ? `${r.str}` : "–"} size={20} style={{ width: 52, flex: "none", textAlign: "right" }} />
+                    {byPct
+                      ? <BigNumber text={pctOf(r) != null ? Stats.pct(pctOf(r)!).replace(" ", "") : "–"} size={18} color={(pctOf(r) ?? 0) >= 0.5 ? C.Win : C.OrangeText} style={{ width: 52, flex: "none", textAlign: "right" }} />
+                      : <BigNumber text={r.str != null ? `${r.str}` : "–"} size={20} style={{ width: 52, flex: "none", textAlign: "right" }} />}
                   </div>
                   <Divider />
                 </div>
@@ -233,7 +252,7 @@ function InternalLadder() {
         <Muted text="#" size={12} style={{ width: 34 }} />
         <Muted text="HRÁČ" size={12} style={{ flex: 1 }} />
         <Muted text="STR" size={12} style={{ width: 56 }} />
-        <Muted text="SEZÓNA" size={12} style={{ width: 60 }} />
+        <Muted text={sort === "wins" ? "ÚSPĚŠ." : "SEZÓNA"} size={12} style={{ width: 60, textAlign: "right" }} />
       </div>
       <ListCard>
         {!list.length && <Empty text="V tomto družstvu nikdo není." />}
@@ -255,7 +274,9 @@ function InternalLadder() {
                   </div>
                 </div>
                 <BigNumber text={e.str?.toString() ?? "–"} color={e.live ? C.Ink : C.Muted} size={22} style={{ width: 56, flex: "none" }} />
-                <T bold size={14} end color={C.delta(e.strChange)} style={{ width: 60, flex: "none" }}>{signedInt(e.strChange)}</T>
+                {sort === "wins"
+                  ? <T bold size={14} end color={e.played === 0 ? C.Muted : e.wins * 2 >= e.played ? C.Win : C.OrangeText} style={{ width: 60, flex: "none" }}>{e.played ? Stats.pct(e.wins / e.played) : "–"}</T>
+                  : <T bold size={14} end color={C.delta(e.strChange)} style={{ width: 60, flex: "none" }}>{signedInt(e.strChange)}</T>}
               </div>
               <Divider />
             </div>

@@ -16,7 +16,8 @@ export type Screen =
   | { t: "Compare"; a: string | null; b: string | null } | { t: "Records" } | { t: "Settings" }
   | { t: "Player"; path: string } | { t: "Live"; team: number }
   | { t: "Duel"; aId: string; aName: string; bId: string; bName: string }
-  | { t: "ZapisDetail"; path: string; myTeam: string };
+  | { t: "ZapisDetail"; path: string; myTeam: string }
+  | { t: "Fixture"; team: number; round: string; home: string; away: string };
 
 export const S = {
   Overview: { t: "Overview" } as Screen, Ladder: { t: "Ladder" } as Screen, Str: { t: "Str" } as Screen,
@@ -409,6 +410,32 @@ export class AppVm {
     return minBy(ctx.los.filter((x) => !x.played && x !== n && (x.dateTime == null || n.dateTime == null || x.dateTime > n.dateTime)), (x) => x.dateTime ?? LDT_MAX);
   }
 
+  /** Rozbor libovolného budoucího utkání (soupeř a jeho soupiska), stejně jako u příštího zápasu. */
+  fixtures = new Map<string, NextMatchContext | null>();
+  fixtureKey(team: number, m: { round: string; home: string; away: string }) { return `${team}|${m.round}|${m.home}|${m.away}`; }
+  fixtureMatch(team: number, round: string, home: string, away: string): LosMatch | null {
+    return this.next[team]?.los.find((x) => x.round === round && x.home === home && x.away === away) ?? null;
+  }
+  loadFixture(team: number, m: LosMatch) {
+    const key = this.fixtureKey(team, m);
+    const base = this.next[team];
+    if (!base || this.fixtures.has(key)) return;
+    this.fixtures.set(key, null); this.emit();
+    (async () => {
+      const ref = base.myTeam.ref;
+      const home = Stats.isHome(m, ref, base.myTeam.name);
+      const oppName = home ? m.away : m.home;
+      let oppRef = home ? m.awayRef : m.homeRef;
+      let roster: RosterPlayer[] = [];
+      try {
+        if (!oppRef && ref) oppRef = (await this.repo.soupisky(ref.svaz, ref.rocnik, ref.soutez)).find((x) => Stats.fold(x.name) === Stats.fold(oppName))?.team ?? null;
+        if (oppRef) roster = (await this.repo.teamRoster({ ...oppRef, name: oppName })).players;
+      } catch { /* soupiska soupeře chybí – rozbor bez ní */ }
+      this.fixtures.set(key, { ...base, next: m, home, opponentName: oppName, opponentRef: oppRef, opponentRoster: roster, liveNow: false });
+      this.emit();
+    })();
+  }
+
   /** Budoucí utkání družstva po příštím zápase (pro posouvání panelu doleva). */
   futureList(ctx: NextMatchContext): LosMatch[] {
     const n = this.upcoming(ctx);
@@ -586,8 +613,9 @@ export class AppVm {
   compSeason: number | null = null;
   compId: string | null = null;
   strLadderMine = false;
+  strLadderSort = "str";
   utkaniTeam: number | null = null;
-  set<K extends "lastByTeam" | "matchesTeam" | "matchesSeason" | "recentTeam" | "oppMode" | "oppComp" | "rankByTeam" | "ladderTab" | "matchesTab" | "compSeason" | "compId" | "strLadderMine" | "utkaniTeam">(k: K, v: AppVm[K]) {
+  set<K extends "lastByTeam" | "matchesTeam" | "matchesSeason" | "recentTeam" | "oppMode" | "oppComp" | "rankByTeam" | "ladderTab" | "matchesTab" | "compSeason" | "compId" | "strLadderMine" | "strLadderSort" | "utkaniTeam">(k: K, v: AppVm[K]) {
     (this as any)[k] = v; this.emit();
   }
 

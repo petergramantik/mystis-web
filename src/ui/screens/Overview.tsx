@@ -233,7 +233,7 @@ function MatchPager({ ctx }: { ctx: NextMatchContext | null }) {
           <div className="page" key={p === nextIdx ? "next" : p < nextIdx ? prevs[nextIdx - 1 - p]?.[1] || "p" + p : "f" + (p - nextIdx)}>
             {p === nextIdx ? <NextCard ctx={ctx} />
               : p < nextIdx ? <PreviousCard ctx={ctx} prev={prevs[nextIdx - 1 - p]} back={nextIdx - p} total={prevs.length} />
-                : <FutureCard ctx={ctx!} m={futures[p - nextIdx - 1]} ahead={p - nextIdx + 1} />}
+                : <FutureCard ctx={ctx!} m={futures[p - nextIdx - 1]} ahead={p - nextIdx + 1} team={Math.max(0, vm.next.indexOf(ctx!))} />}
           </div>
         ))}
       </div>
@@ -249,15 +249,15 @@ function MatchPager({ ctx }: { ctx: NextMatchContext | null }) {
 }
 
 /** Další budoucí utkání (posunem doleva od příštího zápasu). */
-function FutureCard({ ctx, m, ahead }: { ctx: NextMatchContext; m: LosMatch; ahead: number }) {
+function FutureCard({ ctx, m, ahead, team }: { ctx: NextMatchContext; m: LosMatch; ahead: number; team: number }) {
   const onBlue = "#D6E1FA";
   const home = Stats.isHome(m, ctx.myTeam.ref, ctx.myTeam.name);
   const opp = home ? m.away : m.home;
   return (
-    <AppCard bg={C.Blue}>
+    <AppCard bg={C.Blue} onClick={() => vm.go({ t: "Fixture", team, round: m.round, home: m.home, away: m.away })}>
       <div className="row">
         <T bold size={13} color={onBlue} style={{ letterSpacing: 1, flex: 1 }}>ZA {ahead} {ahead <= 4 ? "ZÁPASY" : "ZÁPASŮ"}</T>
-        <T semi size={13} color={onBlue}>{ahead}. příští</T>
+        <T bold color="#fff">Rozbor soupeřů ›</T>
       </div>
       <T size={18} bold color="#fff">{ctx.myTeam.name} {home ? "doma" : "venku"} vs {opp}</T>
       <div className="row g8" style={{ flexWrap: "wrap" }}>

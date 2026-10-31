@@ -7,7 +7,7 @@ import { LadderScreen } from "./ui/screens/Ladder";
 import { StrScreen } from "./ui/screens/StrScreen";
 import { MatchesScreen } from "./ui/screens/Matches";
 import { ClubScreen, H2HScreen, OpponentsScreen } from "./ui/screens/Opponents";
-import { NextMatchScreen } from "./ui/screens/NextMatch";
+import { FixtureScreen, NextMatchScreen } from "./ui/screens/NextMatch";
 import { LiveScreen } from "./ui/screens/LiveMatch";
 import { PairScreen, ZapisDetailScreen } from "./ui/screens/Duel";
 import { CaptainScreen, CompareScreen } from "./ui/screens/Captain";
@@ -40,6 +40,7 @@ function title(s: Screen): string {
     case "Live": return "Živé utkání";
     case "Duel": return "Vzájemné zápasy";
     case "ZapisDetail": return "Zápis o utkání";
+    case "Fixture": return "Další utkání";
   }
 }
 
@@ -61,6 +62,7 @@ function Body({ s }: { s: Screen }) {
     case "Live": return <LiveScreen team={s.team} />;
     case "Duel": return <PairScreen aId0={s.aId} aName0={s.aName} bId0={s.bId} bName0={s.bName} />;
     case "ZapisDetail": return <ZapisDetailScreen path={s.path} myTeam={s.myTeam} />;
+    case "Fixture": return <FixtureScreen team={s.team} round={s.round} home={s.home} away={s.away} />;
   }
 }
 

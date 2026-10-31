@@ -11,6 +11,33 @@ import {
 } from "../components";
 import { fmtWhenLong } from "../fmt";
 
+/** Rozbor dalšího (ne nejbližšího) budoucího utkání – stejný obsah jako Příští zápas. */
+export function FixtureScreen({ team, round, home, away }: { team: number; round: string; home: string; away: string }) {
+  const m = vm.fixtureMatch(team, round, home, away);
+  useEffect(() => { if (m) vm.loadFixture(team, m); }, [team, round, home, away, !!m]);
+  const me = vm.meWithLive();
+  if (!me) return <Loading />;
+  if (!m) return <div className="px16"><Empty text="Utkání jsem v rozpisu nenašel." /></div>;
+  const ctx = vm.fixtures.get(vm.fixtureKey(team, m));
+  if (!ctx) return <div className="px16"><MatchHeader ctx={{ ...vm.next[team], next: m, home: Stats.isHome(m, vm.next[team].myTeam.ref, vm.next[team].myTeam.name), opponentName: Stats.isHome(m, vm.next[team].myTeam.ref, vm.next[team].myTeam.name) ? m.away : m.home, liveNow: false }} /><Loading text="Načítám soupisku soupeře…" /></div>;
+  return (
+    <div className="col g12 px16">
+      <MatchHeader ctx={ctx} />
+      <OpponentLoader ctx={ctx} />
+      {!ctx.opponentRoster.length ? (
+        <AppCard><Muted text="Soupisku soupeře se nepodařilo načíst." size={14} maxLines={4} /></AppCard>
+      ) : (
+        <>
+          <TeamForecast me={me} minePick={vm.lineupFor(ctx.myTeam.name, ctx.myTeam.ref, vm.fresh(ctx.myRoster))}
+            theirsPick={vm.lineupFor(ctx.opponentName, ctx.opponentRef, vm.fresh(ctx.opponentRoster))} fmt={vm.format} />
+          <ScoutSection me={me} roster={vm.fresh(ctx.opponentRoster)} title={`Soupeři · ${ctx.opponentName}`} />
+        </>
+      )}
+      <div style={{ height: 8 }} />
+    </div>
+  );
+}
+
 export function NextMatchScreen() {
   const me = vm.meWithLive();
   if (!me) return <Loading />;
