@@ -5,7 +5,7 @@ import { Stis, type LosMatch, type PlayerPage, type Zapis } from "../../core/mod
 import { Stats, sum } from "../../core/stats";
 import { Live } from "../../core/live";
 import { Stability, roundScore } from "../../core/search";
-import { type LDate, LDATE_MIN, ldDay, ldMinusYears, ldMonth, ldOf, ldYear, ldtDate, today } from "../../core/dates";
+import { type LDate, LDATE_MIN, ldDay, ldMinusYears, ldMonth, ldOf, ldYear, today } from "../../core/dates";
 import {
   AppCard, Avatar, C, Chips, Divider, Empty, KeyValue, Legend, ListCard, Loading, Muted, NavyHeader, SectionTitle, StatTile, StrChart, T, TileRow,
   signedInt,
@@ -73,30 +73,34 @@ export function TeamScreen({ team }: { team: number }) {
     const vals = histories.map((h) => { let v: number | null = null; for (const [hd, s] of h) { if (hd <= d) v = s; else break; } return v; }).filter((v): v is number => v != null);
     if (vals.length) avgPts.push([d, Math.round(sum(vals) / vals.length)]);
   }
-  const resInPeriod = results.filter((r) => r.m.dateTime == null || ldtDate(r.m.dateTime) >= from);
 
   return (
     <div className="col g12">
       <NavyHeader>
-        <T bold size={22} color="#fff" lines={2}>{ctx.myTeam.name}</T>
+        <div className="col g8 clickable" onClick={ref ? () => vm.openCompetition(ref, ctx.myTeam.competition || ctx.myTeam.name, ctx.myTeam.name, "tabulka") : undefined}>
+        <T bold size={22} color="#fff" lines={2}>{ctx.myTeam.name + (ref ? " ›" : "")}</T>
         <Muted text={ctx.myTeam.competition ?? ""} color={C.MutedOnNavy} size={13} />
         <TileRow>
-          <StatTile label="Pořadí" value={row ? `${row.position}.` : "–"} dark />
+          <StatTile label="Pořadí" value={row ? `${row.position}. / ${tab!.length}` : "–"} dark />
           <StatTile label="Body" value={row ? String(row.points) : "–"} dark />
           <StatTile label="V–R–P" value={row ? `${row.wins}–${row.draws}–${row.losses}` : "–"} dark />
         </TileRow>
         {row && <Muted text={`Skóre her ${row.score} · odehráno ${row.played} z ${ctx.los.length} utkání`} color={C.MutedOnNavy} size={13} />}
+        </div>
       </NavyHeader>
       <div className="col g12 px16">
+        <AppCard>
+          <T bold>Výsledky utkání</T>
+          {results.length ? <ResultBars items={results.map((r) => ({ label: r.m.round, diff: r.sc[0] - r.sc[1], text: `${r.sc[0]}:${r.sc[1]}`, path: r.m.zapisPath }))} team={ctx.myTeam.name} />
+            : <Muted text="Družstvo v této sezóně ještě nehrálo." size={13} />}
+          <Muted size={11} text="Klepnutím na sloupec otevřete zápis utkání." />
+        </AppCard>
         <AppCard>
           <T bold>Vývoj družstva</T>
           <Chips options={[["3m", "3 měsíce"], ["sez", "Sezóna"], ["1r", "1 rok"], ["vse", "Vše"]]} selected={period} onSelect={setPeriod} />
           {loadingPlayers > 0 && !avgPts.length ? <Loading text={`Načítám STR hráčů… (${pages.length}/${roster.length})`} />
             : avgPts.length >= 2 ? <StrChart series={[{ color: C.Blue, points: avgPts }]} height={190} /> : <Empty text="Graf zatím nemá data." />}
           <Legend items={[[C.Blue, "průměrné STR hráčů soupisky"]]} />
-          <T semi size={14} style={{ paddingTop: 6 }}>Výsledky utkání</T>
-          {resInPeriod.length ? <ResultBars items={resInPeriod.map((r) => ({ label: r.m.round, diff: r.sc[0] - r.sc[1], text: `${r.sc[0]}:${r.sc[1]}`, path: r.m.zapisPath }))} team={ctx.myTeam.name} />
-            : <Muted text="V tomto období žádná odehraná utkání." size={13} />}
         </AppCard>
 
         <SectionTitle text="Soupiska" />

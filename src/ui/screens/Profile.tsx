@@ -28,7 +28,8 @@ export function ProfileScreen({ path }: { path: string }) {
   const best = Array.from(bySeason.entries()).filter(([, ms]) => ms.length >= 10).map(([y, ms]) => [y, rec(ms)] as const)
     .sort((a, b) => (b[1].pct ?? 0) - (a[1].pct ?? 0))[0];
   const jumps = Array.from(bySeason.entries()).map(([y, ms]) => {
-    const first = ms.find((m) => m.strBefore != null)?.strBefore, last = [...ms].reverse().find((m) => m.strAfter != null)?.strAfter;
+    // počáteční zařazení (STR 0 před prvním zápasem) se přeskočí: začátek = první zápas, před kterým už hráč STR měl
+    const first = ms.find((m) => m.strBefore != null && m.strBefore > 0)?.strBefore, last = [...ms].reverse().find((m) => m.strAfter != null)?.strAfter;
     return [y, first != null && last != null ? last - first : null] as const;
   }).filter((x) => x[1] != null).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))[0];
   const clubs = Array.from(new Set(p.seasons.map((s) => s.club).filter((x): x is string => !!x)));
