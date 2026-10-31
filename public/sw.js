@@ -17,5 +17,10 @@ self.addEventListener("fetch", (e) => {
 });
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
-  e.waitUntil(self.clients.matchAll({ type: "window" }).then((cs) => (cs.length ? cs[0].focus() : self.clients.openWindow("./"))));
+  const data = e.notification.data;
+  e.waitUntil(self.clients.matchAll({ type: "window" }).then((cs) => {
+    if (!cs.length) return self.clients.openWindow("./");
+    if (data) cs[0].postMessage({ type: "notification", data });
+    return cs[0].focus();
+  }));
 });

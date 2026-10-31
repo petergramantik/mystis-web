@@ -21,6 +21,9 @@ export const prefs = {
   set clubPath(v: string | null) { set("club_path", v); },
   get notifications() { return get("notifications") !== "false"; },
   set notifications(v: boolean) { set("notifications", String(v)); },
+  /** Notifikace o hrách probíhajícího utkání (jen při otevřené aplikaci). */
+  get liveNotify() { return get("live_notify") === "true"; },
+  set liveNotify(v: boolean) { set("live_notify", String(v)); },
   get lastMatchCount() { return num("last_match_count", -1); },
   set lastMatchCount(v: number) { set("last_match_count", String(v)); },
   get lastStr() { return num("last_str", -1); },

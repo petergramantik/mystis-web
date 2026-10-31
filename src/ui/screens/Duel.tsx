@@ -98,7 +98,16 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
   useZapisRefresh(path);
   const z = vm.zapisy.get(path);
   if (!z) return <Loading text="Načítám zápis o utkání…" />;
-  const myHome = Stats.fold(z.home) === Stats.fold(myTeam) ? true : Stats.fold(z.away) === Stats.fold(myTeam) ? false : true;
+  // načtený hráč (můj profil) – zvýrazní se v bilanci i v hrách
+  const me = vm.me;
+  const clean = (n: string) => Stats.fold(n.replace(/\(.*?\)/g, "").trim());
+  const isMe = (id: string | null | undefined, name: string) => !!me && (id ? id === me.id : clean(name) === clean(me.name));
+  const meHome = z.games.find((g) => g.homeNames.some((n, i) => isMe(g.homeIds[i], n))) ? true
+    : z.games.find((g) => g.awayNames.some((n, i) => isMe(g.awayIds[i], n))) ? false : null;
+  const myHome = Stats.fold(z.home) === Stats.fold(myTeam) ? true : Stats.fold(z.away) === Stats.fold(myTeam) ? false : meHome ?? true;
+  const names = (ns: string[], ids: string[], bold: boolean) => ns.map((n, i) => (
+    <span key={i} style={isMe(ids[i], n) ? { color: C.Blue, fontWeight: 800 } : bold ? { fontWeight: 700 } : undefined}>{(i ? " + " : "") + n}</span>
+  ));
   const hPts = z.points[0] ?? z.games.filter((g) => g.result === 1).length;
   const aPts = z.points[1] ?? z.games.filter((g) => g.result === -1).length;
   const single = z.games.filter((g) => !g.doubles);
@@ -147,8 +156,8 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
                 <Muted text="ČTYŘHRY" size={11} style={{ width: 66 }} />
               </div>
               {ps.map((p, i) => (
-                <div className="row" key={i} style={{ padding: "2px 0" }}>
-                  <T size={14} semi lines={1} style={{ flex: 1 }}>{p.name}</T>
+                <div className="row" key={i} style={isMe(p.id, p.name) ? { padding: "2px 6px", margin: "0 -6px", background: C.Tint, borderRadius: 6 } : { padding: "2px 0" }}>
+                  <T size={14} semi lines={1} color={isMe(p.id, p.name) ? C.Blue : undefined} style={{ flex: 1 }}>{p.name}</T>
                   <T size={14} bold color={p.singlesWon >= p.singlesLost ? C.Win : C.OrangeText} style={{ width: 70, flex: "none" }}>{`${p.singlesWon}–${p.singlesLost}`}</T>
                   <T size={14} style={{ width: 66, flex: "none" }}>{p.doublesWon + p.doublesLost > 0 ? `${p.doublesWon}–${p.doublesLost}` : "–"}</T>
                 </div>
@@ -163,15 +172,16 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
             const runH = h, runA = a;
             const singleGame = !g.doubles && g.homeNames.length > 0 && g.awayNames.length > 0;
             const iWon = g.result != null && (g.result === 1) === myHome;
+            const mine = g.homeNames.some((n, i) => isMe(g.homeIds[i], n)) || g.awayNames.some((n, i) => isMe(g.awayIds[i], n));
             return (
               <div key={g.no}>
-                <div className={"col" + (singleGame ? " clickable" : "")} style={{ padding: "9px 14px" }}
+                <div className={"col" + (singleGame ? " clickable" : "")} style={{ padding: "9px 14px", background: mine ? C.Tint : undefined }}
                   onClick={singleGame ? () => vm.go({ t: "Duel", aId: g.homeIds[0] ?? "", aName: g.homeNames[0], bId: g.awayIds[0] ?? "", bName: g.awayNames[0] }) : undefined}>
                   <div className="row g10">
                     <T bold color={C.Muted} style={{ width: 28, flex: "none" }}>{g.no}.</T>
                     <div className="col w1">
-                      <T size={14} bold={g.result === 1} lines={1}>{g.homeNames.join(" + ")}</T>
-                      <T size={14} bold={g.result === -1} lines={1}>{g.awayNames.join(" + ")}</T>
+                      <T size={14} lines={1}>{names(g.homeNames, g.homeIds, g.result === 1)}</T>
+                      <T size={14} lines={1}>{names(g.awayNames, g.awayIds, g.result === -1)}</T>
                       {g.sets.length > 0 && <SetsLine sets={g.sets} myHome={myHome} />}
                     </div>
                     <div className="col" style={{ alignItems: "flex-end" }}>

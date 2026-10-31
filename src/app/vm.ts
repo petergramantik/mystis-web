@@ -326,6 +326,7 @@ export class AppVm {
         else {
           this.zapisy.set(link, z);
           this.liveUpdated.set(key, Date.now());
+          this.notifyLive(link, z);
           const ctx = this.next.find((c) => this.teamKey(c) === key);
           if (ctx && ctx.liveNow && this.zapisBelongs(z, ctx) && Live.isZapisFinished(z, this.format)) this.loadNext(false);
           const svaz = Stis.svaz(link);
@@ -553,7 +554,7 @@ export class AppVm {
 
   /** Dohrané, ale STIS ho ještě nepotvrdil (v rozpisu bez výsledku, zápis je kompletní). */
   awaitingConfirmation(m: LosMatch): boolean {
-    if (m.played || !m.zapisPath) return false;
+    if ((m.played && this.scoreFinal(m.score)) || !m.zapisPath) return false;
     const z = this.zapisy.get(m.zapisPath);
     return !!z && z.games.length > 0 && Live.isZapisFinished(z, this.format);
   }
@@ -919,6 +920,7 @@ export class AppVm {
       } finally {
         this.loadingNext = false;
         this.stepDone();
+        this.startLiveWatch();
       }
     })();
   }
@@ -963,6 +965,7 @@ export class AppVm {
         if (z) {
           const wasRunning = !!have && !Live.isZapisFinished(have, this.format);
           this.zapisy.set(path, z); this.zapisFetched.set(path, Date.now());
+          this.notifyLive(path, z);
           if (wasRunning && Live.isZapisFinished(z, this.format) && this.next.some((c) => c.liveNow && this.zapisBelongs(z!, c))) this.loadNext(false);
         }
       } catch { /* detail setů je jen doplněk */ }
@@ -1073,11 +1076,84 @@ export class AppVm {
     return null;
   }
 
-  private async post(tag: string, title: string, body: string) {
-    if (!prefs.notifications || typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  async setLiveNotify(on: boolean): Promise<string | null> {
+    prefs.liveNotify = on;
+    this.emit();
+    if (!on) return null;
+    if (typeof Notification === "undefined") { prefs.liveNotify = false; this.emit(); return "Tento prohlížeč notifikace nepodporuje."; }
+    if (Notification.permission === "default") await Notification.requestPermission();
+    if (Notification.permission !== "granted") { prefs.liveNotify = false; this.emit(); return "Notifikace nejsou povolené – povolte je v nastavení webu (zámek u adresy → Oprávnění)."; }
+    this.startLiveWatch();
+    return null;
+  }
+
+  // ---------- notifikace z probíhajícího utkání (jen při otevřené aplikaci)
+  /** zápis → čísla her, které už byly dohrané (oznámené nebo dohrané při prvním načtení) */
+  private liveSeen = new Map<string, Set<number>>();
+  private liveEndSent = new Set<string>();
+  private liveWatch: ReturnType<typeof setInterval> | null = null;
+
+  /** Při otevřené aplikaci každé 2 minuty obnoví zápis probíhajícího utkání (i mimo obrazovku Živé utkání). */
+  startLiveWatch() {
+    // už načtené zápisy probíhajících utkání: zapamatovat dohrané hry, ať se neoznamují
+    for (const c of this.next) { const l = this.liveLinks.get(this.teamKey(c)); const z = l ? this.zapisy.get(l) : null; if (l && z && c.liveNow) this.notifyLive(l, z); }
+    if (this.liveWatch != null || typeof window === "undefined") return;
+    this.liveWatch = setInterval(() => this.liveWatchTick(), 120_000);
+  }
+  private liveWatchTick() {
+    if (!prefs.liveNotify) return;
+    this.next.forEach((c, i) => {
+      if (!this.liveRunning(c)) return;
+      const key = this.teamKey(c);
+      const link = this.liveLinks.get(key);
+      if (!link) { this.autoFindZapis(i); return; }
+      if (Date.now() - (this.liveUpdated.get(key) ?? 0) < 100_000) return; // obnovila ho právě obrazovka Živé utkání
+      this.loadLive(key, link, true);
+    });
+  }
+
+  private notifyLive(path: string, z: Zapis) {
+    const idx = this.next.findIndex((c) => c.liveNow && this.zapisBelongs(z, c));
+    if (idx < 0) return;
+    const ctx = this.next[idx];
+    const done = z.games.filter((g) => g.result != null);
+    const seen = this.liveSeen.get(path);
+    const finished = Live.isZapisFinished(z, this.format);
+    if (!seen) { // první načtení: už dohrané hry neoznamujeme
+      this.liveSeen.set(path, new Set(done.map((g) => g.no)));
+      if (finished) this.liveEndSent.add(path);
+      return;
+    }
+    const myHome = this.zapisMyHome(z, ctx);
+    let h = 0, a = 0;
+    const fresh: string[][] = [];
+    for (const g of z.games) {
+      if (g.result === 1) h++; else if (g.result === -1) a++;
+      if (g.result == null || seen.has(g.no)) continue;
+      seen.add(g.no);
+      const won = (g.result === 1) === myHome;
+      const mine = (myHome ? g.homeNames : g.awayNames).join(" + "), opp = (myHome ? g.awayNames : g.homeNames).join(" + ");
+      const ms = myHome ? g.homeSets : g.awaySets, os = myHome ? g.awaySets : g.homeSets;
+      fresh.push([`${won ? "✅" : "❌"} ${mine} – ${opp}${ms != null && os != null ? ` ${ms}:${os}` : ""}`, `${g.no}. hra · stav ${myHome ? h : a}:${myHome ? a : h}`, String(g.no)]);
+    }
+    if (!prefs.liveNotify) return;
+    const my = myHome ? h : a, op = myHome ? a : h;
+    if (fresh.length > 3) {
+      void this.post(`live-${path}-${fresh[fresh.length - 1][2]}`, `${fresh.length} nových her · stav ${my}:${op}`, fresh.map((f) => f[0]).join("\n"), true, idx);
+    } else for (const f of fresh) void this.post(`live-${path}-${f[2]}`, f[0], f[1], true, idx);
+    if (finished && !this.liveEndSent.has(path)) {
+      this.liveEndSent.add(path);
+      const opp = myHome ? z.away : z.home;
+      void this.post(`live-end-${path}`, `🏁 Konec: ${my > op ? "výhra" : my < op ? "prohra" : "remíza"} ${my}:${op}`, `${ctx.myTeam.name} – ${opp}`, true, idx);
+    }
+  }
+
+  private async post(tag: string, title: string, body: string, live = false, liveTeam = 0) {
+    if (live ? !prefs.liveNotify : !prefs.notifications) return;
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     try {
       const reg = await navigator.serviceWorker?.getRegistration();
-      if (reg) await reg.showNotification(title, { body, tag, icon: "icon-192.png", badge: "icon-192.png" });
+      if (reg) await reg.showNotification(title, { body, tag, icon: "icon-192.png", badge: "icon-192.png", data: live ? { live: liveTeam } : undefined });
       else new Notification(title, { body, tag });
     } catch { /* nepodstatné */ }
   }

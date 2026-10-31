@@ -53,8 +53,12 @@ function TeamFixtures() {
       score = zh ? [h, a] : [a, h];
     } else if (state !== "future" || (z && z.games.length)) {
       const sm = /^(\d+)\s*:\s*(\d+)$/.exec(m.score);
-      if (sm) { const h = parseInt(sm[1], 10), a = parseInt(sm[2], 10); score = home ? [h, a] : [a, h]; }
-      else if (z) { const h = z.points[0] ?? 0, a = z.points[1] ?? 0; score = home ? [h, a] : [a, h]; }
+      // STIS v rozpisu někdy drží 0:0 nebo průběžný stav i po dohrání – konečný výsledek pak bereme ze zápisu
+      if (sm && (vm.scoreFinal(m.score) || !z || !z.games.length)) { const h = parseInt(sm[1], 10), a = parseInt(sm[2], 10); score = home ? [h, a] : [a, h]; }
+      else if (z) {
+        const h = z.points[0] ?? z.games.filter((g) => g.result === 1).length, a = z.points[1] ?? z.games.filter((g) => g.result === -1).length;
+        score = vm.zapisMyHome(z, ctx) ? [h, a] : [a, h];
+      }
     }
     const path = m.zapisPath || (state === "live" ? vm.liveLinks.get(key) ?? "" : "");
     const onClick = state === "live" ? () => vm.go({ t: "Live", team: idx })
@@ -77,7 +81,7 @@ function TeamFixtures() {
             {state === "live" && <Pill text="živě" bg={C.Live} fg="#fff" />}
             {score && <div className="badge wide" style={{ background: score[0] > score[1] ? C.Win : score[0] < score[1] ? C.OrangeText : C.Muted }}>{`${score[0]}:${score[1]}`}</div>}
             {state === "future" && m === nextM && <Pill text="příští" />}
-            {state === "played" && !m.played && (vm.awaitingConfirmation(m) || (m.zapisPath && vm.zapisy.get(m.zapisPath)))
+            {state === "played" && (!m.played || !vm.scoreFinal(m.score)) && (vm.awaitingConfirmation(m) || (z && z.games.length > 0))
               ? <T size={11} bold color={C.Live}>čeká na potvrzení STIS</T>
               : state === "played" && !m.played && !score ? <T size={11} color={C.Muted}>bez výsledku</T> : null}
           </div>

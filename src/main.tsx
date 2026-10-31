@@ -147,6 +147,11 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
     navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then((r) => r.update()).catch(() => {});
   });
 }
+// klepnutí na notifikaci z probíhajícího utkání -> otevřít Živé utkání
+navigator.serviceWorker?.addEventListener("message", (e: MessageEvent) => {
+  const d = e.data;
+  if (d?.type === "notification" && typeof d.data?.live === "number") vm.go({ t: "Live", team: d.data.live });
+});
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") navigator.serviceWorker?.getRegistration().then((r) => r?.update()).catch(() => {});
 });

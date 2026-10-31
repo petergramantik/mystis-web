@@ -177,6 +177,7 @@ export function SettingsScreen() {
   const [cache, setCache] = useState<number | null>(null);
   useEffect(() => { vm.cacheSize().then(setCache); }, []);
   const notif = vm.prefs.notifications;
+  const liveNotif = vm.prefs.liveNotify;
   const standalone = typeof window !== "undefined" && window.matchMedia?.("(display-mode: standalone)").matches;
   return (
     <div className="col g12 px16">
@@ -210,6 +211,15 @@ export function SettingsScreen() {
             <Muted size={13} maxLines={4} text="Nové výsledky a změna STR, připomínka den před utkáním. Na webu se kontroluje při otevření aplikace (prohlížeč neumí STIS hlídat na pozadí)." />
           </div>
           <div className={"switch" + (notif ? " on" : "")} role="switch" aria-checked={notif} onClick={async () => { const e = await vm.setNotifications(!notif); if (e) setMsg(e); }} />
+        </div>
+      </AppCard>
+      <AppCard>
+        <div className="row g12">
+          <div className="col w1">
+            <T bold>Upozornění na živé utkání</T>
+            <Muted size={13} maxLines={5} text="Při probíhajícím utkání se každé 2 minuty obnoví zápis a každá nově dohraná hra (✅/❌ a stav) i konec utkání přijdou jako notifikace. Funguje jen při otevřené aplikaci." />
+          </div>
+          <div className={"switch" + (liveNotif ? " on" : "")} role="switch" aria-checked={liveNotif} onClick={async () => { const e = await vm.setLiveNotify(!liveNotif); if (e) setMsg(e); }} />
         </div>
       </AppCard>
       <AppCard>
