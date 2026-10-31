@@ -1,5 +1,5 @@
 // Stav aplikace a načítání dat (přepis AppViewModel.kt). Každá změna stavu zavolá emit() a React překreslí obrazovku.
-import { Match, Stis, type StandingRow, type StrLadder, type ClubPage, type LosMatch, type PlayerPage, type RosterPlayer, type TeamRef, type TeamRoster, type Zapis } from "../core/models";
+import { Match, Stis, type TeamInfo, type StandingRow, type StrLadder, type ClubPage, type LosMatch, type PlayerPage, type RosterPlayer, type TeamRef, type TeamRoster, type Zapis } from "../core/models";
 import { Parsers } from "../core/parsers";
 import { StisRepository, HOUR, type NextMatchContext } from "../core/repository";
 import { Stats, LadderEntry, maxBy, minBy, distinct, distinctBy, type SetStats } from "../core/stats";
@@ -644,6 +644,21 @@ export class AppVm {
         this.predLoading.set(key, false); this.predProgress = ""; this.emit();
       }
     })();
+  }
+
+  // ---------- herna, vybavení a kontakt družstev (stránka družstva)
+  teamInfos = new Map<string, TeamInfo>();
+  teamInfoLoading = new Set<string>();
+  loadTeamInfo(ref: TeamRef) {
+    if (this.teamInfos.has(ref.id) || this.teamInfoLoading.has(ref.id)) return;
+    this.teamInfoLoading.add(ref.id);
+    this.repo.teamInfo(ref).then((i) => { this.teamInfos.set(ref.id, i); }, () => { /* bez údajů */ })
+      .finally(() => { this.teamInfoLoading.delete(ref.id); this.emit(); });
+  }
+  /** Družstvo jako odkaz podle ID a cesty zápisu (/zapis/svaz-…/rocnik-…/soutez-…/utkani-…). */
+  refFromZapis(path: string, teamId: string | null, name: string): TeamRef | null {
+    const m = /svaz-(\d+)\/rocnik-(\d{4})\/soutez-(\d+)/.exec(path);
+    return teamId && m ? { id: teamId, svaz: m[1], rocnik: parseInt(m[2], 10), soutez: m[3], name } : null;
   }
 
   // ---------- místo utkání (herna domácího družstva)

@@ -26,6 +26,7 @@ function TeamFixtures() {
     if (!ctx) return;
     for (const m of ctx.los) if (m.played && m.zapisPath) vm.loadZapis(m.zapisPath);
     for (const m of ctx.los) if (!m.played) vm.ensureHomePlace(m.homeRef, m.home);
+    for (const m of ctx.los) if (m.homeRef) vm.loadTeamInfo(m.homeRef);
   }, [ctx?.myTeam.name, ctx?.los.length, vm.teamLos.size]);
   if (!ctx) return <div className="px16">{vm.loadingNext ? <Loading text="Načítám rozpis utkání…" /> : <Empty text="Nenašel jsem žádné vaše družstvo v aktuální sezóně." />}</div>;
   const key = vm.teamKey(ctx);
@@ -40,7 +41,8 @@ function TeamFixtures() {
     const home = Stats.isHome(m, ctx.myTeam.ref, ctx.myTeam.name);
     const opp = home ? m.away : m.home;
     const z = m.zapisPath ? vm.zapisy.get(m.zapisPath) : state === "live" ? liveZ : undefined;
-    const place = (z?.place.trim() ? z.place : null) ?? vm.homePlace(home ? ctx.myTeam.ref : m.homeRef, m.home);
+    const homeRef = m.homeRef ?? (home ? ctx.myTeam.ref : null);
+    const place = (homeRef ? vm.teamInfos.get(homeRef.id)?.herna : null) ?? (z?.place.trim() ? z.place : null) ?? vm.homePlace(homeRef, m.home);
     let score: [number, number] | null = null;
     if (state === "live" && liveZ) {
       const h = liveZ.points[0] ?? liveZ.games.filter((g) => g.result === 1).length, a = liveZ.points[1] ?? liveZ.games.filter((g) => g.result === -1).length;
@@ -66,7 +68,7 @@ function TeamFixtures() {
           </div>
           <div className="col w1">
             <T semi size={16} lines={1}>{opp}</T>
-            <Muted maxLines={1} size={13} text={[home ? "doma" : "venku", place, `${m.round}. kolo`].filter((x) => x).join(" · ")} />
+            <Muted maxLines={1} size={13} text={<><b style={{ color: home ? C.Win : C.OrangeText }}>{home ? "doma" : "venku"}</b>{[place, `${m.round}. kolo`].filter((x) => x).map((x) => " · " + x).join("")}</>} />
           </div>
           <div className="col" style={{ alignItems: "flex-end", gap: 2, flex: "none" }}>
             {state === "live" && <Pill text="živě" bg={C.Live} fg="#fff" />}
@@ -86,7 +88,7 @@ function TeamFixtures() {
       {live.length > 0 && <><T size={13} bold color={C.Muted} style={{ paddingLeft: 4 }}>PRÁVĚ SE HRAJE</T><ListCard>{live.map((m) => row(m, "live"))}</ListCard></>}
       {future.length > 0 && <><T size={13} bold color={C.Muted} style={{ paddingLeft: 4, paddingTop: 6 }}>NADCHÁZEJÍCÍ</T><ListCard>{future.map((m) => row(m, "future"))}</ListCard></>}
       {played.length > 0 && <><T size={13} bold color={C.Muted} style={{ paddingLeft: 4, paddingTop: 6 }}>ODEHRANÉ</T><ListCard>{played.map((m) => row(m, "played"))}</ListCard></>}
-      <Muted size={12} maxLines={3} text="Klepnutím na odehrané nebo probíhající utkání otevřete zápis, na budoucí utkání rozbor soupeřů. Místo je herna domácího družstva podle zápisů STIS." />
+      <Muted size={12} maxLines={3} text="Klepnutím na odehrané nebo probíhající utkání otevřete zápis, na budoucí utkání rozbor soupeřů. Místo je herna domácího družstva podle STIS." />
       <div style={{ height: 8 }} />
     </div>
   );

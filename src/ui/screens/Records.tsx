@@ -12,6 +12,14 @@ import { ProfileInput } from "./Overview";
 import { InstallCard } from "../install";
 import { strPoints } from "./StrScreen";
 
+/** "1 výhra", "3 výhry", "5 výher" / "1 prohra", "2 prohry", "6 proher" */
+function streakText(s: number): string {
+  const n = Math.abs(s);
+  if (n === 0) return "–";
+  const forms = s > 0 ? ["výhra", "výhry", "výher"] : ["prohra", "prohry", "proher"];
+  return `${n} ${n === 1 ? forms[0] : n <= 4 ? forms[1] : forms[2]}`;
+}
+
 const signedD = (x: number) => (x >= 0 ? "+" : "−") + dec1(Math.abs(x));
 
 export function RecordsScreen() {
@@ -41,7 +49,7 @@ export function RecordsScreen() {
       <TileRow>
         <StatTile label="Dvouher celkem" value={`${r.totalMatches}`} sub={`${r.wins}–${r.losses}`} />
         <StatTile label="Nejvyšší STR" value={`${r.peakStr ?? "–"}`} sub={r.peakDate} valueColor={C.Win} />
-        <StatTile label="Aktuální série" value={r.currentStreak > 0 ? `${r.currentStreak} V` : `${-r.currentStreak} P`} valueColor={r.currentStreak > 0 ? C.Win : C.OrangeText} />
+        <StatTile label="Aktuální série" value={streakText(r.currentStreak)} valueColor={r.currentStreak > 0 ? C.Win : C.OrangeText} />
       </TileRow>
       {r.badges.length > 0 && (
         <>

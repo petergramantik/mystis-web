@@ -10,6 +10,7 @@ import {
   Pill, PrimaryButton, ProbBar, SectionTitle, T, TextField, dec1,
 } from "../components";
 import { fmtWhenLong } from "../fmt";
+import { HallCard } from "../hall";
 
 /** Rozbor dalšího (ne nejbližšího) budoucího utkání – stejný obsah jako Příští zápas. */
 export function FixtureScreen({ team, round, home, away }: { team: number; round: string; home: string; away: string }) {
@@ -23,6 +24,7 @@ export function FixtureScreen({ team, round, home, away }: { team: number; round
   return (
     <div className="col g12 px16">
       <MatchHeader ctx={ctx} />
+        {ctx.next && <HallCard teamRef={ctx.home ? ctx.myTeam.ref : ctx.opponentRef} teamName={ctx.home ? ctx.myTeam.name : ctx.opponentName} />}
       <OpponentLoader ctx={ctx} />
       {!ctx.opponentRoster.length ? (
         <AppCard><Muted text="Soupisku soupeře se nepodařilo načíst." size={14} maxLines={4} /></AppCard>
@@ -53,6 +55,7 @@ export function NextMatchScreen() {
       <>
         {ctxs.length > 1 && <Chips options={ctxs.map((c, i) => [String(i), c.myTeam.name])} selected={String(selected)} onSelect={(k) => vm.selectTeam(parseInt(k, 10))} />}
         <MatchHeader ctx={ctx} />
+        {ctx.next && <HallCard teamRef={ctx.home ? ctx.myTeam.ref : ctx.opponentRef} teamName={ctx.home ? ctx.myTeam.name : ctx.opponentName} />}
         <OpponentLoader ctx={ctx} />
         {ctx.next != null && (
           <>

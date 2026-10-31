@@ -26,7 +26,9 @@ function clubPage() {
 function teamPage(id: string) {
   const t = TEAMS.find((x) => x.id === id);
   const rows = t ? t.players.map((pid, i) => [pid, name(pid), strOf(pid) - 6, i]) : id === OPP.id || id === OPP2.id ? OPP.players.map((p, i) => [p[0], p[1], p[2] - 5, i]) : [];
-  return pad(`<h5>Žebříček družstva</h5><table class="table"><thead><tr><th>Pořadí</th><th>Hráč</th><th>Nar.</th><th>Žebříček</th><th>STR</th><th>STR+-</th><th>Bilance</th><th>Zápasy</th></tr></thead><tbody>` +
+  const hall = `<div class="card-body"><strong>Organizační pracovník:</strong><br>Kůřil Pavel ml.<br><i class="fa fa-envelope"></i> koura <i class="fa fa-at"></i> email.cz<br><i class="fa fa-phone"></i> +420 722 210765<br>
+    <strong>Kategorie:</strong> Muži<br><strong>Míčky:</strong><br>Joola Flash, plast, Bílá<br><strong>Stoly:</strong><br>Donic, Donic 25, Modrá<br><strong>Herna:</strong><br>${t ? "Bystřice 12, sokolovna" : "Dobrá 50, Tělocvična ZŠ"}<br><strong>GPS herny:</strong> 49°1'29.956"N, 17°12'48.679"E</div>`;
+  return pad(hall + `<h5>Žebříček družstva</h5><table class="table"><thead><tr><th>Pořadí</th><th>Hráč</th><th>Nar.</th><th>Žebříček</th><th>STR</th><th>STR+-</th><th>Bilance</th><th>Zápasy</th></tr></thead><tbody>` +
     rows.map(([pid, n, s, i]) => `<tr><td>${(i as number) + 1}</td><td><a href="/hrac-${pid}/svaz-420802/rocnik-2026">${n}</a></td><td>1970</td><td>kraj. muži</td><td>${s}</td><td>${(i as number) % 2 ? 4 : -3}</td><td>${5 - (i as number)}:${2 + (i as number)}</td><td>0/0/1</td></tr>`).join("") + `</tbody></table>`);
 }
 function losPage(id: string) {

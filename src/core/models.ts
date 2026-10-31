@@ -257,6 +257,13 @@ export interface StrLadderRow {
 export interface StrLadderSection { title: string; rows: StrLadderRow[] }
 export interface StrLadder { title: string; sections: StrLadderSection[]; info: string }
 
+/** Údaje ze stránky družstva: herna, vybavení a kontakt. */
+export interface TeamInfo {
+  herna: string | null; gps: [number, number] | null; gpsText: string | null;
+  balls: string | null; tables: string | null;
+  contactName: string | null; email: string | null; phones: string[];
+}
+
 export interface ClubPage { id: string; name: string; teams: TeamRef[] }
 
 export class ZapisGame extends Data {

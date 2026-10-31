@@ -4,7 +4,7 @@ import { Json, asList, asMap, asInt, asDouble, asStr, toIntOrNull, toDoubleOrNul
 import { type LDate, type LDT, ldOf, ldAtTime } from "./dates";
 import {
   Clubs, LosMatch, Match, PlayerPage, RosterPlayer, Stis, Zapis, ZapisGame, teamRef,
-  type ClubPage, type GraphPoint, type StrLadder, type StrLadderRow, type StrLadderSection, type GraphSeason, type SeasonBilance, type SeasonCard, type StandingRow,
+  type ClubPage, type GraphPoint, type TeamInfo, type StrLadder, type StrLadderRow, type StrLadderSection, type GraphSeason, type SeasonBilance, type SeasonCard, type StandingRow,
   type SterInfo, type TeamMembership, type TeamRef, type TeamRoster, type ValuableWin,
 } from "./models";
 
@@ -412,6 +412,55 @@ export const Parsers = {
     }
     const n = sections.reduce((a, s) => a + s.rows.length, 0);
     return { title, sections, info: `stránka ${Math.round(html.length / 1024)} kB, hlaviček ${headerRows}, řádků ${rows.length}, hráčů ${n}, skupin ${heads.length}` };
+  },
+
+  // ------------------------------------------------------------ družstvo: herna, vybavení, kontakt
+  /** Souřadnice "49°1'29.956"N, 17°12'48.679"E" nebo "49.0249, 17.2135" na desetinné stupně. */
+  gps(s: string | null): [number, number] | null {
+    if (!s) return null;
+    const dms = /(\d+)\s*°\s*(\d+)\s*['’]\s*([\d.,]+)\s*(?:"|''|”)?\s*([NS])[\s,;]+(\d+)\s*°\s*(\d+)\s*['’]\s*([\d.,]+)\s*(?:"|''|”)?\s*([EW])/i.exec(s);
+    if (dms) {
+      const v = (d: string, m: string, x: string, h: string) => (parseInt(d, 10) + parseInt(m, 10) / 60 + parseFloat(x.replace(",", ".")) / 3600) * (/[SW]/i.test(h) ? -1 : 1);
+      return [v(dms[1], dms[2], dms[3], dms[4]), v(dms[5], dms[6], dms[7], dms[8])];
+    }
+    const dec = /(-?\d{1,2}\.\d+)\s*[,;\s]\s*(-?\d{1,3}\.\d+)/.exec(s);
+    return dec ? [parseFloat(dec[1]), parseFloat(dec[2])] : null;
+  },
+
+  teamInfo(html: string): TeamInfo {
+    const prepared = html
+      .replace(/<i\b[^>]*fa-at[^>]*>\s*<\/i>/gi, "@")
+      .replace(/<i\b[^>]*>\s*<\/i>/gi, " ")
+      .replace(/<br\s*\/?>|<\/(div|p|li|tr|h\d)>/gi, "\n");
+    const lines = prepared.split("\n").map((l) => Html.text(l)).filter((l) => l.length > 0);
+    const LABELS = ["Organizační pracovník:", "Kategorie:", "Soutěž:", "Oddíl:", "Míčky:", "Stoly:", "Herna:", "GPS herny:", "Soupiska", "Žebříček družstva"];
+    const isLabel = (l: string) => LABELS.some((x) => l.startsWith(x));
+    const value = (label: string): string | null => {
+      const i = lines.findIndex((l) => l.startsWith(label));
+      if (i < 0) return null;
+      const rest = lines[i].substring(label.length).trim();
+      if (rest) return rest;
+      const next = lines[i + 1];
+      return next && !isLabel(next) ? next : null;
+    };
+    let contactName: string | null = null, email: string | null = null;
+    const phones: string[] = [];
+    const oi = lines.findIndex((l) => l.startsWith("Organizační pracovník:"));
+    if (oi >= 0) {
+      const first = lines[oi].substring("Organizační pracovník:".length).trim();
+      const block = [...(first ? [first] : []), ...lines.slice(oi + 1)];
+      for (const l of block) {
+        if (isLabel(l)) break;
+        if (l.includes("@")) { email ??= l.replace(/\s+/g, ""); continue; }
+        const ph = l.replace(/[^\d+]/g, "");
+        if (/^\+?\d{9,13}$/.test(ph)) { if (!phones.includes(l.trim())) phones.push(l.trim()); continue; }
+        if (!contactName) contactName = l;
+      }
+    }
+    const mail = /href=["']mailto:([^"'?]+)/i.exec(html);
+    if (mail) email = Html.unescape(mail[1]);
+    const gpsText = value("GPS herny:");
+    return { herna: value("Herna:"), gps: Parsers.gps(gpsText), gpsText, balls: value("Míčky:"), tables: value("Stoly:"), contactName, email, phones };
   },
 
   // ------------------------------------------------------------ oddíl

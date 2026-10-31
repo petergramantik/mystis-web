@@ -6,7 +6,7 @@ import { Live } from "../../core/live";
 import type { NextMatchContext } from "../../core/repository";
 import type { SearchPlayer } from "../../core/search";
 import {
-  AppCard, Avatar, BigNumber, C, Chips, Dialog, Empty, ErrorBox, ErrorWithDiagnostics, FormDots, Icon, ListCard, Loading, MatchRow,
+  AppCard, Avatar, BigNumber, C, Chips, Marquee, Dialog, Empty, ErrorBox, ErrorWithDiagnostics, FormDots, Icon, ListCard, Loading, MatchRow,
   Muted, NavyHeader, Pill, PrimaryButton, ResultBadge, SectionTitle, Sparkline, Spinner, StatTile, T, TextField, TileRow, dec1, f0, signedInt,
 } from "../components";
 import { fmtDMYdt, fmtWhenShort } from "../fmt";
@@ -88,7 +88,9 @@ export function OverviewScreen() {
         </div>
         <div className="rowb">
           <div className="col w1">
-            <Muted text={provisional == null ? "AKTUÁLNÍ STR" : running ? "STR · ODHAD Z PROBÍHAJÍCÍHO UTKÁNÍ" : "STR · ODHAD · NEOFICIÁLNÍ VÝSLEDKY"} color={C.MutedOnNavy} size={13} />
+            <div style={{ width: "calc(100% + 150px)", position: "relative", zIndex: 1 }}>
+              <Marquee text={provisional == null ? "AKTUÁLNÍ STR" : running ? "STR · ODHAD Z PROBÍHAJÍCÍHO UTKÁNÍ" : "STR · ODHAD · NEOFICIÁLNÍ VÝSLEDKY"} color={C.MutedOnNavy} size={13} />
+            </div>
             <BigNumber text={(provisional ?? cur)?.toString() ?? "—"} color="#fff" size={72} />
             {provisional != null && cur != null ? (
               <T semi size={14} color={provisional >= cur ? C.WinLight : C.Peach}>oficiálně {cur} · změna {signedInt(provisional - cur)} zatím neoficiální</T>
@@ -251,21 +253,35 @@ function HomeButton({ onHome, left }: { onHome: () => void; left: boolean }) {
   return <button className="homebtn" onClick={(e) => { e.stopPropagation(); onHome(); }}>{left ? "‹ Nejbližší zápas" : "Nejbližší zápas ›"}</button>;
 }
 
+/** Tělo karty utkání: družstva pod sebou uprostřed (domácí první), pod nimi datum, kolo a DOMA/VENKU. */
+function FixtureBody({ ctx, m, live }: { ctx: NextMatchContext; m: LosMatch; live?: boolean }) {
+  const home = Stats.isHome(m, ctx.myTeam.ref, ctx.myTeam.name);
+  const mine = Stats.fold(ctx.myTeam.name);
+  const team = (n: string) => <T size={18} bold={Stats.fold(n) === mine} color="#fff" center lines={2} style={{ fontWeight: Stats.fold(n) === mine ? 700 : 500 }}>{n}</T>;
+  return (
+    <div className="col g4" style={{ alignItems: "center", textAlign: "center", padding: "2px 0" }}>
+      {team(m.home)}
+      <T size={12} bold color="#D6E1FA">vs</T>
+      {team(m.away)}
+      <div className="row g8" style={{ flexWrap: "wrap", justifyContent: "center", paddingTop: 6 }}>
+        <T semi size={14} color="#fff">{m.dateTime != null ? fmtWhenShort(m.dateTime) : m.dateText}</T>
+        <Pill text={`${m.round}. kolo`} bg={C.Navy} fg="#fff" />
+        <Pill text={home ? "DOMA" : "VENKU"} bg={home ? C.Win : C.Orange} fg="#fff" />
+        {live && <Pill text="právě se hraje" bg={C.Live} fg="#fff" />}
+      </div>
+    </div>
+  );
+}
+
 function FutureCard({ ctx, m, ahead, team, onHome }: { ctx: NextMatchContext; m: LosMatch; ahead: number; team: number; onHome: () => void }) {
   const onBlue = "#D6E1FA";
-  const home = Stats.isHome(m, ctx.myTeam.ref, ctx.myTeam.name);
-  const opp = home ? m.away : m.home;
   return (
     <AppCard bg={C.Blue} onClick={() => vm.go({ t: "Fixture", team, round: m.round, home: m.home, away: m.away })}>
       <div className="row">
         <T bold size={13} color={onBlue} style={{ letterSpacing: 1, flex: 1 }}>ZA {ahead} {ahead <= 4 ? "ZÁPASY" : "ZÁPASŮ"}</T>
         <T bold color="#fff">Rozbor soupeřů ›</T>
       </div>
-      <T size={18} bold color="#fff">{ctx.myTeam.name} {home ? "doma" : "venku"} vs {opp}</T>
-      <div className="row g8" style={{ flexWrap: "wrap" }}>
-        <T semi size={14} color="#fff">{m.dateTime != null ? fmtWhenShort(m.dateTime) : m.dateText}</T>
-        <Pill text={`${m.round}. kolo`} bg={C.Navy} fg="#fff" />
-      </div>
+      <FixtureBody ctx={ctx} m={m} />
       <div><HomeButton onHome={onHome} left /></div>
     </AppCard>
   );
@@ -275,20 +291,7 @@ function NextCard({ ctx }: { ctx: NextMatchContext | null }) {
   const onBlue = "#D6E1FA";
   const n = ctx ? vm.upcoming(ctx) : null;
   let body;
-  if (ctx && n) {
-    const home = Stats.isHome(n, ctx.myTeam.ref, ctx.myTeam.name);
-    const opp = home ? n.away : n.home;
-    body = (
-      <>
-        <T size={18} bold color="#fff">{ctx.myTeam.name} {home ? "doma" : "venku"} vs {opp}</T>
-        <div className="row g8" style={{ flexWrap: "wrap" }}>
-          <T semi size={14} color="#fff">{n.dateTime != null ? fmtWhenShort(n.dateTime) : n.dateText}</T>
-          <Pill text={`${n.round}. kolo`} bg={C.Navy} fg="#fff" />
-          {ctx.liveNow && n === ctx.next && <Pill text="právě se hraje" bg={C.Orange} fg="#fff" />}
-        </div>
-      </>
-    );
-  } else if (vm.loadingNext) body = <Muted text="Hledám v rozpisu…" color={onBlue} />;
+  if (ctx && n) body = <FixtureBody ctx={ctx} m={n} live={ctx.liveNow && n === ctx.next} />; else if (vm.loadingNext) body = <Muted text="Hledám v rozpisu…" color={onBlue} />;
   else body = <Muted text={`${ctx?.myTeam.name ? ctx.myTeam.name + ": " : ""}v rozpisu nevidím žádné nadcházející utkání.`} color={onBlue} />;
   return (
     <AppCard onClick={() => vm.go(S.NextMatch)} bg={C.Blue}>

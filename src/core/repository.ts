@@ -1,7 +1,7 @@
 // Načítání a skládání dat ze STIS (přepis Repository.kt, asynchronně).
 import { Html, rx, findAll, find, g } from "./html";
 import { type LDate, type LDT, LDT_MAX, ldOf, ldtDate, nowLdt, today as todayFn } from "./dates";
-import { Clubs, Stis, type StrLadder, type ClubPage, type LosMatch, type PlayerPage, type RosterPlayer, type StandingRow, type TeamMembership, type TeamRef, type TeamRoster, type Zapis } from "./models";
+import { Clubs, Stis, type StrLadder, type TeamInfo, type ClubPage, type LosMatch, type PlayerPage, type RosterPlayer, type StandingRow, type TeamMembership, type TeamRef, type TeamRoster, type Zapis } from "./models";
 import { Parsers } from "./parsers";
 import { Search, type SearchClub, type SearchPlayer } from "./search";
 import { Stats, distinctBy, minBy } from "./stats";
@@ -71,6 +71,10 @@ export class StisRepository {
 
   async tabulka(svaz: string, rocnik: number, soutez: string, maxAge = 6 * HOUR): Promise<StandingRow[]> {
     return Parsers.tabulka(await this.fetcher.get(Stis.tabulka(svaz, rocnik, soutez), maxAge));
+  }
+
+  async teamInfo(ref: TeamRef, maxAge = DAY): Promise<TeamInfo> {
+    return Parsers.teamInfo(await this.fetcher.get(Stis.druzstvo(ref), maxAge));
   }
 
   async strLadder(svaz: string, rocnik: number, soutez: string, maxAge = 6 * HOUR): Promise<StrLadder> {

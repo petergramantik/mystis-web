@@ -363,6 +363,17 @@ async function main() {
   check("STR favorit", StrModel.gainIfWin(1700, 1500) === 1 && StrModel.gainIfWin(1750, 1500) === 0 && StrModel.gainIfWin(1540, 1500) === 5 && StrModel.lossIfLose(1500, 1540) === -5);
   check("STR outsider", StrModel.gainIfWin(1500, 1700) === 12 && StrModel.lossIfLose(1700, 1500) === -12);
 
+  // ---------- herna, vybavení a kontakt ze stránky družstva
+  const dru = `<div class="card-body"><img src="x.png"><br><br><strong>Organizační pracovník:</strong><br>Kůřil Pavel ml.<br>
+    <i class="fa fa-envelope"></i> koura <i class="fa fa-at"></i> email.cz<br><i class="fa fa-phone"></i> +420 722 210765<br><i class="fa fa-phone"></i> +420 722 210765<br><br>
+    <strong>Kategorie:</strong> Muži<br><strong>Soutěž:</strong> Krajská soutěž II. třídy C<br><strong>Oddíl:</strong> TJ Vlast Ježov z.s.<br>
+    <strong>Míčky:</strong><br>Joola Flash, plast, Bílá<br><strong>Stoly:</strong><br>Donic, Donic 25, Modrá<br><strong>Herna:</strong><br>Ježov 50,Tělocvična ZŠ<br>
+    <strong>GPS herny:</strong> 49°1'29.956"N, 17°12'48.679"E</div>`;
+  const ti = Parsers.teamInfo(dru);
+  check("herna", ti.herna === "Ježov 50,Tělocvična ZŠ" && ti.balls === "Joola Flash, plast, Bílá" && ti.tables === "Donic, Donic 25, Modrá", () => J(ti));
+  check("kontakt", ti.contactName === "Kůřil Pavel ml." && ti.email === "koura@email.cz" && ti.phones.length === 1 && ti.phones[0] === "+420 722 210765", () => J(ti));
+  check("gps", !!ti.gps && Math.abs(ti.gps[0] - 49.02499) < 1e-4 && Math.abs(ti.gps[1] - 17.21352) < 1e-4, () => J(ti.gps));
+
   // ---------- predikce konečné tabulky
   const trows = Parsers.tabulka(`<script>var initTabData = "${escaped}";</script>`);
   check("body 3/2/1", J(pointsRule(trows)) === J([3, 2, 1]), () => J(pointsRule(trows)));

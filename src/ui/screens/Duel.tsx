@@ -3,6 +3,7 @@ import { vm } from "../../app/vm";
 import type { PlayerPage, ZapisGame } from "../../core/models";
 import { Stats, StrModel, sum } from "../../core/stats";
 import { Live } from "../../core/live";
+import { HallCard } from "../hall";
 import {
   AppCard, BigNumber, C, DMY, Divider, Empty, HeaderPlayer, KeyValue, ListCard, Loading, Muted, NavyHeader, ProbBar, ResultBadge, SectionTitle, T, dec1, signedInt,
 } from "../components";
@@ -129,6 +130,7 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
           {z.dateText.trim() && <KeyValue label="Datum" value={z.dateText} />}
           {z.place.trim() && <KeyValue label="Místo" value={z.place} />}
         </AppCard>
+        <HallCard teamRef={vm.refFromZapis(path, z.homeTeamId, z.home)} teamName={z.home} fallbackPlace={z.place.trim() || null} />
         <SectionTitle text="Bilance hráčů" />
         {[myHome, !myHome].map((home) => {
           const ps = stats.filter((p) => p.home === home);
