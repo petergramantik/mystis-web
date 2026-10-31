@@ -38,7 +38,7 @@ function losPage(id: string) {
   const o2 = `<a href="/druzstvo-${OPP.id}/svaz-420802/rocnik-2026/soutez-${t.soutez}">${OPP.name}</a>`;
   const rows = [
     `<tr><td>5.</td><td>23.10.2026 18:00</td><td>${o1}</td><td>${me}</td><td><a href="/zapis/svaz-420802/rocnik-2026/soutez-${t.soutez}/utkani-672291">9:9</a></td></tr>`,
-    `<tr><td>6.</td><td>30.10.2026 17:30</td><td>${me}</td><td>${o1}</td><td><a href="/zapis/svaz-420802/rocnik-2026/soutez-${t.soutez}/utkani-700001">10:6</a></td></tr>`,
+    `<tr><td>6.</td><td>30.10.2026 17:30</td><td>${me}</td><td>${o1}</td><td><a href="/zapis/svaz-420802/rocnik-2026/soutez-${t.soutez}/utkani-700001">online</a></td></tr>`,
     `<tr><td>7.</td><td>06.11.2026 18:00</td><td>${o2}</td><td>${me}</td><td></td></tr>`,
     `<tr><td>8.</td><td>13.11.2026 17:30</td><td>${me}</td><td>${o1}</td><td></td></tr>`,
     `<tr><td>9.</td><td>20.11.2026 18:00</td><td>${o2}</td><td>${me}</td><td></td></tr>`,

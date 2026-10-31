@@ -520,10 +520,29 @@ export class AppVm {
         if (!x.zapisPath || official.has(x.zapisPath)) continue;
         if (d > td || d < td - 21) continue;
         if (lastOfficial != null && d < lastOfficial) continue;
-        if (!x.played && !(ctx.liveNow && x === ctx.next)) continue;
+        // i utkání bez výsledku v rozpisu: zápis existuje, jen ho STIS ještě nepotvrdil
+        if (!x.played && !(ctx.liveNow && x === ctx.next) && x.dateTime > nowLdt()) continue;
         this.loadZapis(x.zapisPath, true);
       }
+      // minulé utkání bez výsledku i bez odkazu na zápis: zkusíme zápis dohledat (jednou za spuštění)
+      for (const x of ctx.los) {
+        if (x.played || x.zapisPath || x.dateTime == null || x.dateTime > nowLdt() - 60) continue;
+        const d = ldtDate(x.dateTime);
+        if (d < td - 21 || (lastOfficial != null && d < lastOfficial)) continue;
+        const k = this.fixtureKey(-1, x);
+        if (this.zapisSearched.has(k)) continue;
+        this.zapisSearched.add(k);
+        this.repo.findZapis({ ...ctx, next: x }).then((p) => { if (p && !official.has(p)) { x.zapisPath = p; this.loadZapis(p, true); } }, () => {});
+      }
     }
+  }
+  private zapisSearched = new Set<string>();
+
+  /** Dohrané, ale STIS ho ještě nepotvrdil (v rozpisu bez výsledku, zápis je kompletní). */
+  awaitingConfirmation(m: LosMatch): boolean {
+    if (m.played || !m.zapisPath) return false;
+    const z = this.zapisy.get(m.zapisPath);
+    return !!z && z.games.length > 0 && Live.isZapisFinished(z, this.format);
   }
 
   meWithLive(): PlayerPage | null {
@@ -557,7 +576,7 @@ export class AppVm {
       const live = this.myLiveGames(team);
       const running = !Live.isZapisFinished(pending, this.format);
       const myTeam = this.next.find((c) => this.zapisBelongs(pending, c))?.myTeam.name ?? (live[0]?.home === true ? pending.home : pending.away);
-      return { title: running ? "Probíhající utkání" : "Poslední utkání · neoficiální", unofficial: true, live, official: [], zapisPath: pending.path, myTeam, running };
+      return { title: running ? "Probíhající utkání" : "Poslední utkání · čeká na potvrzení STIS", unofficial: true, live, official: [], zapisPath: pending.path, myTeam, running };
     }
     const ch = m.chronological;
     let last: Match | null = null;

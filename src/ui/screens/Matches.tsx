@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { vm, S } from "../../app/vm";
 import type { LosMatch } from "../../core/models";
 import { Stats, groupBy, sum } from "../../core/stats";
-import { LDT_MAX, fmtShort, ldDow, ldtDate } from "../../core/dates";
+import { LDT_MAX, fmtShort, ldDow, ldtDate, nowLdt } from "../../core/dates";
 import { C, Chips, Divider, Empty, ListCard, Loading, MatchRow, Muted, Pill, Segmented, T, TextField } from "../components";
 import { fmtMonth, hhmmLdt } from "../fmt";
 
@@ -33,7 +33,10 @@ function TeamFixtures() {
   const liveZ = vm.liveZapisFor(key);
   const isLive = (m: LosMatch) => ctx.liveNow && m === ctx.next && !vm.liveFinished(ctx);
   const live = ctx.los.filter(isLive);
-  const future = ctx.los.filter((m) => !m.played && !isLive(m) && !(ctx.liveNow && m === ctx.next && vm.liveFinished(ctx)))
+  // budoucí = bez výsledku a ještě nezačalo (nebo začalo před méně než 5 h); dohraná nepotvrzená jdou mezi odehraná
+  const now = nowLdt();
+  const future = ctx.los.filter((m) => !m.played && !isLive(m) && !(ctx.liveNow && m === ctx.next && vm.liveFinished(ctx))
+    && !vm.awaitingConfirmation(m) && (m.dateTime == null || m.dateTime > now - 5 * 60))
     .sort((a, b) => (a.dateTime ?? LDT_MAX) - (b.dateTime ?? LDT_MAX));
   const played = ctx.los.filter((m) => !isLive(m) && !future.includes(m)).sort((a, b) => (b.dateTime ?? -LDT_MAX) - (a.dateTime ?? -LDT_MAX));
   const nextM = vm.upcoming(ctx);
@@ -74,6 +77,9 @@ function TeamFixtures() {
             {state === "live" && <Pill text="živě" bg={C.Live} fg="#fff" />}
             {score && <div className="badge wide" style={{ background: score[0] > score[1] ? C.Win : score[0] < score[1] ? C.OrangeText : C.Muted }}>{`${score[0]}:${score[1]}`}</div>}
             {state === "future" && m === nextM && <Pill text="příští" />}
+            {state === "played" && !m.played && (vm.awaitingConfirmation(m) || (m.zapisPath && vm.zapisy.get(m.zapisPath)))
+              ? <T size={11} bold color={C.Live}>čeká na potvrzení STIS</T>
+              : state === "played" && !m.played && !score ? <T size={11} color={C.Muted}>bez výsledku</T> : null}
           </div>
         </div>
         <Divider />

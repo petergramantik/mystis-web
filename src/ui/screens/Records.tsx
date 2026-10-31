@@ -186,7 +186,7 @@ export function SettingsScreen() {
         <ProfileInput dark={false} buttonText="Najít a načíst" onDone={() => setMsg("Profil načten.")} />
       </AppCard>
       <InstallCard />
-      <ProxySetup />
+      {!vm.prefs.proxyUrl && <ProxySetup />}
       <AppCard>
         <T bold>Oddíl</T>
         <Muted size={13} maxLines={4} text="Obvykle se zjistí sám ze stránky hráče. Pokud žebříček chybí, vložte odkaz na stránku oddílu (…/oddil-…)." />
@@ -227,7 +227,25 @@ export function SettingsScreen() {
           (standalone ? "Aplikace běží z plochy." : "Na plochu telefonu ji přidáte v menu prohlížeče → Přidat na plochu (Chrome) nebo Sdílet → Přidat na plochu (Safari).") +
           ` Verze ${typeof __BUILD__ !== "undefined" ? __BUILD__.replace(/^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d).*/, "$3. $2. $1 $4:$5 UTC") : "vývojová"}.`} />
       </AppCard>
+      {vm.prefs.proxyUrl && <ProxyRow />}
       <div style={{ height: 8 }} />
+    </div>
+  );
+}
+
+/** Adresa proxy dole v Nastavení: jen ke čtení, změna po klepnutí na „Změnit“. */
+function ProxyRow() {
+  const [edit, setEdit] = useState(false);
+  if (edit) return (
+    <div className="col g8">
+      <ProxySetup onSaved={() => setEdit(false)} />
+      <div><button className="textbtn" onClick={() => setEdit(false)}>Zrušit</button></div>
+    </div>
+  );
+  return (
+    <div className="row g8" style={{ padding: "0 4px" }}>
+      <Muted text={`Připojení ke STIS: ${vm.prefs.proxyUrl.replace(/^https?:\/\//, "")}`} size={12} maxLines={2} style={{ flex: 1 }} />
+      <button className="textbtn" style={{ fontSize: 12, padding: "6px 8px" }} onClick={() => setEdit(true)}>Změnit</button>
     </div>
   );
 }
