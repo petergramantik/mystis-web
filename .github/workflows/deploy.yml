@@ -1,6 +1,7 @@
 name: Nasadit web
 on:
   push:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
@@ -17,15 +18,16 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Rozbalit web ze zipu
-        run: |
-          ZIP=$(ls *.zip | head -n 1)
-          echo "Rozbaluji $ZIP"
-          mkdir site
-          unzip -o -q "$ZIP" -d site -x ".github/*"
+      - uses: oven-sh/setup-bun@v2
+      - name: Instalace
+        run: bun install
+      - name: Testy jádra (parsery STIS, statistiky, živé utkání)
+        run: bun tests/core.test.ts
+      - name: Sestavit web
+        run: ./build.sh
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: dist
       - id: deployment
         uses: actions/deploy-pages@v4

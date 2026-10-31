@@ -1,0 +1,13 @@
+{
+  "name": "mystis-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "./build.sh",
+    "test": "bun tests/core.test.ts"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  }
+}

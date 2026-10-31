@@ -1,0 +1,145 @@
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { createRoot } from "react-dom/client";
+import { vm, S, type Screen } from "./app/vm";
+import { Icon } from "./ui/components";
+import { OnboardingScreen, OverviewScreen } from "./ui/screens/Overview";
+import { LadderScreen } from "./ui/screens/Ladder";
+import { StrScreen } from "./ui/screens/StrScreen";
+import { MatchesScreen } from "./ui/screens/Matches";
+import { ClubScreen, H2HScreen, OpponentsScreen } from "./ui/screens/Opponents";
+import { NextMatchScreen } from "./ui/screens/NextMatch";
+import { LiveScreen } from "./ui/screens/LiveMatch";
+import { PairScreen, ZapisDetailScreen } from "./ui/screens/Duel";
+import { CaptainScreen, CompareScreen } from "./ui/screens/Captain";
+import { PlayerScreen, RecordsScreen, SettingsScreen } from "./ui/screens/Records";
+import "./ui/app.css";
+
+const TABS: [Screen, string, string][] = [
+  [S.Overview, "Přehled", "home"],
+  [S.Ladder, "Žebříček", "leaderboard"],
+  [S.Str, "STR", "chart"],
+  [S.Matches, "Zápasy", "list"],
+  [S.Opponents, "Soupeři", "search"],
+];
+
+function title(s: Screen): string {
+  switch (s.t) {
+    case "Overview": return "MySTIS";
+    case "Ladder": return "Interní žebříček";
+    case "Str": return "Vývoj STR";
+    case "Matches": return "Historie zápasů";
+    case "Opponents": return "Soupeři";
+    case "Club": return s.name;
+    case "H2H": return "Vzájemné zápasy";
+    case "NextMatch": return "Příští zápas";
+    case "Captain": return "Pro kapitána";
+    case "Compare": return "Porovnání hráčů";
+    case "Records": return "Rekordy a statistiky";
+    case "Settings": return "Nastavení";
+    case "Player": return vm.players.get(s.path)?.name ?? "Hráč";
+    case "Live": return "Živé utkání";
+    case "Duel": return "Vzájemné zápasy";
+    case "ZapisDetail": return "Zápis o utkání";
+  }
+}
+
+function Body({ s }: { s: Screen }) {
+  switch (s.t) {
+    case "Overview": return <OverviewScreen />;
+    case "Ladder": return <LadderScreen />;
+    case "Str": return <StrScreen />;
+    case "Matches": return <MatchesScreen />;
+    case "Opponents": return <OpponentsScreen />;
+    case "Club": return <ClubScreen club={s.name} />;
+    case "H2H": return <H2HScreen oppKey={s.key} />;
+    case "NextMatch": return <NextMatchScreen />;
+    case "Captain": return <CaptainScreen />;
+    case "Compare": return <CompareScreen a0={s.a} b0={s.b} />;
+    case "Records": return <RecordsScreen />;
+    case "Settings": return <SettingsScreen />;
+    case "Player": return <PlayerScreen path={s.path} />;
+    case "Live": return <LiveScreen team={s.team} />;
+    case "Duel": return <PairScreen aId0={s.aId} aName0={s.aName} bId0={s.bId} bName0={s.bName} />;
+    case "ZapisDetail": return <ZapisDetailScreen path={s.path} myTeam={s.myTeam} />;
+  }
+}
+
+const canBack = () => vm.stack.length > 1 || vm.current.t !== "Overview";
+const goBack = () => { if (!vm.back()) vm.resetTo(S.Overview); };
+
+/** Tlačítko Zpět prohlížeče / telefonu se chová jako šipka zpět (jako BackHandler v Android verzi). */
+function useBackHandler() {
+  useEffect(() => {
+    let guard = false;
+    const sync = () => {
+      if (canBack() && !guard) { history.pushState({ mystis: 1 }, ""); guard = true; }
+    };
+    const onPop = () => {
+      guard = false;
+      if (canBack()) goBack();
+      setTimeout(sync, 0);
+    };
+    window.addEventListener("popstate", onPop);
+    const unsub = vm.subscribe(sync);
+    sync();
+    return () => { window.removeEventListener("popstate", onPop); unsub(); };
+  }, []);
+}
+
+function Root() {
+  useSyncExternalStore(vm.subscribe, vm.getVersion);
+  useBackHandler();
+  const [menu, setMenu] = useState(false);
+  if (vm.onboarding) return <OnboardingScreen />;
+  const screen = vm.current;
+  const dark = ["Overview", "Club", "H2H", "Player", "Live", "Duel", "ZapisDetail"].includes(screen.t);
+  const item = (text: string, icon: string, s: Screen) => (
+    <button onClick={() => { setMenu(false); vm.go(s); }}><Icon name={icon} />{text}</button>
+  );
+  return (
+    <>
+      <div className={"topbar" + (dark ? " dark" : "")}>
+        {canBack() ? <button className="iconbtn" onClick={goBack} aria-label="Zpět"><Icon name="back" /></button> : <div className="spacer44" />}
+        <div className="spacer44" />
+        <div className="title">{title(screen)}</div>
+        <button className="iconbtn" onClick={() => vm.refreshAll()} aria-label="Obnovit data"><Icon name="refresh" /></button>
+        <button className="iconbtn" onClick={() => setMenu(true)} aria-label="Další funkce"><Icon name="more" /></button>
+        {menu && (
+          <>
+            <div className="scrim" onClick={() => setMenu(false)} />
+            <div className="menu">
+              {item("Příští zápas", "event", S.NextMatch)}
+              {item("Pro kapitána", "groups", S.Captain)}
+              {item("Porovnání hráčů", "compare", { t: "Compare", a: null, b: null })}
+              {item("Rekordy a statistiky", "trophy", S.Records)}
+              {item("Nastavení", "settings", S.Settings)}
+            </div>
+          </>
+        )}
+      </div>
+      <div className="content" key={JSON.stringify(screen)}>
+        <Body s={screen} />
+      </div>
+      <nav className="bottombar">
+        <div className="inner">
+          {TABS.map(([s, label, icon]) => (
+            <button key={label} className={"navitem" + (screen.t === s.t ? " on" : "")} onClick={() => vm.tab(s)}>
+              <div className="pill"><Icon name={icon} /></div>
+              {label}
+            </button>
+          ))}
+        </div>
+      </nav>
+    </>
+  );
+}
+
+createRoot(document.getElementById("app")!).render(<Root />);
+
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+}
+// při návratu do aplikace (z pozadí) dočíst čerstvá data, jako při spuštění Android aplikace
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && vm.me && Date.now() - vm.prefs.lastSync > 30 * 60_000) vm.loadMe(false);
+});
