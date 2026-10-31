@@ -27,9 +27,14 @@ export function ProfileScreen({ path }: { path: string }) {
   for (const m of ch) { const l = bySeason.get(m.season) ?? []; l.push(m); bySeason.set(m.season, l); }
   const best = Array.from(bySeason.entries()).filter(([, ms]) => ms.length >= 10).map(([y, ms]) => [y, rec(ms)] as const)
     .sort((a, b) => (b[1].pct ?? 0) - (a[1].pct ?? 0))[0];
+  const firstSeason = bySeason.size ? Math.min(...bySeason.keys()) : null;
   const jumps = Array.from(bySeason.entries()).map(([y, ms]) => {
-    // počáteční zařazení (STR 0 před prvním zápasem) se přeskočí: začátek = první zápas, před kterým už hráč STR měl
-    const first = ms.find((m) => m.strBefore != null && m.strBefore > 0)?.strBefore, last = [...ms].reverse().find((m) => m.strAfter != null)?.strAfter;
+    // první sezóna: zahajovací fáze se přeskočí – začátek = první zápas s ustáleným STR (předtím > 0, změna < 30)
+    const startIdx = y === firstSeason
+      ? ms.findIndex((m) => m.strBefore != null && m.strBefore > 0 && m.strAfter != null && Math.abs(m.strAfter - m.strBefore) < 30)
+      : ms.findIndex((m) => m.strBefore != null);
+    if (startIdx < 0) return [y, null] as const;
+    const first = ms[startIdx].strBefore, last = [...ms.slice(startIdx)].reverse().find((m) => m.strAfter != null)?.strAfter;
     return [y, first != null && last != null ? last - first : null] as const;
   }).filter((x) => x[1] != null).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))[0];
   const clubs = Array.from(new Set(p.seasons.map((s) => s.club).filter((x): x is string => !!x)));
