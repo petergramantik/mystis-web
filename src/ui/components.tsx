@@ -81,15 +81,15 @@ export function AppCard({ children, onClick, padding = 14, bg = "#fff", style, c
 }
 export function ListCard({ children, style }: { children: ReactNode; style?: CSSProperties }) { return <div className="listcard" style={style}>{children}</div>; }
 
-export function StatTile({ label, value, dark, valueColor, sub, onClick, subLeftEllipsis }: {
+export function StatTile({ label, value, dark, valueColor, sub, onClick }: {
   label: string; value: string; dark?: boolean; valueColor?: string; sub?: string | null; onClick?: () => void; subLeftEllipsis?: boolean;
 }) {
   const mc = dark ? C.MutedOnNavy : C.Muted;
   return (
     <div className={"tile" + (dark ? " dark" : "") + (onClick ? " clickable" : "")} onClick={onClick}>
-      <Muted text={label} color={mc} size={12} maxLines={1} />
+      <Marquee text={label} color={mc} size={12} />
       <BigNumber text={value} color={valueColor ?? (dark ? "#fff" : C.Ink)} size={22} />
-      {sub != null && (subLeftEllipsis ? <LeftEllipsisText text={sub} color={mc} size={11} /> : <Muted text={sub} color={mc} size={11} maxLines={1} />)}
+      {sub != null && <Marquee text={sub} color={mc} size={11} />}
     </div>
   );
 }
@@ -135,6 +135,33 @@ export function LeftEllipsisText({ text, color, size, bold, center }: { text: st
   return <div ref={ref} style={{ color, fontSize: size, fontWeight: bold ? 700 : 400, whiteSpace: "nowrap", overflow: "hidden", width: "100%", textAlign: center ? "center" : undefined, lineHeight: 1.35 }}>{shown}</div>;
 }
 
+/**
+ * Text na jeden řádek: když se nevejde, pomalu se posune, aby byl vidět celý, chvíli počká a vrátí se zpět
+ * (místo zkrácení třemi tečkami). Text, který se vejde, stojí.
+ */
+export function Marquee({ text, color, size, bold, center }: { text: string; color?: string; size?: number; bold?: boolean; center?: boolean }) {
+  const outer = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLSpanElement>(null);
+  const [d, setD] = useState(0);
+  useLayoutEffect(() => {
+    const o = outer.current, i = inner.current;
+    if (!o || !i) return;
+    const measure = () => { const diff = Math.ceil(i.scrollWidth - o.clientWidth); setD(diff > 1 ? diff : 0); };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(o); ro.observe(i);
+    return () => ro.disconnect();
+  }, [text, size, bold]);
+  // rychlost ~25 px/s, na začátku a na konci pauza
+  const dur = 3 + (2 * d) / 25;
+  const style: CSSProperties = { overflow: "hidden", whiteSpace: "nowrap", width: "100%", color, fontSize: size, fontWeight: bold ? 700 : undefined, lineHeight: 1.35, textAlign: d ? "left" : center ? "center" : undefined };
+  return (
+    <div ref={outer} className="mqbox" style={style}>
+      <span ref={inner} className={d ? "mq" : undefined} style={d ? ({ ["--d" as any]: `-${d}px`, animationDuration: `${dur}s` } as CSSProperties) : { display: "inline-block" }}>{text}</span>
+    </div>
+  );
+}
+
 /** Hráč v hlavičce vzájemných zápasů: kolečko, jméno (vždy 2 řádky), STR a družstvo. */
 export function HeaderPlayer({ name, str, team, color }: { name: string; str: number | null | undefined; team: string; color: string }) {
   return (
@@ -142,7 +169,7 @@ export function HeaderPlayer({ name, str, team, color }: { name: string; str: nu
       <Avatar text={name} color={color} size={56} />
       <T bold color="#fff" center lines={2} style={{ minHeight: "2.6em", fontSize: 16 }}>{name}</T>
       <Muted text={`STR ${str ?? "–"}`} color={C.MutedOnNavy} size={13} maxLines={1} />
-      <LeftEllipsisText text={team.trim() ? team : " "} color={C.MutedOnNavy} size={12} center />
+      <Marquee text={team.trim() ? team : " "} color={C.MutedOnNavy} size={12} center />
     </div>
   );
 }
@@ -164,7 +191,7 @@ export function Chips({ options, selected, onSelect, style }: { options: [string
   );
 }
 export function Segmented({ options, selected, onSelect }: { options: [string, string][]; selected: string; onSelect: (k: string) => void }) {
-  return <div className="seg">{options.map(([k, l]) => <button key={k} className={k === selected ? "on" : ""} onClick={() => onSelect(k)}>{l}</button>)}</div>;
+  return <div className="seg">{options.map(([k, l]) => <button key={k} className={k === selected ? "on" : ""} onClick={() => onSelect(k)}><Marquee text={l} center /></button>)}</div>;
 }
 export function SectionTitle({ text, action, onAction }: { text: string; action?: string | null; onAction?: () => void }) {
   return <div className="section"><div className="t">{text}</div>{action && onAction && <button className="textbtn" onClick={onAction}>{action}</button>}</div>;
