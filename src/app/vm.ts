@@ -95,6 +95,21 @@ export class AppVm {
     if (this.stack.length > 1) { this.stack = this.stack.slice(0, -1); this.emit(); this.scrollTop(); return true; }
     return false;
   }
+  /** Nahradí aktuální obrazovku (zpět pak vede na předchozí). */
+  replace(s: Screen) { this.stack = [...this.stack.slice(0, -1), s]; this.trim(); this.emit(); this.scrollTop(); }
+  /**
+   * Otevření z notifikace živého utkání: dohrané utkání -> celý zápis, jinak Živé utkání
+   * (družstvo podle klíče, protože pořadí družstev se po dohrání mění).
+   */
+  openLiveNotification(d: { path?: string; key?: string; team?: string; live?: number }) {
+    const path = d.path ?? "";
+    const z = path ? this.zapisy.get(path) : undefined;
+    const idx = d.key != null ? this.next.findIndex((c) => this.teamKey(c) === d.key) : d.live ?? -1;
+    const ctx = idx >= 0 ? this.next[idx] : undefined;
+    const running = !!ctx && ctx.liveNow && this.liveLinks.get(this.teamKey(ctx)) === path && !(z && Live.isZapisFinished(z, this.format));
+    if (path && !running) this.go({ t: "ZapisDetail", path, myTeam: d.team ?? ctx?.myTeam.name ?? "" });
+    else if (idx >= 0) this.go({ t: "Live", team: idx });
+  }
   resetTo(s: Screen) { this.stack = [s]; this.emit(); this.scrollTop(); }
   private scrollTop() { if (typeof window !== "undefined") queueMicrotask(() => window.scrollTo(0, 0)); }
 
@@ -1183,24 +1198,28 @@ export class AppVm {
     if (prefs.liveSounds && mode !== "off" && (fresh.length || endNow || withSets))
       playSound(endNow ? (my >= op ? "victory" : "loss") : fresh.length ? (lastWon ? "win" : "loss") : lastSetWon ? "win" : "loss");
     if (mode === "off") { if (endNow) this.liveEndSent.add(path); return; }
-    if (withSets) for (const f of freshSets.slice(-3)) void this.post(`live-${path}-set-${f[2]}`, f[0], f[1], true, idx);
+    if (withSets) for (const f of freshSets.slice(-3)) void this.post(`live-${path}-set-${f[2]}`, f[0], f[1], true, idx, path);
     if (fresh.length > 3) {
-      void this.post(`live-${path}-${fresh[fresh.length - 1][2]}`, `${fresh.length} nových her · stav ${my}:${op}`, fresh.map((f) => f[0]).join("\n"), true, idx);
-    } else for (const f of fresh) void this.post(`live-${path}-${f[2]}`, f[0], f[1], true, idx);
+      void this.post(`live-${path}-${fresh[fresh.length - 1][2]}`, `${fresh.length} nových her · stav ${my}:${op}`, fresh.map((f) => f[0]).join("\n"), true, idx, path);
+    } else for (const f of fresh) void this.post(`live-${path}-${f[2]}`, f[0], f[1], true, idx, path);
     if (endNow) {
       this.liveEndSent.add(path);
       const opp = myHome ? z.away : z.home;
-      void this.post(`live-end-${path}`, `🏁 Konec: ${my > op ? "výhra" : my < op ? "prohra" : "remíza"} ${my}:${op}`, `${ctx.myTeam.name} – ${opp}`, true, idx);
+      void this.post(`live-end-${path}`, `🏁 Konec: ${my > op ? "výhra" : my < op ? "prohra" : "remíza"} ${my}:${op}`, `${ctx.myTeam.name} – ${opp}`, true, idx, path);
     }
   }
 
-  private async post(tag: string, title: string, body: string, live = false, liveTeam = 0) {
+  private async post(tag: string, title: string, body: string, live = false, liveTeam = 0, livePath = "") {
     if (live ? !prefs.liveNotify : !prefs.notifications) return;
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     try {
+      const data = live ? { live: liveTeam, path: livePath, key: this.next[liveTeam] ? this.teamKey(this.next[liveTeam]) : undefined, team: this.next[liveTeam]?.myTeam.name } : undefined;
       const reg = await navigator.serviceWorker?.getRegistration();
-      if (reg) await reg.showNotification(title, { body, tag, icon: "icon-192.png", badge: "icon-192.png", data: live ? { live: liveTeam } : undefined });
-      else new Notification(title, { body, tag });
+      if (reg) await reg.showNotification(title, { body, tag, icon: "icon-192.png", badge: "icon-192.png", data });
+      else {
+        const n = new Notification(title, { body, tag });
+        if (data) n.onclick = () => { try { window.focus(); } catch { /* */ } this.openLiveNotification(data); };
+      }
     } catch { /* nepodstatné */ }
   }
 

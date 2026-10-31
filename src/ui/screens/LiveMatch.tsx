@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { vm } from "../../app/vm";
 import { LiveModeSwitch } from "./Records";
 import type { RosterPlayer } from "../../core/models";
@@ -27,6 +27,15 @@ export function LiveScreen({ team }: { team: number }) {
   const found = vm.liveLinks.get(tk);
   // odkaz nalezený automaticky doplníme do pole
   useEffect(() => { if (found && !link) setLink(found); }, [found]);
+  // sledovaný zápis si pamatujeme: po dohrání se odkaz u družstva maže a družstvo přejde na další utkání
+  const followed = useRef<{ path: string; team: string } | null>(null);
+  if (found && ctx && (!followed.current || followed.current.path !== found)) followed.current = { path: found, team: ctx.myTeam.name };
+  const fz = followed.current ? vm.zapisy.get(followed.current.path) : undefined;
+  const followedDone = !!fz && fz.games.length > 0 && Live.isZapisFinished(fz, vm.format);
+  // dohráno -> místo živého utkání celý zápis (zpět vede na předchozí obrazovku)
+  useEffect(() => {
+    if (followedDone && followed.current && mode === "zapis") vm.replace({ t: "ZapisDetail", path: followed.current.path, myTeam: followed.current.team });
+  }, [followedDone, mode]);
   const start = ctx?.next?.dateTime ?? null;
   const startedOrSoon = start == null || nowLdt() > start - 10;
   const linkEmpty = !link;
@@ -118,7 +127,7 @@ export function LiveScreen({ team }: { team: number }) {
 
   return (
     <div className="col g12">
-      <ScoreHeader st={st} myHome={myHome} homeName={homeName} awayName={awayName} />
+      <ScoreHeader st={st} myHome={myHome} homeName={homeName} awayName={awayName} empty={!games.length} />
       <div className="col g12 px16">
         <Muted text={`Utkání družstva ${ctx.myTeam.name}`} size={13} />
         <Segmented options={[["zapis", "Zápis ze STIS"], ["manual", "Ruční sestavy"]]} selected={mode} onSelect={setMode} />
@@ -186,7 +195,7 @@ export function LiveScreen({ team }: { team: number }) {
   );
 }
 
-function ScoreHeader({ st, myHome, homeName, awayName }: { st: LiveState; myHome: boolean; homeName: string; awayName: string }) {
+function ScoreHeader({ st, myHome, homeName, awayName, empty }: { st: LiveState; myHome: boolean; homeName: string; awayName: string; empty: boolean }) {
   const my = myHome ? st.home : st.away, opp = myHome ? st.away : st.home;
   const pWin = myHome ? st.pHomeWin : st.pAwayWin, pLoss = myHome ? st.pAwayWin : st.pHomeWin;
   const expMy = myHome ? st.expHome : st.expAway, expOpp = myHome ? st.expAway : st.expHome;
@@ -198,6 +207,7 @@ function ScoreHeader({ st, myHome, homeName, awayName }: { st: LiveState; myHome
         <BigNumber text={`${st.home} : ${st.away}`} color="#fff" size={48} style={{ padding: "0 10px", whiteSpace: "nowrap" }} />
         <T bold color="#fff" lines={2} end style={{ flex: 1 }}>{awayName}</T>
       </div>
+      {empty ? <Muted color={C.MutedOnNavy} size={13} text="Zatím nejsou známé sestavy – šance se ukáže, až bude zápis nebo ruční sestavy." maxLines={3} /> : <>
       {/* dlaždice pod družstvem, kterého se týkají: moje šance na výhru na mé straně */}
       <TileRow>
         {myHome ? <StatTile label="Výhra" value={Stats.pct(pWin)} dark valueColor={C.WinLight} /> : <StatTile label="Prohra" value={Stats.pct(pLoss)} dark valueColor={C.Peach} />}
@@ -206,6 +216,7 @@ function ScoreHeader({ st, myHome, homeName, awayName }: { st: LiveState; myHome
       </TileRow>
       <ProbBar p={pWin + st.pDraw / 2} reverse={!myHome} />
       <Muted color={C.MutedOnNavy} size={13} text={st.finished ? `Konečný výsledek z pohledu vašeho družstva: ${my} : ${opp}` : `Očekávaný konečný stav ${a} : ${b} · odehráno ${st.played} z ${st.games.length}`} />
+      </>}
     </NavyHeader>
   );
 }

@@ -19,7 +19,8 @@ self.addEventListener("notificationclick", (e) => {
   e.notification.close();
   const data = e.notification.data;
   e.waitUntil(self.clients.matchAll({ type: "window" }).then((cs) => {
-    if (!cs.length) return self.clients.openWindow("./");
+    // zavřená aplikace: otevřít s parametry notifikace v adrese (aplikace je po načtení přečte)
+    if (!cs.length) return self.clients.openWindow(data ? "./?n=" + encodeURIComponent(JSON.stringify(data)) : "./");
     if (data) cs[0].postMessage({ type: "notification", data });
     return cs[0].focus();
   }));

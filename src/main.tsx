@@ -153,8 +153,21 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
 // klepnutí na notifikaci z probíhajícího utkání -> otevřít Živé utkání
 navigator.serviceWorker?.addEventListener("message", (e: MessageEvent) => {
   const d = e.data;
-  if (d?.type === "notification" && typeof d.data?.live === "number") vm.go({ t: "Live", team: d.data.live });
+  if (d?.type === "notification" && d.data) vm.openLiveNotification(d.data);
 });
+// aplikace spuštěná klepnutím na notifikaci: ?n={…} -> po načtení utkání otevřít zápis / živé utkání
+(() => {
+  try {
+    const q = new URLSearchParams(location.search).get("n");
+    if (!q) return;
+    const data = JSON.parse(q);
+    history.replaceState(history.state, "", location.pathname);
+    const t0 = Date.now();
+    const wait = setInterval(() => {
+      if ((vm.next.length && !vm.loadingNext) || Date.now() - t0 > 30_000) { clearInterval(wait); if (vm.next.length || data.path) vm.openLiveNotification(data); }
+    }, 300);
+  } catch { /* neplatný parametr */ }
+})();
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") navigator.serviceWorker?.getRegistration().then((r) => r?.update()).catch(() => {});
 });
