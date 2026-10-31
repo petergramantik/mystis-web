@@ -18,7 +18,11 @@ export const MatchFormats = {
 
 export interface ZapisPlayerStat { id: string | null; name: string; home: boolean; singlesWon: number; singlesLost: number; doublesWon: number; doublesLost: number }
 
-export interface LivePlayer { id: string | null; name: string; str: number | null }
+/**
+ * Hráč v utkání. strMin/strMax = rozpětí STR nového hráče (eSTeR): proti němu se při výhře počítá s jeho STRmin,
+ * při prohře s jeho STRmax – nový hráč tak soupeřovo STR téměř neovlivní.
+ */
+export interface LivePlayer { id: string | null; name: string; str: number | null; strMin?: number | null; strMax?: number | null }
 export const lp = (id: string | null, name: string, str: number | null): LivePlayer => ({ id, name, str });
 
 export class LiveGame extends Data {
@@ -58,9 +62,14 @@ const avgStr = (ps: LivePlayer[], fallback: number): number => {
 };
 
 export const Live = {
-  fromZapis(z: Zapis, strOf: (id: string | null, name: string) => number | null): LiveGame[] {
+  fromZapis(z: Zapis, strOf: (id: string | null, name: string) => number | null,
+    rangeOf: (id: string | null, name: string) => [number, number] | null = () => null): LiveGame[] {
     return z.games.map((gm) => {
-      const side = (ids: string[], names: string[]) => names.map((n, i) => { const id = ids[i] ?? null; return lp(id, n, strOf(id, n)); });
+      const side = (ids: string[], names: string[]) => names.map((n, i) => {
+        const id = ids[i] ?? null;
+        const r = rangeOf(id, n);
+        return { ...lp(id, n, strOf(id, n)), strMin: r?.[0] ?? null, strMax: r?.[1] ?? null };
+      });
       return new LiveGame(gm.no, side(gm.homeIds, gm.homeNames), side(gm.awayIds, gm.awayNames), gm.result, gm.sets, gm.homeSets, gm.awaySets);
     });
   },
@@ -194,8 +203,9 @@ export const Live = {
         const won = gm.result != null && ((gm.result === 1) === isHome);
         const myStr = me.str ?? (isHome ? fbHome : fbAway);
         const oppStr = opp?.str ?? (isHome ? fbAway : fbHome);
-        const delta = gm.result == null ? StrModel.expectedDelta(myStr, oppStr, p)
-          : won ? StrModel.gainIfWin(myStr, oppStr) : StrModel.lossIfLose(myStr, oppStr);
+        const gain = StrModel.gainIfWin(myStr, opp?.strMin ?? oppStr);
+        const loss = StrModel.lossIfLose(myStr, opp?.strMax ?? oppStr);
+        const delta = gm.result == null ? p * gain + (1 - p) * loss : won ? gain : loss;
         keys.set(key, {
           ...prev,
           singles: prev.singles + 1,
@@ -240,8 +250,8 @@ export const LiveTimeline = {
       const opp = home ? a : h;
       const oppStr = opp.str ?? fallbackOpp;
       const my = Math.trunc(cur);
-      const win = cur + StrModel.gainIfWin(my, oppStr);
-      const loss = cur + StrModel.lossIfLose(my, oppStr);
+      const win = cur + StrModel.gainIfWin(my, opp.strMin ?? oppStr);
+      const loss = cur + StrModel.lossIfLose(my, opp.strMax ?? oppStr);
       const won = gm.result != null ? (gm.result === 1) === home : null;
       const after = won === true ? win : won === false ? loss : null;
       out.push({ game: gm, opponent: opp, home, strBefore: cur, ifWin: win, ifLoss: loss, won, strAfter: after });

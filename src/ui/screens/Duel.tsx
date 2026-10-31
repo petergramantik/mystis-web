@@ -80,7 +80,7 @@ export function PairScreen({ aId0, aName0, bId0, bName0 }: { aId0: string; aName
             <AppCard>
               <div className="row"><T bold style={{ flex: 1 }}>Šance: {first(aName)}</T><BigNumber text={Stats.pct(p)} color={p >= 0.5 ? C.Win : C.OrangeText} size={22} /></div>
               <ProbBar p={p} />
-              <Muted size={13} text={`${first(aName)}: výhra +${dec1(StrModel.gainIfWin(strA, strB))}, prohra −${dec1(-StrModel.lossIfLose(strA, strB))} STR`} />
+              <Muted size={13} text={`${first(aName)}: výhra +${StrModel.gainIfWin(strA, strB)}, prohra −${-StrModel.lossIfLose(strA, strB)} STR`} />
             </AppCard>
           );
         })()}

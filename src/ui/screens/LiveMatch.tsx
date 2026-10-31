@@ -84,7 +84,7 @@ export function LiveScreen({ team }: { team: number }) {
   const awayName = z && z.away.trim() ? z.away : myHome ? ctx.opponentName : ctx.myTeam.name;
 
   let games: LiveGame[];
-  if (z) games = Live.fromZapis(z, (id, n) => vm.strOf(id, n));
+  if (z) games = Live.fromZapis(z, (id, n) => vm.strOf(id, n), (id, n) => vm.rangeOf(id, n));
   else {
     const toLp = (p: RosterPlayer): LivePlayer => lp(p.id, p.name, p.str);
     const pos = (prefix: string, roster: RosterPlayer[]) => {
@@ -202,9 +202,9 @@ function GameRow({ g, pHome, myHome, mine, onOpen, onResult }: { g: LiveGame; pH
   let mineText: string | null = null;
   if (mine) {
     const b = Math.round(mine.strBefore);
-    if (mine.won == null) mineText = `Vaše STR ${b} → výhra ${Math.round(mine.ifWin)} (+${dec1(mine.ifWin - mine.strBefore)}) · prohra ${Math.round(mine.ifLoss)} (−${dec1(mine.strBefore - mine.ifLoss)})`;
-    else if (mine.won) mineText = `Vaše STR ${b} → ${Math.round(mine.strAfter!)} (+${dec1(mine.strAfter! - mine.strBefore)}) · odhad`;
-    else mineText = `Vaše STR ${b} → ${Math.round(mine.strAfter!)} (−${dec1(mine.strBefore - mine.strAfter!)}) · odhad`;
+    if (mine.won == null) mineText = `Vaše STR ${b} → výhra ${Math.round(mine.ifWin)} (+${Math.round(mine.ifWin - mine.strBefore)}) · prohra ${Math.round(mine.ifLoss)} (−${Math.round(mine.strBefore - mine.ifLoss)})`;
+    else if (mine.won) mineText = `Vaše STR ${b} → ${Math.round(mine.strAfter!)} (+${Math.round(mine.strAfter! - mine.strBefore)}) · odhad`;
+    else mineText = `Vaše STR ${b} → ${Math.round(mine.strAfter!)} (−${Math.round(mine.strBefore - mine.strAfter!)}) · odhad`;
   }
   return (
     <>

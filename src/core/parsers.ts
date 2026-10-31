@@ -4,7 +4,7 @@ import { Json, asList, asMap, asInt, asDouble, asStr, toIntOrNull, toDoubleOrNul
 import { type LDate, type LDT, ldOf, ldAtTime } from "./dates";
 import {
   Clubs, LosMatch, Match, PlayerPage, RosterPlayer, Stis, Zapis, ZapisGame, teamRef,
-  type ClubPage, type GraphPoint, type GraphSeason, type SeasonBilance, type SeasonCard, type StandingRow,
+  type ClubPage, type GraphPoint, type StrLadder, type StrLadderRow, type StrLadderSection, type GraphSeason, type SeasonBilance, type SeasonCard, type StandingRow,
   type SterInfo, type TeamMembership, type TeamRef, type TeamRoster, type ValuableWin,
 } from "./models";
 
@@ -345,6 +345,73 @@ export const Parsers = {
       });
     });
     return out;
+  },
+
+  // ------------------------------------------------------------ oficiální žebříček STR soutěže
+  /**
+   * Stránka zebricekstr-soutez: tabulka (pořadí, hráč, rok narození, zápasy "11 (10:1)", STR, STR stabil…),
+   * pod ní skupiny "Hráči, kteří odehráli méně než … zápasů". Sloupce hledáme podle hlaviček,
+   * skupiny podle nadpisů mezi řádky (ať jsou v tabulce nebo mimo ni).
+   */
+  strLadder(html: string): StrLadder {
+    const titleM = find(rx("(POŘADÍ STR[^<]*)"), html);
+    const title = titleM ? t(g(titleM, 1)) : "";
+    const heads = findAll(rx("(Hráči,\\s*kteří[^<]{0,120})"), html).map((m) => ({ pos: m.index, text: t(g(m, 1)) }));
+    const rows = findAll(rx("<tr\\b[^>]*>(.*?)</tr>"), html);
+    let cols = { rank: 0, name: 1, birth: 2, matches: 3, str: 4, stabil: 5 };
+    const norm = (x: string) => t(x).replace(/[^\p{L}0-9.]/gu, "").toLowerCase();
+    const sections: StrLadderSection[] = [];
+    let cur: StrLadderSection | null = null;
+    let headerRows = 0;
+    const sectionFor = (pos: number) => {
+      let h: string | null = null;
+      for (const x of heads) if (x.pos < pos) h = x.text;
+      return h ?? "";
+    };
+    for (const r of rows) {
+      const body = g(r, 1);
+      const cells = Html.cells(body);
+      if (/<th\b/.test(body) && !/href=["'][^"']*\/hrac-/.test(body)) {
+        const hs = cells.map(norm);
+        const iName = hs.findIndex((h) => h.startsWith("hráč") || h.startsWith("jméno"));
+        if (iName >= 0 && hs.length >= 3) {
+          headerRows++;
+          const at = (f: (h: string) => boolean, d: number) => { const i = hs.findIndex(f); return i >= 0 ? i : d; };
+          cols = {
+            rank: iName > 0 ? 0 : -1,
+            name: iName,
+            birth: at((h) => h.startsWith("nar") || h.startsWith("rok"), iName + 1),
+            matches: at((h) => h.startsWith("zápas") || h.startsWith("utk"), iName + 2),
+            str: at((h) => h === "str", iName + 3),
+            stabil: at((h) => h.startsWith("strstab") || h.startsWith("stabil"), iName + 4),
+          };
+        }
+        continue;
+      }
+      const link = find(rx("href=[\"']([^\"']*/hrac-(\\d+)[^\"']*)[\"']"), body);
+      if (!link || cells.length < 4) continue;
+      const c = (i: number) => (i >= 0 && i < cells.length ? t(cells[i]) : "");
+      // jméno: buňka s odkazem na hráče (sloupce se mohou lišit)
+      let nameIdx = cells.findIndex((x) => /\/hrac-\d+/.test(x));
+      if (nameIdx < 0) nameIdx = cols.name;
+      const shift = nameIdx - cols.name;
+      const mt = c(cols.matches + shift);
+      const mm = /^(\d+)\s*(?:\((\d+:\d+)\))?/.exec(mt);
+      const row: StrLadderRow = {
+        rank: toIntLoose(c(cols.rank >= 0 ? cols.rank + shift : -1)),
+        id: g(link, 2), path: Html.unescape(g(link, 1)).replace(Stis.BASE, ""),
+        name: t(cells[nameIdx]).replace(/\s*\((E|e)\)\s*$/, "").replace(/\s+E$/, "").trim(),
+        birthYear: toIntLoose(c(cols.birth + shift)),
+        matches: mm ? parseInt(mm[1], 10) : null, bilance: mm?.[2] ?? null,
+        str: toIntLoose(c(cols.str + shift)),
+        stabil: toDoubleOrNull(c(cols.stabil + shift).replace(",", ".")),
+      };
+      const sec = sectionFor(r.index);
+      if (!cur || cur.title !== sec) { cur = { title: sec, rows: [] }; sections.push(cur); }
+      cur.rows.push(row);
+    }
+    const n = sections.reduce((a, s) => a + s.rows.length, 0);
+    return { title, sections, info: `stránka ${Math.round(html.length / 1024)} kB, hlaviček ${headerRows}, řádků ${rows.length}, hráčů ${n}, skupin ${heads.length}` };
   },
 
   // ------------------------------------------------------------ oddíl

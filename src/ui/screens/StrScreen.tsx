@@ -87,10 +87,10 @@ export function StrScreen() {
               <div className="row"><T semi style={{ flex: 1 }}>Šance na výhru</T><BigNumber text={Stats.pct(p)} color={p >= 0.5 ? C.Win : C.OrangeText} size={22} /></div>
               <ProbBar p={p} />
               <TileRow>
-                <StatTile label="Při výhře" value={"+" + dec1(StrModel.gainIfWin(cur, opp))} valueColor={C.Win} />
-                <StatTile label="Při prohře" value={"−" + dec1(-StrModel.lossIfLose(cur, opp))} valueColor={C.OrangeText} />
+                <StatTile label="Při výhře" value={"+" + StrModel.gainIfWin(cur, opp)} valueColor={C.Win} />
+                <StatTile label="Při prohře" value={"−" + -StrModel.lossIfLose(cur, opp)} valueColor={C.OrangeText} />
               </TileRow>
-              <Muted text="Model K = 12,5 a škála 200 odpovídá změnám STR na STIS s průměrnou odchylkou pod 1 bod." size={12} />
+              <Muted text="Změny STR podle oficiálního popisu eSTeR (lineárně podle rozdílu STR, celé body) – na 5 080 skutečných zápasech sedí 72 % přesně, průměrná odchylka 0,3 bodu. Šance na výhru je odhad podle rozdílu STR." size={12} />
             </>
           );
         })()}

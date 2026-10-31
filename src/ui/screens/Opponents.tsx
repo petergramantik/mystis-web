@@ -157,7 +157,7 @@ export function H2HScreen({ oppKey }: { oppKey: string }) {
           <AppCard>
             <div className="row"><T bold style={{ flex: 1 }}>Šance na výhru v dalším zápase</T><BigNumber text={Stats.pct(p)} color={p >= 0.5 ? C.Win : C.OrangeText} size={24} /></div>
             <ProbBar p={p} />
-            <Muted size={13} text={`Rozdíl STR ${signedInt(myStr - oppStr)} · výhra +${dec1(StrModel.gainIfWin(myStr, oppStr))} · prohra −${dec1(-StrModel.lossIfLose(myStr, oppStr))} STR`} />
+            <Muted size={13} text={`Rozdíl STR ${signedInt(myStr - oppStr)} · výhra +${StrModel.gainIfWin(myStr, oppStr)} · prohra −${-StrModel.lossIfLose(myStr, oppStr)} STR`} />
           </AppCard>
         )}
         <TileRow>

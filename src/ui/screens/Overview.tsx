@@ -119,7 +119,7 @@ export function OverviewScreen() {
               else vm.set("rankByTeam", false);
             }} />
           <StatTile label="Bilance" value={`${wins}–${seasonMatches.length - wins}`} dark sub="zápasy ›"
-            onClick={() => { vm.matchesTeam = "all"; vm.matchesSeason = null; vm.tab(S.Matches); }} />
+            onClick={() => { vm.matchesTeam = "all"; vm.matchesSeason = null; vm.matchesTab = "zapasy"; vm.tab(S.Matches); }} />
           <StatTile label="Úspěšnost" value={seasonMatches.length ? Stats.pct(wins / seasonMatches.length) : "–"} dark sub="sezóna" />
         </TileRow>
       </NavyHeader>
@@ -147,7 +147,7 @@ export function OverviewScreen() {
           <QuickLink text="Kapitán" onClick={() => vm.go(S.Captain)} />
           <QuickLink text="Porovnat" onClick={() => vm.go({ t: "Compare", a: null, b: null })} />
         </div>
-        <SectionTitle text="Poslední zápasy" action="Vše ›" onAction={() => { vm.matchesTeam = vm.recentTeam; vm.matchesSeason = null; vm.tab(S.Matches); }} />
+        <SectionTitle text="Poslední zápasy" action="Vše ›" onAction={() => { vm.matchesTeam = vm.recentTeam; vm.matchesSeason = null; vm.matchesTab = "zapasy"; vm.tab(S.Matches); }} />
         {myTeams.length > 1 && <Chips options={[["all", "Všechna"], ...myTeams.map((t) => [t, shortTeamName(t)] as [string, string])]} selected={vm.recentTeam} onSelect={(k) => vm.set("recentTeam", k)} />}
       </div>
       <div className="px16">
@@ -197,19 +197,23 @@ function SwitchRow({ name, enabled, onClick }: { name: string; enabled: boolean;
 }
 
 function MatchPager({ ctx }: { ctx: NextMatchContext | null }) {
+  // stránky: nejstarší … předchozí utkání | příští zápas | další budoucí utkání
   const prevs = ctx ? vm.previousList(ctx) : [];
-  const count = prevs.length + 1;
+  const futures = ctx ? vm.futureList(ctx) : [];
+  const nextIdx = prevs.length;
+  const count = prevs.length + 1 + futures.length;
   const ref = useRef<HTMLDivElement>(null);
-  const [page, setPage] = useState(count - 1);
-  const key = `${ctx?.myTeam.name}|${count}`;
+  const [page, setPage] = useState(nextIdx);
+  const key = `${ctx?.myTeam.name}|${prevs.length}|${futures.length}`;
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    // posun na poslední stránku (příští zápas) bez "přichycení" k jiné stránce
+    // výchozí stránka = příští zápas (bez "přichycení" k jiné stránce)
+    const left = () => nextIdx * (el.clientWidth + 10);
     el.style.scrollSnapType = "none";
-    el.scrollLeft = el.scrollWidth;
-    setPage(count - 1);
-    const id = requestAnimationFrame(() => { el.scrollLeft = el.scrollWidth; el.style.scrollSnapType = ""; });
+    el.scrollLeft = left();
+    setPage(nextIdx);
+    const id = requestAnimationFrame(() => { el.scrollLeft = left(); el.style.scrollSnapType = ""; });
     return () => cancelAnimationFrame(id);
   }, [key]);
   const onScroll = () => {
@@ -218,26 +222,49 @@ function MatchPager({ ctx }: { ctx: NextMatchContext | null }) {
     const w = el.clientWidth + 10;
     setPage(Math.max(0, Math.min(count - 1, Math.round(el.scrollLeft / w))));
   };
+  const hint = count === 1 ? "  zatím žádné další utkání"
+    : page === nextIdx ? "  " + [prevs.length ? `‹ předchozí (${prevs.length})` : "", futures.length ? `další (${futures.length}) ›` : ""].filter((x) => x).join(" · ")
+      : page < nextIdx ? `  utkání ${nextIdx - page} z ${prevs.length} zpět · doleva novější ›`
+        : `  ‹ doprava bližší · ${page - nextIdx + 1}. příští utkání`;
   return (
     <>
       <div className="pager" ref={ref} onScroll={onScroll}>
         {Array.from({ length: count }, (_, p) => (
-          <div className="page" key={p === count - 1 ? "next" : prevs[count - 2 - p]?.[1] || "p" + p}>
-            {p === count - 1 ? <NextCard ctx={ctx} /> : <PreviousCard ctx={ctx} prev={prevs[count - 2 - p]} back={count - 1 - p} total={prevs.length} />}
+          <div className="page" key={p === nextIdx ? "next" : p < nextIdx ? prevs[nextIdx - 1 - p]?.[1] || "p" + p : "f" + (p - nextIdx)}>
+            {p === nextIdx ? <NextCard ctx={ctx} />
+              : p < nextIdx ? <PreviousCard ctx={ctx} prev={prevs[nextIdx - 1 - p]} back={nextIdx - p} total={prevs.length} />
+                : <FutureCard ctx={ctx!} m={futures[p - nextIdx - 1]} ahead={p - nextIdx + 1} />}
           </div>
         ))}
       </div>
       <div className="dots">
-        {count <= 7 && Array.from({ length: count }, (_, p) => (
-          <div key={p} className="dot clickable" style={{ width: page === p ? 9 : 7, height: page === p ? 9 : 7, background: page === p ? C.Blue : C.Line }}
+        {count <= 9 && Array.from({ length: count }, (_, p) => (
+          <div key={p} className="dot clickable" style={{ width: page === p ? 9 : 7, height: page === p ? 9 : 7, background: page === p ? C.Blue : p === nextIdx ? "#AFC3EE" : C.Line }}
             onClick={() => { const el = ref.current; if (el) el.scrollTo({ left: p * (el.clientWidth + 10), behavior: "smooth" }); }} />
         ))}
-        <Muted size={11} maxLines={1} style={{ whiteSpace: "pre" }} text={
-          count === 1 ? "  zatím žádné odehrané utkání"
-            : page === count - 1 ? `  ‹ posuňte doprava pro předchozí utkání (${prevs.length})`
-              : `  utkání ${count - 1 - page} z ${prevs.length} zpět · doleva novější ›`} />
+        <Muted size={11} maxLines={1} style={{ whiteSpace: "pre" }} text={hint} />
       </div>
     </>
+  );
+}
+
+/** Další budoucí utkání (posunem doleva od příštího zápasu). */
+function FutureCard({ ctx, m, ahead }: { ctx: NextMatchContext; m: LosMatch; ahead: number }) {
+  const onBlue = "#D6E1FA";
+  const home = Stats.isHome(m, ctx.myTeam.ref, ctx.myTeam.name);
+  const opp = home ? m.away : m.home;
+  return (
+    <AppCard bg={C.Blue}>
+      <div className="row">
+        <T bold size={13} color={onBlue} style={{ letterSpacing: 1, flex: 1 }}>ZA {ahead} {ahead <= 4 ? "ZÁPASY" : "ZÁPASŮ"}</T>
+        <T semi size={13} color={onBlue}>{ahead}. příští</T>
+      </div>
+      <T size={18} bold color="#fff">{ctx.myTeam.name} {home ? "doma" : "venku"} vs {opp}</T>
+      <div className="row g8" style={{ flexWrap: "wrap" }}>
+        <T semi size={14} color="#fff">{m.dateTime != null ? fmtWhenShort(m.dateTime) : m.dateText}</T>
+        <Pill text={`${m.round}. kolo`} bg={C.Navy} fg="#fff" />
+      </div>
+    </AppCard>
   );
 }
 
@@ -356,7 +383,7 @@ function LastUtkaniCard() {
                 : g.game.inProgress ? "hraje se"
                   : g.won == null ? `výhra ${Math.round(g.ifWin)} · prohra ${Math.round(g.ifLoss)}` : ""} />
           </div>
-          {g.strAfter != null && <T bold color={C.delta(g.strAfter - g.strBefore)}>{(g.strAfter - g.strBefore >= 0 ? "+" : "−") + dec1(Math.abs(g.strAfter - g.strBefore))}</T>}
+          {g.strAfter != null && <T bold color={C.delta(g.strAfter - g.strBefore)}>{signedInt(Math.round(g.strAfter - g.strBefore))}</T>}
         </div>
       )) : [...last.official].reverse().map((m, i) => (
         <div className="row g10" key={i}>

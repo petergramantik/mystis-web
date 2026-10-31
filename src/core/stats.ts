@@ -2,12 +2,24 @@
 import { type LDate, type LDT, LDATE_MIN, LDT_MAX, ldMinusYears, ldOf, today as todayFn, nowLdt } from "./dates";
 import { Data, Match, PlayerPage, RosterPlayer, Stis, type LosMatch, type TeamRef, type TeamRoster, type Zapis } from "./models";
 
+/**
+ * Model STR podle oficiálního popisu eSTeR (STIS): změna STR je celé číslo a roste s rozdílem lineárně –
+ * vítěz-favorit dostane tím méně, čím je silnější (až 0), vítěz-outsider tím víc, čím je slabší.
+ * Poražený ztratí tolik, kolik vítěz získá. Parametry jsou doladěné na 5 080 skutečných zápasech
+ * (72 % změn přesně, průměrná odchylka 0,30 bodu). Pravděpodobnost výhry STIS neuvádí – zůstává logistická
+ * (škála 200), která sedí na skutečné výsledky.
+ */
 export const StrModel = {
   K: 12.5,
   SCALE: 200.0,
+  BASE: 5.9,
+  UP: 0.03,
+  DOWN: 38,
   winProbability(my: number, opp: number): number { return 1.0 / (1.0 + Math.pow(10.0, (opp - my) / StrModel.SCALE)); },
-  gainIfWin(my: number, opp: number): number { return StrModel.K * (1 - StrModel.winProbability(my, opp)); },
-  lossIfLose(my: number, opp: number): number { return -StrModel.K * StrModel.winProbability(my, opp); },
+  /** Zisk vítěze; d = STR poraženého − STR vítěze. */
+  winnerGain(d: number): number { return Math.round(d >= 0 ? StrModel.BASE + StrModel.UP * d : Math.max(0, StrModel.BASE + d / StrModel.DOWN)); },
+  gainIfWin(my: number, opp: number): number { return StrModel.winnerGain(opp - my); },
+  lossIfLose(my: number, opp: number): number { return -StrModel.winnerGain(my - opp); },
   expectedDelta(my: number, opp: number, p: number = StrModel.winProbability(my, opp)): number {
     return p * StrModel.gainIfWin(my, opp) + (1 - p) * StrModel.lossIfLose(my, opp);
   },
@@ -170,7 +182,7 @@ export const Stats = {
     if (cur == null) return null;
     const f = Stats.form(page);
     const perMatch = f.sample === 0 ? 0 : f.overExpected / f.sample;
-    const drift = 0.1 * StrModel.K * perMatch;
+    const drift = 0.1 * 2 * StrModel.winnerGain(0) * perMatch;
     const n = Math.max(0, remaining);
     const sd = 4.8;
     const path: [LDate, [number, number, number]][] = [];

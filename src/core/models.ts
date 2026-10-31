@@ -33,6 +33,7 @@ export const Stis = {
   losVse: (t: TeamRef) => `/los-vse/svaz-${t.svaz}/rocnik-${t.rocnik}/soutez-${t.soutez}/druzstvo-${t.id}`,
   soupisky: (svaz: string, rocnik: number, soutez: string) => `/soupisky/svaz-${svaz}/rocnik-${rocnik}/soutez-${soutez}`,
   tabulka: (svaz: string, rocnik: number, soutez: string) => `/tabulka/svaz-${svaz}/rocnik-${rocnik}/soutez-${soutez}`,
+  zebricek: (svaz: string, rocnik: number, soutez: string) => `/zebricekstr-soutez/svaz-${svaz}/rocnik-${rocnik}/soutez-${soutez}`,
 
   teamRef(path: string | null | undefined, name = ""): TeamRef | null {
     if (path == null) return null;
@@ -247,6 +248,14 @@ export interface StandingRow {
   position: number; name: string; clubId: string | null; teamId: string | null;
   played: number; wins: number; draws: number; losses: number; score: string; points: number;
 }
+
+/** Řádek oficiálního žebříčku STR soutěže (zebricekstr-soutez). */
+export interface StrLadderRow {
+  rank: number | null; id: string | null; path: string | null; name: string; birthYear: number | null;
+  matches: number | null; bilance: string | null; str: number | null; stabil: number | null;
+}
+export interface StrLadderSection { title: string; rows: StrLadderRow[] }
+export interface StrLadder { title: string; sections: StrLadderSection[]; info: string }
 
 export interface ClubPage { id: string; name: string; teams: TeamRef[] }
 

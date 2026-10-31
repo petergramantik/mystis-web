@@ -16,18 +16,18 @@ import "./ui/app.css";
 
 const TABS: [Screen, string, string][] = [
   [S.Overview, "Přehled", "home"],
-  [S.Ladder, "Žebříček", "leaderboard"],
+  [S.Ladder, "Žebříčky", "leaderboard"],
   [S.Str, "STR", "chart"],
-  [S.Matches, "Zápasy", "list"],
+  [S.Matches, "Utkání", "list"],
   [S.Opponents, "Soupeři", "search"],
 ];
 
 function title(s: Screen): string {
   switch (s.t) {
     case "Overview": return "MySTIS";
-    case "Ladder": return "Interní žebříček";
+    case "Ladder": return "Žebříčky";
     case "Str": return "Vývoj STR";
-    case "Matches": return "Historie zápasů";
+    case "Matches": return "Utkání";
     case "Opponents": return "Soupeři";
     case "Club": return s.name;
     case "H2H": return "Vzájemné zápasy";

@@ -139,7 +139,7 @@ export function ScoutSection({ me, roster, title }: { me: PlayerPage; roster: Ro
                 </div>
                 <div className="col" style={{ alignItems: "flex-end" }}>
                   {s.winProb != null && <BigNumber text={Stats.pct(s.winProb)} color={s.winProb >= 0.5 ? C.Win : C.OrangeText} size={20} />}
-                  {s.gain != null && s.loss != null && <Muted text={`+${dec1(s.gain)} / −${dec1(-s.loss)}`} size={12} maxLines={1} />}
+                  {s.gain != null && s.loss != null && <Muted text={`+${s.gain} / −${-s.loss}`} size={12} maxLines={1} />}
                 </div>
               </div>
               <Divider />

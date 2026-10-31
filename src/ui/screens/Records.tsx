@@ -204,7 +204,7 @@ export function SettingsScreen() {
       {msg && <AppCard><Muted text={msg} color={C.Ink} size={14} maxLines={4} /></AppCard>}
       <AppCard>
         <T bold>O aplikaci</T>
-        <Muted size={13} maxLines={10} text={"MySTIS čte veřejné stránky stis.ping-pong.cz. Model STR (K = 12,5, škála 200) a predikce byly ověřeny na 15 195 skutečných zápasech. " +
+        <Muted size={13} maxLines={10} text={"MySTIS čte veřejné stránky stis.ping-pong.cz. Změny STR počítá podle oficiálního popisu eSTeR, doladěného na 5 080 skutečných zápasech. " +
           (standalone ? "Aplikace běží z plochy." : "Na plochu telefonu ji přidáte v menu prohlížeče → Přidat na plochu (Chrome) nebo Sdílet → Přidat na plochu (Safari).")} />
       </AppCard>
       <div style={{ height: 8 }} />

@@ -39,6 +39,8 @@ function losPage(id: string) {
     `<tr><td>6.</td><td>30.10.2026 17:30</td><td>${me}</td><td>${o1}</td><td><a href="/zapis/svaz-420802/rocnik-2026/soutez-${t.soutez}/utkani-700001">10:6</a></td></tr>`,
     `<tr><td>7.</td><td>06.11.2026 18:00</td><td>${o2}</td><td>${me}</td><td></td></tr>`,
     `<tr><td>8.</td><td>13.11.2026 17:30</td><td>${me}</td><td>${o1}</td><td></td></tr>`,
+    `<tr><td>9.</td><td>20.11.2026 18:00</td><td>${o2}</td><td>${me}</td><td></td></tr>`,
+    `<tr><td>10.</td><td>27.11.2026 17:30</td><td>${me}</td><td>${o2}</td><td></td></tr>`,
   ];
   return pad(`<table class="table los table-sm"><thead><tr><th>Kolo</th></tr></thead><tbody>${rows.join("\n")}</tbody></table>`);
 }
@@ -66,6 +68,18 @@ function zapisPage(no: string) {
     <tr><td>Datum dle rozpisu</td><td>${no === "700001" ? "30.10.2026 17:30" : "23.10.2026 18:00"}</td><td>Hráno v místnosti</td><td>Bystřice, sokolovna</td></tr>
     <tr><td>${h}</td><td>:</td><td>${a}</td><td>33</td><td>:</td><td>34</td><td>632</td><td>:</td><td>640</td><td>x</td></tr></table>
     <table class="zapis">${rows.join("\n")}</table>`);
+}
+function tabulkaPage() {
+  const rows = [["TTC Bystřice B", "66625", 6, 4, 1, 1, 60, 40, 15], ["Sokol Skalice", "66769", 6, 3, 1, 2, 52, 48, 13], ["TJ Sokol Dobrá", "66770", 6, 2, 0, 4, 45, 55, 10], ["TTC Bystřice C", "66627", 6, 1, 0, 5, 40, 60, 8]];
+  const inner = JSON.stringify({ tables: [{ data: rows.map((r) => ({ nazev: r[0], id_druzstvo: r[1], id_oddil: "1", pocet: r[2], vyhry: r[3], remizy: r[4], prohry: r[5], vyhrbody: r[6], prohrbody: r[7], body: r[8] })) }] });
+  return pad(`<script>var initTabData = "${inner.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}";</script>`);
+}
+function zebricekPage() {
+  const hdr = `<tr><th>#</th><th>Hráč</th><th>Nar.</th><th>Zápasy</th><th><i class="fa fa-sort"></i>STR</th><th>STR<sub>stabil</sub></th><th>STR<sub>±</sub></th></tr>`;
+  const row = (n: number, id: string, nm: string, z: string, str: number) => `<tr><td>${n}.</td><td><a href="/hrac-${id}/svaz-420802/rocnik-2026">${nm}</a></td><td>1980</td><td>${z}</td><td>${str}</td><td>${str},2</td><td>+1</td></tr>`;
+  const main = [["90001", "Novák Jan", "11 (8:3)", 1480], ["43939", "Matloch Tadeusz", "10 (6:4)", 1495], ["90002", "Dvořák Petr", "12 (6:6)", 1430], ["43944", "Šedivý Milan", "13 (5:8)", 1445], ["43941", "Telecký Jaroslav", "9 (4:5)", 1281]];
+  return pad(`<h4>POŘADÍ STR - KSST TEST - OS1 - 2026-2027</h4><table class="table">${hdr}${main.map((r, i) => row(i + 1, r[0] as string, r[1] as string, r[2] as string, r[3] as number)).join("")}</table>
+    <h5>Hráči, kteří odehráli méně než 8 zápasů</h5><table class="table">${hdr}${row(1, "33363", "Buda Boleslav", "5 (2:3)", 1229)}${row(2, "90004", "Malý Ivo", "4 (1:3)", 1350)}</table>`);
 }
 function searchPage(q: string) {
   const qq = q.toLowerCase();
@@ -107,6 +121,8 @@ Bun.serve({
     if (dm) return html(teamPage(dm[1]));
     const lm = /\/druzstvo-(\d+)$/.exec(p);
     if (p.startsWith("/los-vse")) return html(losPage(lm?.[1] ?? "66625"));
+    if (p.startsWith("/tabulka")) return html(tabulkaPage());
+    if (p.startsWith("/zebricekstr-soutez")) return html(zebricekPage());
     if (p.startsWith("/soupisky")) return html(pad("<table></table>"));
     const zm = /utkani-(\d+)/.exec(p);
     if (zm) return html(zapisPage(zm[1]));

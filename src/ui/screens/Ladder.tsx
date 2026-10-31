@@ -1,15 +1,181 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { vm, S } from "../../app/vm";
-import { Clubs } from "../../core/models";
-import { avg, maxBy, type LadderEntry } from "../../core/stats";
-import { BigNumber, C, Chips, Dialog, Divider, Empty, ErrorBox, ListCard, Loading, Muted, StatTile, T, TileRow, f0, signedInt } from "../components";
+import { Clubs, Stis, type StandingRow, type StrLadder } from "../../core/models";
+import { Stats, avg, maxBy, type LadderEntry } from "../../core/stats";
+import { AppCard, BigNumber, C, Chips, Dialog, Divider, Empty, ErrorBox, ErrorWithDiagnostics, ListCard, Loading, Muted, Segmented, StatTile, T, TileRow, dec1, f0, signedInt } from "../components";
 
 export function shortTeam(team: string, club: string): string {
   const letter = Clubs.teamLetter(team);
   return Clubs.clubName(team).toLowerCase() === Clubs.clubName(club).toLowerCase() || !club ? `${letter}-tým` : team;
 }
 
+/** Záložka Žebříčky: tabulka soutěže, oficiální žebříček STR a interní žebříček oddílu. */
 export function LadderScreen() {
+  const tab = vm.ladderTab;
+  return (
+    <div className="col g10">
+      <div className="px16"><Segmented options={[["tabulka", "Tabulka"], ["stis", "Žebříček STIS"], ["interni", "Interní"]]} selected={tab} onSelect={(k) => vm.set("ladderTab", k)} /></div>
+      {tab === "tabulka" ? <CompetitionView kind="tabulka" /> : tab === "stis" ? <CompetitionView kind="stis" /> : <InternalLadder />}
+    </div>
+  );
+}
+
+interface Comp { svaz: string; rocnik: number; soutez: string; label: string; teams: string[] }
+
+/** Soutěže, ve kterých hráč hrál, podle sezón (z karet sezón na stránce hráče). */
+function competitions(): Map<number, Comp[]> {
+  const out = new Map<number, Comp[]>();
+  for (const s of vm.me?.seasons ?? []) {
+    for (const t of s.teams) {
+      const r = t.ref;
+      if (!r) continue;
+      const list = out.get(r.rocnik) ?? [];
+      const c = list.find((x) => x.soutez === r.soutez && x.svaz === r.svaz);
+      if (c) { if (!c.teams.includes(t.name)) c.teams.push(t.name); }
+      else list.push({ svaz: r.svaz, rocnik: r.rocnik, soutez: r.soutez, label: t.competition || t.name, teams: [t.name] });
+      out.set(r.rocnik, list);
+    }
+  }
+  return out;
+}
+
+function CompetitionView({ kind }: { kind: "tabulka" | "stis" }) {
+  const me = vm.me;
+  const comps = competitions();
+  const seasons = Array.from(comps.keys()).sort((a, b) => b - a);
+  const season = vm.compSeason != null && comps.has(vm.compSeason) ? vm.compSeason : seasons[0] ?? null;
+  const list = season != null ? comps.get(season)! : [];
+  // výchozí soutěž = soutěž hlavního družstva hráče
+  const mainSoutez = vm.next[vm.mainTeamIndex]?.myTeam.ref?.soutez;
+  const comp = list.find((c) => c.soutez === vm.compId) ?? list.find((c) => c.soutez === mainSoutez) ?? list[0] ?? null;
+  useEffect(() => {
+    if (!comp) return;
+    if (kind === "tabulka") vm.loadTabulka(comp.svaz, comp.rocnik, comp.soutez);
+    else vm.loadStrLadder(comp.svaz, comp.rocnik, comp.soutez);
+  }, [kind, comp?.svaz, comp?.rocnik, comp?.soutez]);
+  if (!me) return <Loading />;
+  if (!comp) return <div className="px16"><Empty text="U hráče jsem nenašel žádnou soutěž." /></div>;
+  const path = kind === "tabulka" ? Stis.tabulka(comp.svaz, comp.rocnik, comp.soutez) : Stis.zebricek(comp.svaz, comp.rocnik, comp.soutez);
+  const loading = vm.compLoading.get(path) === true;
+  const error = vm.compErrors.get(path);
+  const reload = () => kind === "tabulka" ? vm.loadTabulka(comp.svaz, comp.rocnik, comp.soutez, true) : vm.loadStrLadder(comp.svaz, comp.rocnik, comp.soutez, true);
+  return (
+    <div className="col g10 px16">
+      {seasons.length > 1 && <Chips options={seasons.map((y) => [String(y), `${y}/${(y + 1) % 100}`])} selected={String(season)} onSelect={(k) => { vm.set("compSeason", parseInt(k, 10)); vm.set("compId", null); }} />}
+      {list.length > 1 && <Chips options={list.map((c) => [c.soutez, c.label])} selected={comp.soutez} onSelect={(k) => vm.set("compId", k)} />}
+      {error ? <ErrorBox text={error} onRetry={reload} />
+        : kind === "tabulka" ? <StandingsTable comp={comp} rows={vm.tabulky.get(path)} loading={loading} />
+          : <OfficialLadder comp={comp} data={vm.strLadders.get(path)} loading={loading} />}
+      <div style={{ height: 8 }} />
+    </div>
+  );
+}
+
+const myClubFold = () => Stats.fold(Clubs.clubName(vm.me?.clubName ?? vm.club.name ?? ""));
+
+function StandingsTable({ comp, rows, loading }: { comp: Comp; rows: StandingRow[] | undefined; loading: boolean }) {
+  if (!rows) return loading ? <Loading text="Načítám tabulku soutěže…" /> : <Empty text="Tabulka zatím není načtená." />;
+  if (!rows.length) return <Empty text="Tabulka soutěže je prázdná nebo ji STIS zatím nezveřejnil." />;
+  const club = myClubFold();
+  const mine = (r: StandingRow) => comp.teams.some((t) => Stats.fold(t) === Stats.fold(r.name)) || (!!club && Stats.fold(Clubs.clubName(r.name)) === club);
+  return (
+    <>
+      <Muted text={`${comp.label} · ${comp.rocnik}/${(comp.rocnik + 1) % 100}`} size={14} />
+      <div className="row" style={{ padding: "0 14px" }}>
+        <Muted text="#" size={12} style={{ width: 28 }} />
+        <Muted text="DRUŽSTVO" size={12} style={{ flex: 1 }} />
+        <Muted text="Z" size={12} style={{ width: 26, textAlign: "center" }} />
+        <Muted text="V-R-P" size={12} style={{ width: 62, textAlign: "center" }} />
+        <Muted text="SKÓRE" size={12} style={{ width: 58, textAlign: "center" }} />
+        <Muted text="B" size={12} style={{ width: 30, textAlign: "right" }} />
+      </div>
+      <ListCard>
+        {rows.map((r, i) => {
+          const m = mine(r);
+          return (
+            <div key={i}>
+              <div className="row" style={{ background: m ? C.Tint : "#fff", padding: "10px 14px" }}>
+                <BigNumber text={`${r.position}`} size={18} color={r.position <= 3 ? C.Orange : C.Ink} style={{ width: 28, flex: "none" }} />
+                <T semi={!m} bold={m} size={15} lines={2} style={{ flex: 1 }}>{r.name}</T>
+                <T size={14} center style={{ width: 26, flex: "none" }}>{r.played}</T>
+                <T size={13} center color={C.Muted} style={{ width: 62, flex: "none" }}>{`${r.wins}-${r.draws}-${r.losses}`}</T>
+                <T size={13} center color={C.Muted} style={{ width: 58, flex: "none" }}>{r.score}</T>
+                <BigNumber text={`${r.points}`} size={18} style={{ width: 30, flex: "none", textAlign: "right" }} />
+              </div>
+              <Divider />
+            </div>
+          );
+        })}
+      </ListCard>
+      <Muted text="Z = utkání, V-R-P = výhry, remízy, prohry, B = body. Modře družstva vašeho oddílu." size={12} maxLines={2} />
+    </>
+  );
+}
+
+function OfficialLadder({ comp, data, loading }: { comp: Comp; data: StrLadder | undefined; loading: boolean }) {
+  if (!data) return loading ? <Loading text="Načítám žebříček soutěže…" /> : <Empty text="Žebříček zatím není načtený." />;
+  const total = data.sections.reduce((a, s) => a + s.rows.length, 0);
+  if (!total) return (
+    <AppCard>
+      <ErrorWithDiagnostics message="Žebříček se nepodařilo přečíst (STIS možná změnil vzhled stránky, nebo ho pro soutěž zatím nezveřejnil)." diagnostics={data.info} />
+    </AppCard>
+  );
+  const meId = vm.me?.id;
+  const clubIds = new Set<string>();
+  for (const e of vm.club.ladder) if (e.id) clubIds.add(e.id);
+  for (const r of vm.club.rosters) for (const p of r.players) if (p.id) clubIds.add(p.id);
+  if (meId) clubIds.add(meId);
+  const onlyMine = vm.strLadderMine;
+  const sections = data.sections.map((s) => ({ ...s, rows: onlyMine ? s.rows.filter((r) => r.id != null && clubIds.has(r.id)) : s.rows })).filter((s) => s.rows.length);
+  return (
+    <>
+      <Segmented options={[["all", "Všichni"], ["mine", "Můj oddíl"]]} selected={onlyMine ? "mine" : "all"} onSelect={(k) => vm.set("strLadderMine", k === "mine")} />
+      <Muted text={data.title || `${comp.label} · ${comp.rocnik}/${(comp.rocnik + 1) % 100}`} size={14} maxLines={2} />
+      {!sections.length && <Empty text="V žebříčku této soutěže nikdo z vašeho oddílu není." />}
+      {sections.map((s, si) => (
+        <div className="col g6" key={si}>
+          {s.title && <T size={13} bold color={C.Muted} style={{ paddingLeft: 4, paddingTop: 6 }}>{s.title.toUpperCase()}</T>}
+          {si === 0 && (
+            <div className="row" style={{ padding: "0 14px" }}>
+              <Muted text="#" size={12} style={{ width: 34 }} />
+              <Muted text="HRÁČ" size={12} style={{ flex: 1 }} />
+              <Muted text="ZÁPASY" size={12} style={{ width: 66 }} />
+              <Muted text="STR" size={12} style={{ width: 52, textAlign: "right" }} />
+            </div>
+          )}
+          <ListCard>
+            {s.rows.map((r, i) => {
+              const mine = r.id != null && clubIds.has(r.id);
+              const isMe = r.id != null && r.id === meId;
+              return (
+                <div key={i}>
+                  <div className={"row" + (r.path ? " clickable" : "")} style={{ background: mine ? C.Tint : "#fff", padding: "9px 14px" }}
+                    onClick={() => { if (isMe) vm.tab(S.Str); else if (r.path) vm.go({ t: "Player", path: r.path }); }}>
+                    <BigNumber text={r.rank != null ? `${r.rank}` : "–"} size={18} color={mine ? C.Blue : C.Ink} style={{ width: 34, flex: "none" }} />
+                    <div className="col w1">
+                      <T size={15} bold={mine} semi={!mine} lines={1}>{r.name + (isMe ? " (vy)" : "")}</T>
+                      <Muted text={[r.birthYear != null ? `nar. ${r.birthYear}` : null, r.stabil != null ? `stabil ${dec1(r.stabil)}` : null].filter((x) => x).join(" · ")} size={12} maxLines={1} />
+                    </div>
+                    <div className="col" style={{ width: 66, flex: "none" }}>
+                      <T size={14}>{r.matches ?? "–"}</T>
+                      {r.bilance && <Muted text={r.bilance} size={12} />}
+                    </div>
+                    <BigNumber text={r.str != null ? `${r.str}` : "–"} size={20} style={{ width: 52, flex: "none", textAlign: "right" }} />
+                  </div>
+                  <Divider />
+                </div>
+              );
+            })}
+          </ListCard>
+        </div>
+      ))}
+      <Muted size={12} maxLines={3} text={`Oficiální žebříček STR soutěže ze STIS. Modře hráči vašeho oddílu${vm.club.ladder.length ? "" : " (oddíl se ještě načítá)"}. Klepnutím otevřete profil hráče.`} />
+    </>
+  );
+}
+
+/** Interní žebříček oddílu (dosavadní obrazovka Žebříček). */
+function InternalLadder() {
   const club = vm.club;
   const [team, setTeam] = useState("all");
   const [sort, setSort] = useState("str");

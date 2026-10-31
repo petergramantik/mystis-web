@@ -342,6 +342,26 @@ async function main() {
   const doneC = await frepo.nextMatches(fakeMe, nowL, new Set(["66625"]));
   check("live then next", liveC[0].liveNow && liveC[0].next?.round === "6" && !doneC[0].liveNow && doneC[0].next?.round === "7", () => `${liveC[0].next?.round} ${doneC[0].next?.round}`);
 
+  // ---------- oficiální žebříček STR soutěže (dvě možné podoby stránky)
+  const zr = (n: number, id: string, nm: string, z: string, str: number) =>
+    `<tr><td>${n}.</td><td><a href="/hrac-${id}/svaz-420104/rocnik-2026">${nm}</a></td><td>1985</td><td>${z}</td><td>${str}</td><td>${str},4</td><td>+3</td></tr>`;
+  const zh = `<tr><th>#</th><th>Hráč</th><th>Nar.</th><th>Zápasy</th><th><i class="x"></i>STR</th><th>STR<sub>stabil</sub></th><th>STR<sub>±</sub></th></tr>`;
+  const zeb1 = `<h4>POŘADÍ STR - KSST JIHOMORAVSKÝ - K2C - 2026-2027</h4><table class="table">${zh}${zr(1, "1", "Horák Aleš", "11 (10:1)", 1808)}${zr(23, "79858", "Gramantik Peter (E)", "13 (5:8)", 1559)}</table>
+    <h5>Hráči, kteří odehráli méně než 8 zápasů</h5><table class="table">${zh}${zr(1, "3", "Prchlík Filip", "4 (4:0)", 1858)}</table>
+    <h5>Hráči, kteří odehráli méně než 4 zápasy</h5><table class="table">${zh}${zr(1, "4", "Konečný Filip", "3 (3:0)", 1721)}</table>`;
+  const sl1 = Parsers.strLadder(zeb1);
+  check("strLadder sekce", sl1.sections.length === 3 && sl1.sections[0].rows.length === 2 && sl1.sections[1].title.startsWith("Hráči, kteří odehráli méně než 8") && sl1.title.startsWith("POŘADÍ STR"), () => J(sl1));
+  const g1 = sl1.sections[0].rows[1];
+  check("strLadder řádek", g1.rank === 23 && g1.id === "79858" && g1.name === "Gramantik Peter" && g1.matches === 13 && g1.bilance === "5:8" && g1.str === 1559 && Math.abs((g1.stabil ?? 0) - 1559.4) < 1e-9 && g1.birthYear === 1985, () => J(g1));
+  const zeb2 = `<table>${zh}${zr(1, "1", "Horák Aleš", "11 (10:1)", 1808)}<tr><th colspan="7">Hráči, kteří odehráli méně než 8 zápasů</th></tr>${zr(1, "3", "Prchlík Filip", "4 (4:0)", 1858)}</table>`;
+  const sl2 = Parsers.strLadder(zeb2);
+  check("strLadder v jedné tabulce", sl2.sections.length === 2 && sl2.sections[1].rows[0].str === 1858 && sl2.sections[0].title === "", () => J(sl2));
+
+  // ---------- oficiální model změn STR (tabulka z popisu eSTeR)
+  check("STR stejné", StrModel.gainIfWin(1500, 1500) === 6 && StrModel.lossIfLose(1500, 1500) === -6);
+  check("STR favorit", StrModel.gainIfWin(1700, 1500) === 1 && StrModel.gainIfWin(1750, 1500) === 0 && StrModel.gainIfWin(1540, 1500) === 5 && StrModel.lossIfLose(1500, 1540) === -5);
+  check("STR outsider", StrModel.gainIfWin(1500, 1700) === 12 && StrModel.lossIfLose(1700, 1500) === -12);
+
   console.log(`\nTESTY: ${passes} OK, ${failures} chyb`);
   if (failures > 0) process.exit(1);
 }

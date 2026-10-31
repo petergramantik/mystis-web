@@ -1,5 +1,5 @@
 // Stav aplikace a načítání dat (přepis AppViewModel.kt). Každá změna stavu zavolá emit() a React překreslí obrazovku.
-import { Match, Stis, type ClubPage, type LosMatch, type PlayerPage, type RosterPlayer, type TeamRef, type TeamRoster, type Zapis } from "../core/models";
+import { Match, Stis, type StandingRow, type StrLadder, type ClubPage, type LosMatch, type PlayerPage, type RosterPlayer, type TeamRef, type TeamRoster, type Zapis } from "../core/models";
 import { Parsers } from "../core/parsers";
 import { StisRepository, HOUR, type NextMatchContext } from "../core/repository";
 import { Stats, LadderEntry, maxBy, minBy, distinct, distinctBy, type SetStats } from "../core/stats";
@@ -251,6 +251,17 @@ export class AppVm {
     return lastOpp((x) => Stats.fold(x.opponent) === f);
   }
 
+  /** Rozpětí STRmin…STRmax nového hráče (jen když je široké – u zavedených hráčů se počítá s STR). */
+  rangeOf(id: string | null | undefined, name: string): [number, number] | null {
+    const f = Stats.fold(name);
+    for (const p of this.players.values()) {
+      if (!((id && p.id === id) || (!id && Stats.fold(p.name) === f))) continue;
+      const { min, max } = p.ster;
+      return min != null && max != null && max - min >= 200 ? [min, max] : null;
+    }
+    return null;
+  }
+
   /** Soupiska s aktuálním STR. */
   fresh(list: RosterPlayer[]): RosterPlayer[] {
     return list.map((p) => {
@@ -363,7 +374,7 @@ export class AppVm {
     const unoff = this.unofficialFor(m).filter((x) => x.zapisPath !== z.path);
     let before = start;
     for (let i = unoff.length - 1; i >= 0; i--) if (unoff[i].strAfter != null) { before = unoff[i].strAfter!; break; }
-    const games = Live.fromZapis(z, (id, n) => this.strOf(id, n));
+    const games = Live.fromZapis(z, (id, n) => this.strOf(id, n), (id, n) => this.rangeOf(id, n));
     return LiveTimeline.timeline(games, m.id, m.name, before);
   }
 
@@ -376,7 +387,7 @@ export class AppVm {
       if (team != null && Stats.fold(c.myTeam.name) !== Stats.fold(team)) continue;
       const z = this.liveZapisFor(this.teamKey(c));
       if (!z || !this.zapisBelongs(z, c) || m.matches.some((x) => x.zapisPath === z.path)) continue;
-      if (LiveTimeline.timeline(Live.fromZapis(z, (id, n) => this.strOf(id, n)), m.id, m.name, 1500).length) return z;
+      if (LiveTimeline.timeline(Live.fromZapis(z, (id, n) => this.strOf(id, n), (id, n) => this.rangeOf(id, n)), m.id, m.name, 1500).length) return z;
     }
     const lp = paths[paths.length - 1];
     return lp ? this.zapisy.get(lp) ?? null : null;
@@ -398,6 +409,14 @@ export class AppVm {
     return minBy(ctx.los.filter((x) => !x.played && x !== n && (x.dateTime == null || n.dateTime == null || x.dateTime > n.dateTime)), (x) => x.dateTime ?? LDT_MAX);
   }
 
+  /** Budoucí utkání družstva po příštím zápase (pro posouvání panelu doleva). */
+  futureList(ctx: NextMatchContext): LosMatch[] {
+    const n = this.upcoming(ctx);
+    if (!n) return [];
+    return ctx.los.filter((x) => !x.played && x !== n && x !== ctx.next && (x.dateTime == null || n.dateTime == null || x.dateTime > n.dateTime))
+      .sort((a, b) => (a.dateTime ?? LDT_MAX) - (b.dateTime ?? LDT_MAX));
+  }
+
   /** Zápasy hráče ze zápisů, které STIS ještě nezapočítal do jeho profilu. */
   unofficialFor(p: PlayerPage): Match[] {
     const start = p.currentStr;
@@ -414,7 +433,7 @@ export class AppVm {
     let cur = start;
     const out: Match[] = [];
     for (const [z, date] of candidates) {
-      const games = Live.fromZapis(z, (id, n) => this.strOf(id, n));
+      const games = Live.fromZapis(z, (id, n) => this.strOf(id, n), (id, n) => this.rangeOf(id, n));
       const tl = LiveTimeline.timeline(games, p.id, p.name, cur);
       if (!tl.length) continue;
       const myHome = tl[0].home;
@@ -510,6 +529,50 @@ export class AppVm {
     return { title: `Poslední utkání · ${last.dateText}`, unofficial: false, live: [], official: games, zapisPath: last.zapisPath, myTeam: last.myTeam, running: false };
   }
 
+  // ---------- žebříčky soutěží (tabulka družstev a oficiální žebříček STR)
+  /** hlavní družstvo hráče = nejvíc zápasů v sezóně */
+  mainTeamIndex = 0;
+  tabulky = new Map<string, StandingRow[]>();
+  strLadders = new Map<string, StrLadder>();
+  compErrors = new Map<string, string>();
+  compLoading = new Map<string, boolean>();
+
+  private loadComp(path: string, work: () => Promise<void>) {
+    if (this.compLoading.get(path)) return;
+    this.compLoading.set(path, true); this.compErrors.delete(path); this.emit();
+    work().catch((e) => { this.compErrors.set(path, err(e)); }).finally(() => { this.compLoading.set(path, false); this.emit(); });
+  }
+  loadTabulka(svaz: string, rocnik: number, soutez: string, force = false) {
+    const path = Stis.tabulka(svaz, rocnik, soutez);
+    if (!force && this.tabulky.has(path)) return;
+    this.loadComp(path, async () => { this.tabulky.set(path, await this.repo.tabulka(svaz, rocnik, soutez, force ? 0 : 6 * HOUR)); });
+  }
+  loadStrLadder(svaz: string, rocnik: number, soutez: string, force = false) {
+    const path = Stis.zebricek(svaz, rocnik, soutez);
+    if (!force && this.strLadders.has(path)) return;
+    this.loadComp(path, async () => { this.strLadders.set(path, await this.repo.strLadder(svaz, rocnik, soutez, force ? 0 : 6 * HOUR)); });
+  }
+
+  // ---------- místo utkání (herna domácího družstva)
+  /** Herna družstva podle některého z jeho domácích zápisů ("Hráno v místnosti"). */
+  homePlace(ref: TeamRef | null, name: string): string | null {
+    const f = Stats.fold(name);
+    for (const z of this.zapisy.values()) {
+      if (!z.place.trim()) continue;
+      if ((ref && z.homeTeamId === ref.id) || Stats.fold(z.home) === f) return z.place;
+    }
+    return null;
+  }
+  /** Dočte jeden domácí zápis družstva (přes jeho rozpis), aby bylo známé místo budoucích utkání. */
+  ensureHomePlace(ref: TeamRef | null, name: string) {
+    if (!ref || this.homePlace(ref, name)) return;
+    const los = this.next.find((c) => c.myTeam.ref?.id === ref.id)?.los ?? this.teamLos.get(ref.id);
+    if (los === undefined) { this.loadTeamLos(ref); return; }
+    if (los === null) return;
+    const home = los.find((x) => x.played && x.zapisPath && (x.homeRef?.id === ref.id || Stats.fold(x.home) === Stats.fold(name)));
+    if (home) this.loadZapis(home.zapisPath);
+  }
+
   // ---------- volby filtrů, které se pamatují mezi obrazovkami
   lastByTeam = true;
   matchesTeam = "all";
@@ -518,7 +581,13 @@ export class AppVm {
   oppMode = "name";
   oppComp = "all";
   rankByTeam = false;
-  set<K extends "lastByTeam" | "matchesTeam" | "matchesSeason" | "recentTeam" | "oppMode" | "oppComp" | "rankByTeam">(k: K, v: this[K]) {
+  ladderTab = "tabulka";
+  matchesTab = "utkani";
+  compSeason: number | null = null;
+  compId: string | null = null;
+  strLadderMine = false;
+  utkaniTeam: number | null = null;
+  set<K extends "lastByTeam" | "matchesTeam" | "matchesSeason" | "recentTeam" | "oppMode" | "oppComp" | "rankByTeam" | "ladderTab" | "matchesTab" | "compSeason" | "compId" | "strLadderMine" | "utkaniTeam">(k: K, v: AppVm[K]) {
     (this as any)[k] = v; this.emit();
   }
 
@@ -677,7 +746,8 @@ export class AppVm {
           if (!z) continue;
           if (!c.liveNow && this.zapisBelongs(z, c) && Live.isZapisFinished(z, this.format)) this.liveLinks.delete(key);
         }
-        if (!this.nextSelectedByUser || this.nextSelected >= ctx.length) this.nextSelected = this.defaultTeamIndex(ctx, m);
+        this.mainTeamIndex = this.defaultTeamIndex(ctx, m);
+        if (!this.nextSelectedByUser || this.nextSelected >= ctx.length) this.nextSelected = this.mainTeamIndex;
         ctx.forEach((c, i) => { if (c.liveNow && this.liveLinks.get(this.teamKey(c)) == null) this.autoFindZapis(i); });
         this.loadPendingZapisy();
         const c = ctx.find((x) => x.next?.dateTime != null);
