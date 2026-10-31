@@ -329,8 +329,8 @@ function PreviousCard({ ctx, prev, back, total, onHome }: { ctx: NextMatchContex
   if (!prev || !ctx) return <AppCard bg={C.Navy}>{head}<Muted text="V této sezóně družstvo ještě nehrálo." color={muted} /><div><HomeButton onHome={onHome} left={false} /></div></AppCard>;
   const homeName = (z?.home.trim() ? z.home : null) ?? m?.home ?? "";
   const awayName = (z?.away.trim() ? z.away : null) ?? m?.away ?? "";
-  const hp = z ? z.points[0] ?? z.games.filter((g) => g.result === 1).length : null;
-  const ap = z ? z.points[1] ?? z.games.filter((g) => g.result === -1).length : null;
+  const hp = z ? z.score[0] : null;
+  const ap = z ? z.score[1] : null;
   const score = hp != null && ap != null ? `${hp} : ${ap}` : m?.score.replace(":", " : ") ?? "–";
   let stats: ReturnType<typeof Live.playerStats> = [];
   if (z) {

@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useZapisRefresh } from "../zapis";
 import { vm } from "../../app/vm";
-import { Stis, type PlayerPage, type ZapisGame } from "../../core/models";
+import { Stis, type Match, type PlayerPage, type ZapisGame } from "../../core/models";
 import { Stats, StrModel, sum } from "../../core/stats";
 import { Live } from "../../core/live";
 import { Parsers } from "../../core/parsers";
@@ -53,19 +53,7 @@ export function PairScreen({ aId0, aName0, bId0, bName0, pA0 }: { aId0: string; 
           </AppCard>
           <SectionTitle text="Všechny vzájemné zápasy" />
           <ListCard>
-            {[...list].reverse().map((m, i) => (
-              <div key={i}>
-                <div className="row" style={{ padding: "10px 14px" }}>
-                  <div className="col w1">
-                    <T bold>{m.date != null ? DMY(m.date) : m.dateText}</T>
-                    <Muted maxLines={2} text={`${m.competition}${m.strBefore != null ? ` · STR ${m.strBefore} vs ${m.oppStrBefore ?? "?"}` : ""}${m.delta != null ? ` · ${signedInt(m.delta)}` : ""}`} />
-                    {m.unofficial && <T size={11} bold color={C.Live}>neoficiální</T>}
-                  </div>
-                  <ResultBadge won={m.won} text={m.score} wide />
-                </div>
-                <Divider />
-              </div>
-            ))}
+            {[...list].reverse().map((m, i) => <DuelMatchRow key={i} m={m} aId={pageA.id} aName={aName} bId={bId} bName={bName} />)}
           </ListCard>
         </>
       );
@@ -131,8 +119,7 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
   const names = (ns: string[], ids: string[], bold: boolean) => ns.map((n, i) => (
     <span key={i} style={isMe(ids[i], n) ? { color: C.Blue, fontWeight: 800 } : bold ? { fontWeight: 700 } : undefined}>{(i ? " + " : "") + n}</span>
   ));
-  const hPts = z.points[0] ?? z.games.filter((g) => g.result === 1).length;
-  const aPts = z.points[1] ?? z.games.filter((g) => g.result === -1).length;
+  const [hPts, aPts] = z.score;
   const single = z.games.filter((g) => !g.doubles);
   const setsOf = (g: ZapisGame, home: boolean) => (home ? g.homeSets ?? 0 : g.awaySets ?? 0);
   const hSets = sum(z.games.map((g) => setsOf(g, true))), aSets = sum(z.games.map((g) => setsOf(g, false)));
@@ -374,5 +361,47 @@ function PredictionCard({ path, myHome, isMe }: { path: string; myHome: boolean;
         <Muted size={11} maxLines={3} text={strs.official ? "Šance her podle STR hráčů před utkáním (STIS)." : "Šance her podle aktuálního STR hráčů (utkání STIS ještě nezapočítal)."} />
       </AppCard>
     </>
+  );
+}
+
+/** Vzájemný zápas: klepnutím se rozbalí jednotlivé sety (ze zápisu utkání) z pohledu hráče A. */
+function DuelMatchRow({ m, aId, aName, bId, bName }: { m: Match; aId: string; aName: string; bId: string; bName: string }) {
+  const [open, setOpen] = useState(false);
+  const path = m.zapisPath;
+  useEffect(() => { if (open && path) vm.loadZapis(path); }, [open, path]);
+  const z = path ? vm.zapisy.get(path) : undefined;
+  const same = (ids: string[], names: string[], id: string, name: string) =>
+    (id !== "" && ids.includes(id)) || names.some((n) => Stats.fold(n.replace(/\(.*?\)/g, "").trim()) === Stats.fold(name));
+  let sets: number[] | null = null;
+  if (z) {
+    const g = z.games.find((x) => !x.doubles && ((same(x.homeIds, x.homeNames, aId, aName) && same(x.awayIds, x.awayNames, bId, bName))
+      || (same(x.awayIds, x.awayNames, aId, aName) && same(x.homeIds, x.homeNames, bId, bName))));
+    if (g) sets = same(g.homeIds, g.homeNames, aId, aName) ? g.sets : g.sets.map((v) => -v);
+  }
+  return (
+    <div>
+      <div className="row clickable" style={{ padding: "10px 14px" }} onClick={() => setOpen(!open)}>
+        <div className="col w1">
+          <T bold>{m.date != null ? DMY(m.date) : m.dateText}</T>
+          <Muted maxLines={2} text={`${m.competition}${m.strBefore != null ? ` · STR ${m.strBefore} vs ${m.oppStrBefore ?? "?"}` : ""}${m.delta != null ? ` · ${signedInt(m.delta)}` : ""}`} />
+          {m.unofficial && <T size={11} bold color={C.Live}>neoficiální</T>}
+        </div>
+        <ResultBadge won={m.won} text={m.score} wide />
+        <span style={{ color: C.Muted, fontSize: 18, paddingLeft: 8, transform: open ? "rotate(180deg)" : undefined, transition: "transform .15s" }}>⌄</span>
+      </div>
+      {open && (
+        <div className="row" style={{ padding: "0 14px 10px", gap: 12 }}>
+          <div className="w1">
+            {!path ? <Muted text="Sety nejsou k dispozici." size={13} />
+              : !z ? <Muted text="Načítám sety…" size={13} />
+                : sets && sets.length ? <div style={{ transform: "scale(1.25)", transformOrigin: "left center" }}><SetsLine sets={sets} myHome={true} /></div>
+                  : <Muted text="Sety nejsou k dispozici." size={13} />}
+          </div>
+          {path && <span className="clickable" style={{ fontSize: 13, fontWeight: 600, color: C.Blue, flex: "none" }}
+            onClick={() => vm.go({ t: "ZapisDetail", path, myTeam: m.myTeam })}>Celý zápis ›</span>}
+        </div>
+      )}
+      <Divider />
+    </div>
   );
 }

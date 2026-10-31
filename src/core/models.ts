@@ -303,6 +303,16 @@ export class Zapis extends Data {
     public games: ZapisGame[],
     public online = false,
   ) { super(); }
+  /**
+   * Body utkání [domácí, hosté]: z výsledků her (souhrn STIS v online zápisu může zaostávat);
+   * souhrn STIS jen když má víc bodů, než je dohraných her (skreč / kontumace bez zapsané hry).
+   */
+  get score(): [number, number] {
+    const h = this.games.filter((g) => g.result === 1).length, a = this.games.filter((g) => g.result === -1).length;
+    const [ph, pa] = this.points;
+    if (ph != null && pa != null && ph + pa > h + a) return [ph, pa];
+    return [h, a];
+  }
 }
 
 const SUFFIX = /\s+("?[A-HJ-K]"?|[IVX]{1,4}|[A-H]-tým)$/;

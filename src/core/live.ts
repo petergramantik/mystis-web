@@ -129,7 +129,7 @@ export const Live = {
   },
 
   isZapisFinished(z: Zapis, format: MatchFormat): boolean {
-    const [p1, p2] = z.points;
+    const [p1, p2] = z.score;
     if (format.target != null && p1 != null && p2 != null && (p1 >= format.target || p2 >= format.target)) return true;
     const h = z.games.filter((x) => x.result === 1).length, a = z.games.filter((x) => x.result === -1).length;
     if (format.target != null && (h >= format.target || a >= format.target)) return true;

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { Html } from "../src/core/html";
 import { Json } from "../src/core/json";
 import { Parsers } from "../src/core/parsers";
-import { Clubs, Match, PlayerPage, Stis, RosterPlayer, teamRef, type TeamMembership } from "../src/core/models";
+import { Clubs, Match, PlayerPage, Stis, RosterPlayer, Zapis, ZapisGame, teamRef, type TeamMembership } from "../src/core/models";
 import { Stats, StrModel, sum } from "../src/core/stats";
 import { StisRepository, type Fetcher } from "../src/core/repository";
 import { Live, LiveGame, LiveTimeline, MatchFormats, lp } from "../src/core/live";
@@ -337,6 +337,12 @@ async function main() {
   check("round score", J(roundScore(9.5, 8.5)) === J([10, 8]) && J(roundScore(10.2, 7.8)) === J([10, 8]) && J(roundScore(4.4, 4.6)) === J([4, 5]));
   check("utkani", Stability.utkani(p, p.matches[0].myTeam, p.matches[0].season) >= 1);
 
+  // ---------- skóre zápisu z her (souhrn STIS zaostává)
+  const zg = (no: number, home: boolean) => new ZapisGame(no, ["1"], ["2"], ["A"], ["B"], [], home ? 3 : 0, home ? 0 : 3);
+  const games18 = Array.from({ length: 18 }, (_, i) => zg(i + 1, i < 8));
+  const zs = new Zapis("/z", "", "", "H", "A", null, null, "", "", [7, 10], games18);
+  const zk = new Zapis("/z", "", "", "H", "A", null, null, "", "", [10, 0], [zg(1, true)]);
+  check("zapis score", J(zs.score) === J([8, 10]) && J(zk.score) === J([10, 0]), () => J(zs.score));
   // ---------- šance rozehrané hry podle setů
   const q61 = Live.setProb(0.61);
   check("setProb", Math.abs(Live.fromSets(q61, 3, 3) - 0.61) < 1e-6 && Math.abs(Live.setProb(0.5) - 0.5) < 1e-6, () => String(q61));
