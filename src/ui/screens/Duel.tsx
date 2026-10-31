@@ -120,7 +120,9 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
           <BigNumber text={`${hPts} : ${aPts}`} color="#fff" size={44} style={{ padding: "0 10px", whiteSpace: "nowrap" }} />
           <T color="#fff" bold={!myHome} lines={2} end style={{ flex: 1 }}>{z.away}</T>
         </div>
-        <T bold color={my > op ? C.WinLight : my < op ? C.Peach : "#fff"}>{(my > op ? "Výhra" : my < op ? "Prohra" : "Remíza") + (z.online ? " · online zápis" : "")}</T>
+        {Live.isZapisFinished(z, vm.format)
+          ? <T bold color={my > op ? C.WinLight : my < op ? C.Peach : "#fff"}>{(my > op ? "Výhra" : my < op ? "Prohra" : "Remíza") + (z.online ? " · online zápis" : "")}</T>
+          : <T bold color="#C4B5FD">{`Probíhá · stav ${hPts} : ${aPts}` + (z.online ? " · online zápis" : "")}</T>}
       </NavyHeader>
       <div className="col g12 px16">
         <AppCard>

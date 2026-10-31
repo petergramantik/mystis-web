@@ -44,7 +44,7 @@ export function LiveScreen({ team }: { team: number }) {
     if (!ctx || mode !== "zapis" || !path) return;
     const id = setInterval(() => {
       const zz = vm.liveZapisFor(tk);
-      if (zz && zz.games.length && zz.games.every((g) => g.result != null)) { clearInterval(id); return; }
+      if (zz && Live.isZapisFinished(zz, vm.format)) { clearInterval(id); return; }
       vm.loadLive(tk, path, true);
     }, 120_000);
     return () => clearInterval(id);

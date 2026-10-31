@@ -124,13 +124,16 @@ export const Live = {
     const h = games.filter((x) => x.result === 1).length;
     const a = games.filter((x) => x.result === -1).length;
     if (format.target != null && (h >= format.target || a >= format.target)) return true;
-    return games.every((x) => x.result != null);
+    // online zápis obsahuje během utkání jen začaté hry – skončené je až s plným počtem her
+    return games.length >= format.games && games.every((x) => x.result != null);
   },
 
   isZapisFinished(z: Zapis, format: MatchFormat): boolean {
     const [p1, p2] = z.points;
     if (format.target != null && p1 != null && p2 != null && (p1 >= format.target || p2 >= format.target)) return true;
-    return z.games.length > 0 && z.games.every((x) => x.result != null);
+    const h = z.games.filter((x) => x.result === 1).length, a = z.games.filter((x) => x.result === -1).length;
+    if (format.target != null && (h >= format.target || a >= format.target)) return true;
+    return z.games.length >= format.games && z.games.every((x) => x.result != null);
   },
 
   playerStats(z: Zapis): ZapisPlayerStat[] {

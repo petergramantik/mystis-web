@@ -309,7 +309,9 @@ async function main() {
   check("3-player format", g3.length === 10 && g3.filter((x) => x.doubles).length === 1 && new Set(g3.filter((x) => !x.doubles).map((x) => x.home[0].id! + x.away[0].id)).size === 9, () => `${g3.length}`);
   const ps = Live.playerStats(z);
   check("zapis player stats", ps.length === 2 && ps.find((x) => !x.home)!.singlesLost === 1 && ps.find((x) => x.home)!.singlesWon === 1, () => J(ps));
-  check("zapis finished", Live.isZapisFinished(z, MatchFormats.of("18_all")) &&
+  const z18 = z.copy({ games: Array.from({ length: 18 }, (_, i) => z.games[0].copy({ no: i + 1 })) });
+  check("rozehraný zápis není konec", !Live.isZapisFinished(z.copy({ points: [1, 0] }), MatchFormats.of("18_all")) && !Live.isZapisFinished(z.copy({ points: [1, 0] }), f18));
+  check("zapis finished", Live.isZapisFinished(z18, MatchFormats.of("18_all")) &&
     !Live.isZapisFinished(z.copy({ points: [9, 8], games: [...z.games, z.games[0].copy({ homeSets: null, awaySets: null })] }), f18));
 
   // ---------- vyhledávání
