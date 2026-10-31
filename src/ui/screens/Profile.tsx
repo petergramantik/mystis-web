@@ -27,16 +27,7 @@ export function ProfileScreen({ path }: { path: string }) {
   for (const m of ch) { const l = bySeason.get(m.season) ?? []; l.push(m); bySeason.set(m.season, l); }
   const best = Array.from(bySeason.entries()).filter(([, ms]) => ms.length >= 10).map(([y, ms]) => [y, rec(ms)] as const)
     .sort((a, b) => (b[1].pct ?? 0) - (a[1].pct ?? 0))[0];
-  const firstSeason = bySeason.size ? Math.min(...bySeason.keys()) : null;
-  const jumps = Array.from(bySeason.entries()).map(([y, ms]) => {
-    // první sezóna: zahajovací fáze se přeskočí – začátek = první zápas s ustáleným STR (předtím > 0, změna < 30)
-    const startIdx = y === firstSeason
-      ? ms.findIndex((m) => m.strBefore != null && m.strBefore > 0 && m.strAfter != null && Math.abs(m.strAfter - m.strBefore) < 30)
-      : ms.findIndex((m) => m.strBefore != null);
-    if (startIdx < 0) return [y, null] as const;
-    const first = ms[startIdx].strBefore, last = [...ms.slice(startIdx)].reverse().find((m) => m.strAfter != null)?.strAfter;
-    return [y, first != null && last != null ? last - first : null] as const;
-  }).filter((x) => x[1] != null).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))[0];
+  const jumps = biggestJump(strPoints(p, "vse"));
   const clubs = Array.from(new Set(p.seasons.map((s) => s.club).filter((x): x is string => !!x)));
   const seasons = [...p.seasons].sort((a, b) => b.year - a.year);
   const newest = seasons[0]?.year ?? null;
@@ -181,4 +172,32 @@ function TeamBlock({ t, year, newest, isMe }: { t: TeamMembership; year: number;
       )}
     </AppCard>
   );
+}
+
+/**
+ * Největší nárůst STR během jedné sezóny podle grafu STR (stejná data jako graf na profilu).
+ * V první sezóně se přeskočí zahajovací fáze: začátek = první bod > 0, po kterém se STR změní méně než o 30.
+ */
+export function biggestJump(pts: [number, number][]): readonly [number, number] | null {
+  const bySeason = new Map<number, number[]>();
+  for (const [d, v] of [...pts].sort((a, b) => a[0] - b[0])) {
+    const y = Stis.currentRocnik(d);
+    const l = bySeason.get(y) ?? []; l.push(v); bySeason.set(y, l);
+  }
+  if (!bySeason.size) return null;
+  const firstSeason = Math.min(...bySeason.keys());
+  let best: readonly [number, number] | null = null;
+  for (const [y, vs] of bySeason) {
+    let i = 0;
+    if (y === firstSeason) {
+      i = vs.findIndex((v, k) => v > 0 && k + 1 < vs.length && Math.abs(vs[k + 1] - v) < 30);
+      if (i < 0) continue;
+    } else {
+      i = vs.findIndex((v) => v > 0);
+      if (i < 0) continue;
+    }
+    const d = vs[vs.length - 1] - vs[i];
+    if (best == null || d > best[1]) best = [y, d] as const;
+  }
+  return best;
 }
