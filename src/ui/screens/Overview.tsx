@@ -57,10 +57,8 @@ export function OverviewScreen() {
   const wins = seasonMatches.filter((m) => m.won).length;
 
   // Pořadí: celý oddíl, nebo družstvo zvolené ve voliči
-  const scopeTeam = vm.rankByTeam ? vm.next[vm.nextSelected]?.myTeam.name ?? null : null;
-  const scoped = scopeTeam != null ? vm.club.ladder.filter((e) => e.teams.some((t) => Stats.fold(t) === Stats.fold(scopeTeam))) : vm.club.ladder;
-  const posI = scoped.findIndex((e) => e.id === me.id);
-  const pos = posI >= 0 ? posI + 1 : null;
+  // úspěšnost a bilance: všechny soutěže sezóny, případně včetně neoficiálních výsledků z online zápisu
+  const scopeSub = seasonMatches.some((m) => m.unofficial) ? "vč. neoficiálních ›" : "všechny soutěže ›";
 
   const myTeams = Array.from(new Set(meL.chronological.filter((m) => m.season === season).map((m) => m.myTeam).filter((t) => t.trim())));
   const recent = meL.chronological.filter((m) => vm.recentTeam === "all" || Stats.fold(m.myTeam) === Stats.fold(vm.recentTeam)).slice(-6).reverse();
@@ -112,18 +110,13 @@ export function OverviewScreen() {
           </div>
         )}
         <TileRow>
-          <StatTile label="Pořadí" value={pos != null ? `${pos}. / ${scoped.length}` : vm.loadingClub ? "…" : "–"} dark sub={(scopeTeam ?? "celý oddíl") + " ›"} subLeftEllipsis
-            onClick={() => {
-              const n = vm.next.length;
-              if (n === 0) return;
-              if (!vm.rankByTeam) { vm.set("rankByTeam", true); vm.selectTeam(0); }
-              else if (vm.nextSelected < n - 1) vm.selectTeam(vm.nextSelected + 1);
-              else vm.set("rankByTeam", false);
-            }} />
-          <StatTile label="Bilance" value={`${wins}–${seasonMatches.length - wins}`} dark sub="zápasy ›"
-            onClick={() => { vm.matchesTeam = "all"; vm.matchesSeason = null; vm.matchesTab = "zapasy"; vm.tab(S.Matches); }} />
-          <StatTile label="Úspěšnost" value={seasonMatches.length ? Stats.pct(wins / seasonMatches.length) : "–"} dark sub="sezóna ›"
+          <StatTile label="Úspěšnost" value={seasonMatches.length ? Stats.pct(wins / seasonMatches.length) : "–"} dark sub={scopeSub}
             onClick={() => { vm.ladderTab = "stis"; vm.strLadderSort = "pct"; vm.compSeason = null; vm.compId = null; vm.tab(S.Ladder); }} />
+          <StatTile label="Bilance" value={`${wins}–${seasonMatches.length - wins}`} dark sub={scopeSub}
+            onClick={() => { vm.matchesTeam = "all"; vm.matchesSeason = null; vm.matchesTab = "zapasy"; vm.tab(S.Matches); }} />
+          <StatTile label="Výkon" value={form.sample ? (form.overExpected >= 0 ? "+" : "−") + dec1(Math.abs(form.overExpected)) : "–"} dark
+            valueColor={!form.sample ? undefined : form.overExpected > 0.05 ? C.WinLight : form.overExpected < -0.05 ? C.Peach : "#fff"}
+            sub={`posl. ${form.sample} zápasů ›`} onClick={() => { vm.scrollTarget = "klutch"; vm.go(S.Records); }} />
         </TileRow>
       </NavyHeader>
       <InstallBanner />

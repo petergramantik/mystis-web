@@ -15,6 +15,15 @@ import { strPoints } from "./StrScreen";
 const signedD = (x: number) => (x >= 0 ? "+" : "−") + dec1(Math.abs(x));
 
 export function RecordsScreen() {
+  useEffect(() => {
+    if (!vm.scrollTarget) return;
+    const id = vm.scrollTarget;
+    vm.scrollTarget = null;
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 64, behavior: "smooth" });
+    }, 80);
+  }, []);
   const me = vm.meWithLive();
   if (!me) return <Loading />;
   const r = Stats.records(me);
@@ -59,7 +68,7 @@ export function RecordsScreen() {
         {r.favourite && <KeyValue label="Oblíbený soupeř" value={`${r.favourite.name} ${r.favourite.record}`} valueColor={C.Win} />}
         {r.nemesis && <KeyValue label="Postrach" value={`${r.nemesis.name} ${r.nemesis.record}`} valueColor={C.OrangeText} />}
       </AppCard>
-      <SectionTitle text="Klutch statistiky" />
+      <div id="klutch"><SectionTitle text="Klutch statistiky" /></div>
       <AppCard>
         <Muted text="Kladné číslo = vyhráváte víc, než by odpovídalo STR soupeřů." size={12} />
         <div className="row">

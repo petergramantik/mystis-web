@@ -675,6 +675,8 @@ export class AppVm {
   oppComp = "all";
   rankByTeam = false;
   ladderTab = "tabulka";
+  /** po otevření obrazovky posunout na sekci (např. "klutch" v Rekordech) */
+  scrollTarget: string | null = null;
   matchesTab = "utkani";
   compSeason: number | null = null;
   compId: string | null = null;

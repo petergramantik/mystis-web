@@ -182,6 +182,21 @@ function OfficialLadder({ comp, data, loading }: { comp: Comp; data: StrLadder |
         <div style={{ flex: 1 }}><Segmented options={[["all", "Všichni"], ["mine", "Můj oddíl"]]} selected={onlyMine ? "mine" : "all"} onSelect={(k) => vm.set("strLadderMine", k === "mine")} /></div>
       </div>
       <Muted text={data.title || `${comp.label} · ${comp.rocnik}/${(comp.rocnik + 1) % 100}`} size={14} maxLines={2} />
+      {(() => {
+        const meRow = data.sections.flatMap((s) => s.rows).find((r) => r.id != null && r.id === meId);
+        const mp = meRow ? pctOf(meRow) : null;
+        const all = (vm.meWithLive()?.chronological ?? []).filter((m) => m.season === comp.rocnik);
+        const w = all.filter((m) => m.won).length;
+        if (!meRow && !all.length) return null;
+        return (
+          <AppCard padding={12} bg={C.Tint}>
+            <Muted color={C.Ink} size={13} maxLines={3} text={[
+              meRow ? `Vy v této soutěži: ${meRow.bilance ?? meRow.matches ?? "–"}${mp != null ? ` (${Stats.pct(mp)})` : ""}` : "V žebříčku této soutěže zatím nejste",
+              all.length ? `celkem v sezóně ${w}–${all.length - w} (${Stats.pct(w / all.length)})${all.some((m) => m.unofficial) ? " vč. neoficiálních" : ""}` : null,
+            ].filter((x) => x).join(" · ")} />
+          </AppCard>
+        );
+      })()}
       {!sections.length && <Empty text="V žebříčku této soutěže nikdo z vašeho oddílu není." />}
       {sections.map((s, si) => (
         <div className="col g6" key={si}>
