@@ -9,6 +9,7 @@ import { MatchesScreen } from "./ui/screens/Matches";
 import { ClubScreen, H2HScreen, OpponentsScreen } from "./ui/screens/Opponents";
 import { FixtureScreen, NextMatchScreen } from "./ui/screens/NextMatch";
 import { LiveScreen, LiveTopRing } from "./ui/screens/LiveMatch";
+import { TeamScreen } from "./ui/screens/Team";
 import { PairScreen, ZapisDetailScreen } from "./ui/screens/Duel";
 import { CaptainScreen, CompareScreen } from "./ui/screens/Captain";
 import { PlayerScreen, RecordsScreen, SettingsScreen } from "./ui/screens/Records";
@@ -37,6 +38,7 @@ function title(s: Screen): string {
     case "Records": return "Rekordy a statistiky";
     case "Settings": return "Nastavení";
     case "Player": return vm.players.get(s.path)?.name ?? "Hráč";
+    case "Team": return "Družstvo";
     case "Live": return "Živé utkání";
     case "Duel": return "Vzájemné zápasy";
     case "ZapisDetail": return "Zápis o utkání";
@@ -59,6 +61,7 @@ function Body({ s }: { s: Screen }) {
     case "Records": return <RecordsScreen />;
     case "Settings": return <SettingsScreen />;
     case "Player": return <PlayerScreen path={s.path} />;
+    case "Team": return <TeamScreen team={s.team} />;
     case "Live": return <LiveScreen team={s.team} />;
     case "Duel": return <PairScreen aId0={s.aId} aName0={s.aName} bId0={s.bId} bName0={s.bName} pA0={s.pA} />;
     case "ZapisDetail": return <ZapisDetailScreen path={s.path} myTeam={s.myTeam} />;
@@ -94,7 +97,7 @@ function Root() {
   const [menu, setMenu] = useState(false);
   if (vm.onboarding) return <OnboardingScreen />;
   const screen = vm.current;
-  const dark = ["Overview", "Club", "H2H", "Player", "Live", "Duel", "ZapisDetail"].includes(screen.t);
+  const dark = ["Overview", "Club", "H2H", "Player", "Live", "Duel", "ZapisDetail", "Team"].includes(screen.t);
   const item = (text: string, icon: string, s: Screen) => (
     <button onClick={() => { setMenu(false); vm.go(s); }}><Icon name={icon} />{text}</button>
   );

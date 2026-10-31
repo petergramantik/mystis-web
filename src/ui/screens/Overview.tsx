@@ -1,13 +1,14 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { vm, S } from "../../app/vm";
 import { Clubs, Stis, type LosMatch } from "../../core/models";
-import { Stats, sum } from "../../core/stats";
+import { Stats, StrModel, sum } from "../../core/stats";
+import { matchForecast } from "../../core/season";
 import { Live } from "../../core/live";
 import type { NextMatchContext } from "../../core/repository";
-import type { SearchPlayer } from "../../core/search";
+import { roundScore, type SearchPlayer } from "../../core/search";
 import {
   AppCard, Avatar, BigNumber, C, Chips, Marquee, Dialog, Empty, ErrorBox, ErrorWithDiagnostics, FormDots, Icon, ListCard, Loading, MatchRow,
-  Muted, NavyHeader, Pill, PrimaryButton, ResultBadge, SectionTitle, Sparkline, Spinner, StatTile, T, TextField, TileRow, dec1, f0, signedInt,
+  Muted, NavyHeader, Pill, PrimaryButton, ProbBar, ResultBadge, SectionTitle, Sparkline, Spinner, StatTile, T, TextField, TileRow, dec1, f0, signedInt,
 } from "../components";
 import { fmtDMYdt, fmtWhenShort } from "../fmt";
 import { ProxySetup } from "./Records";
@@ -129,7 +130,8 @@ export function OverviewScreen() {
       <InstallBanner />
       {vm.error != null && <div className="px16"><ErrorBox text={vm.error} onRetry={() => vm.loadMe(true)} /></div>}
       <div className="col g12 px16">
-        {vm.next.length > 1 && <Chips options={vm.next.map((c, i) => [String(i), c.myTeam.name])} selected={String(vm.nextSelected)} onSelect={(k) => vm.selectTeam(parseInt(k, 10))} />}
+        {vm.next.length >= 1 && <Chips options={vm.next.map((c, i) => [String(i), c.myTeam.name + (i === vm.nextSelected ? " ›" : "")])} selected={String(vm.nextSelected)}
+          onSelect={(k) => { const i = parseInt(k, 10); if (i === vm.nextSelected) vm.go({ t: "Team", team: i }); else vm.selectTeam(i); }} />}
         <MatchPager ctx={nextCtx} />
         <LastUtkaniCard />
         <AppCard onClick={() => vm.tab(S.Str)}>
@@ -287,7 +289,8 @@ function FutureCard({ ctx, m, ahead, team, onHome }: { ctx: NextMatchContext; m:
         <T bold color="#fff">Rozbor soupeřů ›</T>
       </div>
       <FixtureBody ctx={ctx} m={m} />
-      <div><HomeButton onHome={onHome} left /></div>
+      <FixtureForecastFor team={team} m={m} />
+      <div style={{ marginTop: "auto" }}><HomeButton onHome={onHome} left /></div>
     </AppCard>
   );
 }
@@ -305,6 +308,9 @@ function NextCard({ ctx }: { ctx: NextMatchContext | null }) {
         <T bold color="#fff">Rozbor soupeřů ›</T>
       </div>
       {body}
+      {ctx && n && (ctx.liveNow && n === ctx.next ? <LiveMini ctx={ctx} />
+        : n === ctx.next ? <CardForecast ctx={ctx} oppName={ctx.opponentName} oppRef={ctx.opponentRef} oppRoster={ctx.opponentRoster} home={ctx.home} loading={false} />
+          : <FixtureForecastFor team={Math.max(0, vm.next.indexOf(ctx))} m={n} />)}
       {ctx && n && ctx.liveNow && n === ctx.next && vm.needsLivePermission() && (
         <div className="row" style={{ justifyContent: "center" }}>
           <button className="homebtn" onClick={async (e) => { e.stopPropagation(); await vm.askLivePermission(); }}>🔔 Povolit upozornění</button>
@@ -476,4 +482,80 @@ export function shortTeamName(team: string): string {
   const words = club.split(/\s+/).filter((w) => w.trim());
   const word = words[words.length - 1] ?? club;
   return (word + (letter ? " " + letter : "")).trim();
+}
+
+/** Predikce budoucího utkání (soupiska soupeře se dočte přes loadFixture). */
+function FixtureForecastFor({ team, m }: { team: number; m: LosMatch }) {
+  const base = vm.next[team];
+  useEffect(() => { if (base) vm.loadFixture(team, m); }, [team, m.round, m.home, m.away]);
+  if (!base) return null;
+  const f = vm.fixtures.get(vm.fixtureKey(team, m));
+  if (!f) return <ForecastBox><Muted text="Počítám predikci…" color="#D6E1FA" size={13} /></ForecastBox>;
+  return <CardForecast ctx={base} oppName={f.opponentName} oppRef={f.opponentRef} oppRoster={f.opponentRoster} home={f.home} loading={false} />;
+}
+
+function ForecastBox({ children }: { children: ReactNode }) {
+  return <div className="col g4" style={{ background: "rgba(14,26,51,0.28)", borderRadius: 12, padding: "8px 10px", marginTop: 4 }}>{children}</div>;
+}
+
+function MiniOdds({ win, draw, loss, busy }: { win: number; draw: number; loss: number; busy?: boolean }) {
+  const cell = (label: string, v: number, color: string) => (
+    <div className="col" style={{ flex: 1, alignItems: "center" }}>
+      <span style={{ fontSize: 11, color: "#D6E1FA" }}>{label}</span>
+      <span style={{ fontSize: 17, fontWeight: 800, color }}>{Stats.pct(v)}</span>
+    </div>
+  );
+  return (
+    <div className="row" style={{ opacity: busy ? 0.6 : 1 }}>
+      {cell("Výhra", win, C.WinLight)}{cell("Remíza", draw, "#fff")}{cell("Prohra", loss, C.Peach)}
+    </div>
+  );
+}
+
+/** Predikce na kartě utkání: šance Výhra/Remíza/Prohra, pásek, očekávaný stav a moje dvouhry. */
+function CardForecast({ ctx, oppName, oppRef, oppRoster, home }: {
+  ctx: NextMatchContext; oppName: string; oppRef: NextMatchContext["opponentRef"]; oppRoster: NextMatchContext["opponentRoster"]; home: boolean; loading: boolean;
+}) {
+  const me = vm.me;
+  const mine = vm.lineupFor(ctx.myTeam.name, ctx.myTeam.ref, vm.fresh(ctx.myRoster)).map((x) => x[0]);
+  const theirs = vm.lineupFor(oppName, oppRef, vm.fresh(oppRoster)).map((x) => x[0]);
+  const rs = vm.refineState(oppRoster, oppRef);
+  if (!mine.length || !theirs.length) return <ForecastBox><Muted text={oppRoster.length ? "Počítám predikci…" : "Soupiska soupeře zatím není k dispozici."} color="#D6E1FA" size={13} /></ForecastBox>;
+  const f = matchForecast(mine.map((p) => p.str ?? 1400), theirs.map((p) => p.str ?? 1400), vm.format);
+  const [my, op] = roundScore(f.expHome, f.expAway);
+  const meIn = me ? mine.find((p) => p.id === me.id || Stats.fold(p.name) === Stats.fold(me.name)) : undefined;
+  const myStr = me?.currentStr ?? meIn?.str ?? null;
+  const mySingles = meIn && myStr != null ? theirs.map((o) => [o.name.split(" ")[0], StrModel.winProbability(myStr, o.str ?? 1400)] as [string, number]) : [];
+  void home;
+  return (
+    <ForecastBox>
+      <MiniOdds win={f.pWin} draw={f.pDraw} loss={f.pLoss} busy={rs.busy} />
+      <div style={{ opacity: rs.busy ? 0.6 : 1 }}><ProbBar p={f.pWin + f.pDraw / 2} /></div>
+      <T size={13} semi color="#fff" center>{`Očekávaný stav ${my} : ${op}${rs.busy ? " · upřesňuji…" : ""}`}</T>
+      {mySingles.length > 0 && (
+        <T size={12} color="#D6E1FA" center lines={2}>
+          {`Vy: ${Math.round(sum(mySingles.map((x) => x[1])))} z ${mySingles.length} dvouher (`}
+          {mySingles.map(([n, p], i) => <span key={i} style={{ color: p >= 0.5 ? C.WinLight : C.Peach, fontWeight: 700 }}>{(i ? ", " : "") + `${n} ${Stats.pct(p)}`}</span>)}
+          {")"}
+        </T>
+      )}
+    </ForecastBox>
+  );
+}
+
+/** Probíhající utkání na kartě: stav a šance z živého zápisu. */
+function LiveMini({ ctx }: { ctx: NextMatchContext }) {
+  const z = vm.liveZapisFor(vm.teamKey(ctx));
+  if (!z || !z.games.length || !vm.zapisBelongs(z, ctx)) return <ForecastBox><Muted text="Čekám na online zápis…" color="#D6E1FA" size={13} /></ForecastBox>;
+  const st = Live.evaluate(Live.fromZapis(z, (id, n) => vm.strOf(id, n), (id, n) => vm.rangeOf(id, n)), vm.format);
+  const mh = vm.zapisMyHome(z, ctx);
+  const my = mh ? st.home : st.away, op = mh ? st.away : st.home;
+  const win = mh ? st.pHomeWin : st.pAwayWin, loss = mh ? st.pAwayWin : st.pHomeWin;
+  return (
+    <ForecastBox>
+      <T size={13} bold color="#fff" center>{`Živě · stav ${my} : ${op} · odehráno ${st.played} z ${st.games.length}`}</T>
+      <MiniOdds win={win} draw={st.pDraw} loss={loss} />
+      <ProbBar p={win + st.pDraw / 2} />
+    </ForecastBox>
+  );
 }

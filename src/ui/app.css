@@ -118,9 +118,10 @@ button { font-family: inherit; }
 .dialog .body { overflow-y: auto; }
 .dialog .actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 
-.pager { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 10px; scrollbar-width: none; align-items: flex-start; }
+.pager { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 10px; scrollbar-width: none; align-items: stretch; }
 .pager::-webkit-scrollbar { display: none; }
-.pager > .page { flex: 0 0 100%; scroll-snap-align: center; min-width: 0; }
+.pager > .page { flex: 0 0 100%; scroll-snap-align: center; min-width: 0; display: flex; flex-direction: column; }
+.pager > .page > .card { flex: 1; }
 .dots { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; }
 .dot { border-radius: 50%; margin: 0 4px; flex: none; }
 

@@ -19,7 +19,8 @@ export type Screen =
   | { t: "Player"; path: string } | { t: "Live"; team: number }
   | { t: "Duel"; aId: string; aName: string; bId: string; bName: string; pA?: number }
   | { t: "ZapisDetail"; path: string; myTeam: string }
-  | { t: "Fixture"; team: number; round: string; home: string; away: string };
+  | { t: "Fixture"; team: number; round: string; home: string; away: string }
+  | { t: "Team"; team: number };
 
 export const S = {
   Overview: { t: "Overview" } as Screen, Ladder: { t: "Ladder" } as Screen, Str: { t: "Str" } as Screen,

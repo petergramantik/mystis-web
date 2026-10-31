@@ -30,6 +30,23 @@ export function pointsRule(rows: StandingRow[]): [number, number, number] {
 }
 
 /** Pravděpodobnost výhry domácích, remízy a výhry hostů v jednom utkání družstev. */
+/** Predikce utkání ze STR sestav (domácí = první): šance a očekávané body. */
+export function matchForecast(home: number[], away: number[], format: MatchFormat): { pWin: number; pDraw: number; pLoss: number; expHome: number; expAway: number } {
+  const n = format.players;
+  const mk = (strs: number[], prefix: string) => {
+    const s = [...strs].sort((a, b) => b - a).slice(0, n);
+    while (s.length < n) s.push(s.length ? Math.round(s.reduce((a, b) => a + b, 0) / s.length) : 1400);
+    return s.map((v, i) => lp(prefix + i, prefix + i, v));
+  };
+  const h = mk(home, "h"), a = mk(away, "a");
+  const pos = (ps: typeof h) => new Map(ps.map((p, i) => [i + 1, p] as [number, typeof p]));
+  const d2 = format.doubles >= 2;
+  const games = Live.manualByPosition(pos(h), pos(a),
+    h.slice(0, 2), d2 ? h.slice(2, 4) : [], a.slice(0, 2), d2 ? a.slice(2, 4) : [], new Map(), n, format.doubles);
+  const st = Live.evaluate(games, format);
+  return { pWin: st.pHomeWin, pDraw: st.pDraw, pLoss: st.pAwayWin, expHome: st.expHome, expAway: st.expAway };
+}
+
 export function matchOdds(home: number[], away: number[], format: MatchFormat): [number, number, number, number] {
   const n = format.players;
   const mk = (strs: number[], prefix: string) => {
