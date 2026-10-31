@@ -6,7 +6,7 @@ import { MatchFormats } from "../../core/live";
 import { WebFetcher } from "../../data/fetcher";
 import {
   AppCard, BigNumber, C, Empty, Icon, KeyValue, ListCard, Loading, MatchRow, Muted, NavyHeader, OButton, PrimaryButton, SectionTitle,
-  StatTile, StrChart, T, TextField, TileRow, Avatar, dec1, signedInt,
+  StatTile, StrChart, T, TextField, TileRow, Avatar, dec1, signedInt, Segmented,
 } from "../components";
 import { ProfileInput } from "./Overview";
 import { InstallCard } from "../install";
@@ -177,7 +177,6 @@ export function SettingsScreen() {
   const [cache, setCache] = useState<number | null>(null);
   useEffect(() => { vm.cacheSize().then(setCache); }, []);
   const notif = vm.prefs.notifications;
-  const liveNotif = vm.prefs.liveNotify;
   const standalone = typeof window !== "undefined" && window.matchMedia?.("(display-mode: standalone)").matches;
   return (
     <div className="col g12 px16">
@@ -214,19 +213,15 @@ export function SettingsScreen() {
         </div>
       </AppCard>
       <AppCard>
-        <div className="row g12">
-          <div className="col w1">
-            <T bold>Upozornění na živé utkání</T>
-            <Muted size={13} maxLines={5} text="Při probíhajícím utkání se každou minutu obnoví zápis a každá nově dohraná hra (✅/❌ a stav) i konec utkání přijdou jako notifikace. Funguje jen při otevřené aplikaci." />
-          </div>
-          <div className={"switch" + (liveNotif ? " on" : "")} role="switch" aria-checked={liveNotif} onClick={async () => { const e = await vm.setLiveNotify(!liveNotif); if (e) setMsg(e); }} />
-        </div>
+        <T bold>Upozornění na živé utkání</T>
+        <Muted size={13} maxLines={5} text="Při probíhajícím utkání se každou minutu obnoví zápis. Hry: každá dohraná hra (✅/❌ a stav) a konec utkání. Sety: navíc každý dohraný set. Funguje jen při otevřené aplikaci." />
+        <LiveModeSwitch onError={setMsg} />
       </AppCard>
       <AppCard>
         <div className="row g12">
           <div className="col w1">
             <T bold>Zvuky živého utkání</T>
-            <Muted size={13} maxLines={5} text="Zajásání davu při vyhrané hře, zahučení při prohrané a potlesk na konci vítězného utkání. Hraje, když je aplikace na obrazovce." />
+            <Muted size={13} maxLines={5} text="Zajásání davu při vyhrané hře (nebo setu podle volby výše), zahučení při prohrané a potlesk na konci vítězného utkání. Hraje, když je aplikace na obrazovce." />
           </div>
           <div className={"switch" + (vm.prefs.liveSounds ? " on" : "")} role="switch" aria-checked={vm.prefs.liveSounds} onClick={() => vm.setLiveSounds(!vm.prefs.liveSounds)} />
         </div>
@@ -319,3 +314,11 @@ export function PlayerScreen({ path }: { path: string }) {
 }
 
 export { S };
+
+/** Přepínač rozsahu upozornění na živé utkání: Vypnuto / Hry / Sety. */
+export function LiveModeSwitch({ onError }: { onError?: (e: string) => void }) {
+  return (
+    <Segmented options={[["off", "🔕 Vypnuto"], ["games", "Hry"], ["sets", "Sety"]]} selected={vm.prefs.liveMode}
+      onSelect={async (k) => { const e = await vm.setLiveMode(k as "off" | "games" | "sets"); if (e) onError?.(e); }} />
+  );
+}

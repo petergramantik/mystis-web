@@ -1,5 +1,5 @@
 // Stav aplikace a načítání dat (přepis AppViewModel.kt). Každá změna stavu zavolá emit() a React překreslí obrazovku.
-import { Match, Stis, type TeamInfo, type StandingRow, type StrLadder, type ClubPage, type LosMatch, type PlayerPage, type RosterPlayer, type TeamRef, type TeamRoster, type Zapis } from "../core/models";
+import { Match, Stis, type TeamInfo, type StandingRow, type StrLadder, type ClubPage, type LosMatch, type PlayerPage, type RosterPlayer, type TeamRef, type TeamRoster, type Zapis, type ZapisGame } from "../core/models";
 import { Parsers } from "../core/parsers";
 import { StisRepository, HOUR, type NextMatchContext } from "../core/repository";
 import { playSound } from "./sound";
@@ -1083,6 +1083,15 @@ export class AppVm {
     if (!on) return null;
     return this.askLivePermission();
   }
+  /** Rozsah upozornění na živé utkání (Nastavení i přepínač na kartě Živé utkání). */
+  async setLiveMode(mode: "off" | "games" | "sets"): Promise<string | null> {
+    prefs.liveMode = mode;
+    this.emit();
+    if (mode === "off") return null;
+    const e = await this.askLivePermission();
+    if (e) { prefs.liveMode = mode; this.emit(); } // bez povolení notifikací zůstanou aspoň zvuky
+    return e;
+  }
   setLiveSounds(on: boolean) { prefs.liveSounds = on; this.emit(); if (on) playSound("win"); }
   /** Je potřeba klepnutím povolit notifikace (upozornění zapnutá, prohlížeč se ještě neptal). */
   needsLivePermission(): boolean {
@@ -1101,6 +1110,8 @@ export class AppVm {
   /** zápis → čísla her, které už byly dohrané (oznámené nebo dohrané při prvním načtení) */
   private liveSeen = new Map<string, Set<number>>();
   private liveEndSent = new Set<string>();
+  /** zápis → hra → počet už známých setů */
+  private liveSetsSeen = new Map<string, Map<number, number>>();
   private liveWatch: ReturnType<typeof setInterval> | null = null;
 
   /** Při otevřené aplikaci každé 2 minuty obnoví zápis probíhajícího utkání (i mimo obrazovku Živé utkání). */
@@ -1111,7 +1122,7 @@ export class AppVm {
     this.liveWatch = setInterval(() => this.liveWatchTick(), 60_000);
   }
   private liveWatchTick() {
-    if (!prefs.liveNotify && !prefs.liveSounds) return;
+    if (prefs.liveMode === "off") return;
     this.next.forEach((c, i) => {
       if (!this.liveRunning(c)) return;
       const key = this.teamKey(c);
@@ -1129,16 +1140,34 @@ export class AppVm {
     const done = z.games.filter((g) => g.result != null);
     const seen = this.liveSeen.get(path);
     const finished = Live.isZapisFinished(z, this.format);
-    if (!seen) { // první načtení: už dohrané hry neoznamujeme
+    const setCount = (g: ZapisGame) => g.sets.length;
+    if (!seen) { // první načtení: už dohrané hry a sety neoznamujeme
       this.liveSeen.set(path, new Set(done.map((g) => g.no)));
+      this.liveSetsSeen.set(path, new Map(z.games.map((g) => [g.no, setCount(g)])));
       if (finished) this.liveEndSent.add(path);
       return;
     }
+    const setsSeen = this.liveSetsSeen.get(path) ?? new Map<number, number>();
+    this.liveSetsSeen.set(path, setsSeen);
     const myHome = this.zapisMyHome(z, ctx);
     let h = 0, a = 0, lastWon = false;
     const fresh: string[][] = [];
+    const freshSets: string[][] = [];
+    let lastSetWon = false;
     for (const g of z.games) {
       if (g.result === 1) h++; else if (g.result === -1) a++;
+      // nově dohrané sety v ještě rozehrané hře
+      const before = setsSeen.get(g.no) ?? 0, now = setCount(g);
+      setsSeen.set(g.no, now);
+      if (g.result == null && now > before) {
+        const v = g.sets[now - 1];
+        const wonSet = (v > 0) === myHome;
+        const pts = Math.abs(v), w = pts >= 10 ? pts + 2 : 11;
+        const mineN = (myHome ? g.homeNames : g.awayNames).join(" + "), oppN = (myHome ? g.awayNames : g.homeNames).join(" + ");
+        const hs = g.sets.filter((x) => x > 0).length, as = g.sets.filter((x) => x < 0).length;
+        lastSetWon = wonSet;
+        freshSets.push([`${wonSet ? "🟢" : "🔴"} ${mineN} – ${oppN}: set ${wonSet ? `${w}:${pts}` : `${pts}:${w}`}`, `${g.no}. hra · sety ${myHome ? hs : as}:${myHome ? as : hs}`, `${g.no}-${now}`]);
+      }
       if (g.result == null || seen.has(g.no)) continue;
       seen.add(g.no);
       const won = (g.result === 1) === myHome;
@@ -1149,8 +1178,12 @@ export class AppVm {
     }
     const my = myHome ? h : a, op = myHome ? a : h;
     const endNow = finished && !this.liveEndSent.has(path);
-    if (prefs.liveSounds && (fresh.length || endNow)) playSound(endNow ? (my >= op ? "victory" : "loss") : lastWon ? "win" : "loss");
-    if (!prefs.liveNotify) { if (endNow) this.liveEndSent.add(path); return; }
+    const mode = prefs.liveMode;
+    const withSets = mode === "sets" && freshSets.length > 0;
+    if (prefs.liveSounds && mode !== "off" && (fresh.length || endNow || withSets))
+      playSound(endNow ? (my >= op ? "victory" : "loss") : fresh.length ? (lastWon ? "win" : "loss") : lastSetWon ? "win" : "loss");
+    if (mode === "off") { if (endNow) this.liveEndSent.add(path); return; }
+    if (withSets) for (const f of freshSets.slice(-3)) void this.post(`live-${path}-set-${f[2]}`, f[0], f[1], true, idx);
     if (fresh.length > 3) {
       void this.post(`live-${path}-${fresh[fresh.length - 1][2]}`, `${fresh.length} nových her · stav ${my}:${op}`, fresh.map((f) => f[0]).join("\n"), true, idx);
     } else for (const f of fresh) void this.post(`live-${path}-${f[2]}`, f[0], f[1], true, idx);

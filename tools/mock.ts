@@ -73,6 +73,11 @@ function zapisPage(no: string) {
   game(cell(home.slice(0, 2)), cell(away.slice(0, 2)), true);
   game(cell(home.slice(2)), cell(away.slice(2)), false);
   order.forEach(([i, j], k) => { if (h < 10 && a < 10 && !(LIVE && no === "700001" && n > liveGames)) game(cell([home[i]]), cell([away[j]]), k % 3 !== 2); });
+  // MOCK_LIVE: další hra rozehraná (hosté vedou 2:0 na sety), zbytek nehrán
+  if (LIVE && no === "700001") order.slice(n - 3).forEach(([i, j], k) => {
+    const sets = k === 0 ? ["-5", "-7", "", "", ""] : ["", "", "", "", ""];
+    rows.push(`<tr><td>${n++}.</td><td>${cell([home[i]])}</td><td>-</td><td>${cell([away[j]])}</td><td></td>${sets.map((s) => `<td>${s}</td>`).join("")}<td>${k === 0 ? 0 : ""}</td><td>${k === 0 ? 2 : ""}</td><td></td><td></td></tr>`);
+  });
   const hn = no === "700001" ? "TTC Bystřice B" : OPP2.name, an = no === "700001" ? OPP2.name : "TTC Bystřice B";
   const hid = no === "700001" ? "66625" : OPP2.id, aid = no === "700001" ? OPP2.id : "66625";
   return pad(`<table class="zapis_H"><tr><td>Název soutěže: <b><a href="#">OS 1</a></b> Kolo: <b>${no === "700001" ? 6 : 5}</b> online</td></tr>

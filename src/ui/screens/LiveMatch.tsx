@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { vm } from "../../app/vm";
+import { LiveModeSwitch } from "./Records";
 import type { RosterPlayer } from "../../core/models";
 import { Stats, maxBy } from "../../core/stats";
 import { Live, LiveTimeline, lp, type LiveGame, type LivePlayer, type LiveState, type MyLiveGame, type PlayerLive } from "../../core/live";
@@ -133,6 +134,12 @@ export function LiveScreen({ team }: { team: number }) {
                 <span className="clickable" onClick={() => setManualLink((x) => !x)} style={{ flex: "none", fontSize: 13, fontWeight: 600, color: C.Blue }}>{manualLink ? "Skrýt odkaz" : "Odkaz"}</span>
               </div>
             )}
+            {found && !(z && Live.isZapisFinished(z, vm.format)) && (
+              <div className="col g4">
+                <Muted text="Upozornění" size={12} />
+                <LiveModeSwitch onError={(e) => vm.liveErrors.set(tk, e)} />
+              </div>
+            )}
             {link ? null : !startedOrSoon ? <Muted color={C.Ink} size={13} maxLines={3} text={`Zápis začnu hledat 10 minut před začátkem utkání (${start != null ? hhmmLdt(start) : ""}). Do té doby můžete připravit ruční sestavy.`} />
               : vm.liveSearchingKeys.get(tk) ? <Muted text="Hledám zápis na STIS…" color={C.Ink} size={13} />
                 : <Muted color={C.Ink} size={13} maxLines={3} text={"Zápis zatím není zveřejněný – další pokus za minutu" + (searchAt > 0 ? ` (naposledy ${hhmm(searchAt)})` : "") + "."} />}
@@ -215,10 +222,11 @@ function GameRow({ g, pHome, myHome, mine, onOpen, onResult }: { g: LiveGame; pH
     const even = Math.abs(pHome - 0.5) < 0.005;
     right = (
       <>
+        <Muted text={even ? "Vyrovnané" : "Favorit"} size={10} maxLines={1} />
         <T bold color={even ? C.Ink : myP >= 0.5 ? C.Win : C.OrangeText} style={{ whiteSpace: "nowrap" }}>{even ? "50 : 50" : g.doubles ? Stats.pct(favP) : `${favName} ${Stats.pct(favP)}`}</T>
         {g.doubles && !even && !g.inProgress
           ? <T size={11} semi color={myP >= 0.5 ? C.Win : C.OrangeText} lines={1} style={{ maxWidth: 130 }}>{favName}</T>
-          : <Muted text={g.inProgress ? `hraje se ${g.homeSets ?? 0}:${g.awaySets ?? 0}` : onResult ? "zadat ›" : even ? "vyrovnané" : "favorit"} size={11} maxLines={1} />}
+          : <Muted text={g.inProgress ? `hraje se ${g.homeSets ?? 0}:${g.awaySets ?? 0}` : onResult ? "zadat ›" : ""} size={11} maxLines={1} />}
       </>
     );
   } else {

@@ -159,12 +159,50 @@ export const Live = {
     return Array.from(map.values());
   },
 
+  /** Šance domácích vyhrát hru na [need] vítězných setů, když jim chybí [nh] a hostům [na] setů a set vyhrávají s pravděpodobností [q]. */
+  fromSets(q: number, nh: number, na: number): number {
+    if (nh <= 0) return 1;
+    if (na <= 0) return 0;
+    const memo = new Map<number, number>();
+    const f = (h: number, a: number): number => {
+      if (h <= 0) return 1;
+      if (a <= 0) return 0;
+      const key = h * 10 + a;
+      const c = memo.get(key);
+      if (c != null) return c;
+      const v = q * f(h - 1, a) + (1 - q) * f(h, a - 1);
+      memo.set(key, v);
+      return v;
+    };
+    return f(nh, na);
+  },
+
+  /** Šance vyhrát jeden set, která odpovídá šanci [p] vyhrát celou hru (na 3 vítězné sety). */
+  setProb(p: number, need = 3): number {
+    if (p <= 0) return 0;
+    if (p >= 1) return 1;
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 50; i++) { const m = (lo + hi) / 2; if (Live.fromSets(m, need, need) < p) lo = m; else hi = m; }
+    return (lo + hi) / 2;
+  },
+
+  /** Šance domácích na výhru rozehrané hry podle stavu na sety (dohrané sety ze zápisu). */
+  inGame(p: number, g: LiveGame, need = 3): number {
+    if (g.result != null) return g.result === 1 ? 1 : 0;
+    const hs = g.homeSets ?? g.sets.filter((v) => v > 0).length;
+    const as = g.awaySets ?? g.sets.filter((v) => v < 0).length;
+    if (hs + as === 0) return p;
+    return Live.fromSets(Live.setProb(p, need), need - hs, need - as);
+  },
+
   evaluate(games: LiveGame[], format: MatchFormat = MatchFormats.DEFAULT): LiveState {
     const allHome = games.flatMap((x) => x.home).map((p) => p.str).filter((x): x is number => x != null);
     const allAway = games.flatMap((x) => x.away).map((p) => p.str).filter((x): x is number => x != null);
     const fbHome = allHome.length ? Math.trunc(avg(allHome)) : 1500;
     const fbAway = allAway.length ? Math.trunc(avg(allAway)) : 1500;
-    const probs = games.map((x) => StrModel.winProbability(avgStr(x.home, fbHome), avgStr(x.away, fbAway)));
+    const prior = games.map((x) => StrModel.winProbability(avgStr(x.home, fbHome), avgStr(x.away, fbAway)));
+    // rozehrané hry: šance podle stavu na sety
+    const probs = games.map((x, i) => (x.result == null ? Live.inGame(prior[i], x) : prior[i]));
 
     const home = games.filter((x) => x.result === 1).length;
     const away = games.filter((x) => x.result === -1).length;
@@ -214,7 +252,7 @@ export const Live = {
           singles: prev.singles + 1,
           played: prev.played + (gm.result != null ? 1 : 0),
           won: prev.won + (won ? 1 : 0),
-          expectedBefore: prev.expectedBefore + p,
+          expectedBefore: prev.expectedBefore + (isHome ? prior[i] : 1 - prior[i]),
           expectedFinal: prev.expectedFinal + (gm.result != null ? (won ? 1 : 0) : p),
           strDelta: prev.strDelta + delta,
         });

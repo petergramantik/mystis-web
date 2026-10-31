@@ -22,11 +22,18 @@ export const prefs = {
   get notifications() { return get("notifications") !== "false"; },
   set notifications(v: boolean) { set("notifications", String(v)); },
   /** Notifikace o hrách probíhajícího utkání (jen při otevřené aplikaci). */
-  get liveNotify() { return get("live_notify") !== "false"; },
+  /** Rozsah upozornění na živé utkání: vypnuto / hry (výchozí) / hry i sety. */
+  get liveMode(): "off" | "games" | "sets" {
+    const v = get("live_mode");
+    if (v === "off" || v === "games" || v === "sets") return v;
+    return get("live_notify") === "false" ? "off" : "games";
+  },
+  set liveMode(v: "off" | "games" | "sets") { set("live_mode", v); },
+  get liveNotify() { return this.liveMode !== "off"; },
   set liveSounds(v: boolean) { set("live_sounds", String(v)); },
   /** Zvuk davu při dohrané hře (výhra / prohra) a na konci utkání. */
   get liveSounds() { return get("live_sounds") !== "false"; },
-  set liveNotify(v: boolean) { set("live_notify", String(v)); },
+  set liveNotify(v: boolean) { this.liveMode = v ? (this.liveMode === "off" ? "games" : this.liveMode) : "off"; },
   get lastMatchCount() { return num("last_match_count", -1); },
   set lastMatchCount(v: number) { set("last_match_count", String(v)); },
   get lastStr() { return num("last_str", -1); },

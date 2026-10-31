@@ -7,7 +7,7 @@ import { Parsers } from "../src/core/parsers";
 import { Clubs, Match, PlayerPage, Stis, RosterPlayer, teamRef, type TeamMembership } from "../src/core/models";
 import { Stats, StrModel, sum } from "../src/core/stats";
 import { StisRepository, type Fetcher } from "../src/core/repository";
-import { Live, LiveTimeline, MatchFormats, lp } from "../src/core/live";
+import { Live, LiveGame, LiveTimeline, MatchFormats, lp } from "../src/core/live";
 import { Search, Stability, roundScore } from "../src/core/search";
 import { ldOf, ldtOf } from "../src/core/dates";
 import { matchOdds, pointsRule, predictSeason } from "../src/core/season";
@@ -337,6 +337,12 @@ async function main() {
   check("round score", J(roundScore(9.5, 8.5)) === J([10, 8]) && J(roundScore(10.2, 7.8)) === J([10, 8]) && J(roundScore(4.4, 4.6)) === J([4, 5]));
   check("utkani", Stability.utkani(p, p.matches[0].myTeam, p.matches[0].season) >= 1);
 
+  // ---------- šance rozehrané hry podle setů
+  const q61 = Live.setProb(0.61);
+  check("setProb", Math.abs(Live.fromSets(q61, 3, 3) - 0.61) < 1e-6 && Math.abs(Live.setProb(0.5) - 0.5) < 1e-6, () => String(q61));
+  const g20 = new LiveGame(9, [], [], null, [5, 7], 2, 0), g02 = new LiveGame(9, [], [], null, [-5, -7], 0, 2);
+  const p20 = Live.inGame(0.61, g20), p02 = Live.inGame(0.61, g02);
+  check("inGame sety", p20 > 0.85 && p20 < 0.95 && p02 > 0.15 && p02 < 0.3 && Live.inGame(0.61, new LiveGame(9, [], [], null)) === 0.61, () => `${p20} ${p02}`);
   // ---------- přeskočení dohraného utkání
   const losToday = los.replace("06.11.2026 17:30", "30.10.2026 17:30").replace("</tbody>", '<tr><td>7.</td><td>13.11.2026 17:30</td><td><a href="/druzstvo-66771/svaz-420802/rocnik-2026/soutez-6723">TJ Další</a></td><td><a href="/druzstvo-66625/svaz-420802/rocnik-2026/soutez-6723">TTC Bystřice B</a></td><td></td></tr></tbody>');
   const frepo = new StisRepository({ async get(path) { if (path.startsWith("/los-vse")) return losToday; if (path in pages) return pages[path]; throw new Error("404"); } });
