@@ -48,8 +48,15 @@ export function OverviewScreen() {
   const start = seasonMatches[0]?.strBefore ?? null;
   const cur = me.currentStr;
   const form = Stats.form(meL);
+  // zápasy z online zápisu, u kterých se ještě dočítá STR soupeře (Výkon se může změnit)
+  const formBusy = meL.chronological.slice(-25).some((m) => m.unofficial && m.oppStrBefore == null)
+    && Array.from(vm.loadingPlayers.values()).some((x) => x);
   const teams = (me.currentSeason?.teams ?? []).filter((t) => !t.notOnRoster).map((t) => t.name).join(", ");
   const nextCtx = vm.next[vm.nextSelected] ?? vm.next.find((c) => c.next != null) ?? null;
+  // Úspěšnost v soutěži aktivního družstva
+  const activeTeam = vm.next[vm.nextSelected]?.myTeam ?? null;
+  const teamMatches = activeTeam ? seasonMatches.filter((m) => Stats.fold(m.myTeam) === Stats.fold(activeTeam.name)) : seasonMatches;
+  const teamWins = teamMatches.filter((m) => m.won).length;
   const remaining = Stats.estimateRemaining(me, vm.next.length ? sum(vm.next.map((c) => Stats.remainingTeamMatches(c.los))) : null);
   const fc = Stats.forecast(me, remaining, vm.repo.seasonEnd(vm.next.flatMap((c) => c.los)));
   const live = vm.myLiveGames();
@@ -118,13 +125,14 @@ export function OverviewScreen() {
           </div>
         )}
         <TileRow>
-          <StatTile label="Úspěšnost" value={seasonMatches.length ? Stats.pct(wins / seasonMatches.length) : "–"} dark sub={scopeSub}
+          <StatTile label="Úspěšnost" value={teamMatches.length ? Stats.pct(teamWins / teamMatches.length) : "–"} dark
+            sub={activeTeam ? `${activeTeam.competition || activeTeam.name} ›` : scopeSub}
             onClick={() => { vm.ladderTab = "stis"; vm.strLadderSort = "pct"; vm.compSeason = null; vm.compId = null; vm.tab(S.Ladder); }} />
           <StatTile label="Bilance" value={`${wins}–${seasonMatches.length - wins}`} dark sub={scopeSub}
             onClick={() => { vm.matchesTeam = "all"; vm.matchesSeason = null; vm.matchesTab = "zapasy"; vm.tab(S.Matches); }} />
           <StatTile label="Výkon" value={form.sample ? (form.overExpected >= 0 ? "+" : "−") + dec1(Math.abs(form.overExpected)) : "–"} dark
             valueColor={!form.sample ? undefined : form.overExpected > 0.05 ? C.WinLight : form.overExpected < -0.05 ? C.Peach : "#fff"}
-            sub={`posl. ${form.sample} zápasů ›`} onClick={() => { vm.scrollTarget = "klutch"; vm.go(S.Records); }} />
+            busy={formBusy} sub={`posl. ${form.sample} zápasů ›`} onClick={() => { vm.scrollTarget = "klutch"; vm.go(S.Records); }} />
         </TileRow>
       </NavyHeader>
       <InstallBanner />
@@ -371,9 +379,9 @@ function LastUtkaniCard() {
   const last = vm.lastUtkani(byTeam ? team : null);
   if (!last) {
     if (byTeam) return (
-      <AppCard>
-        <T bold size={16}>Poslední utkání</T>
-        <Muted text={`Za družstvo ${team} jste v této sezóně zatím nehrál.`} size={13} />
+      <AppCard bg={C.Navy} className="darkcard">
+        <T bold size={16} color="#fff">Poslední utkání</T>
+        <Muted text={`Za družstvo ${team} jste v této sezóně zatím nehrál.`} size={13} color={C.MutedOnNavy} />
         <div><button className="textbtn" onClick={() => vm.set("lastByTeam", false)}>Ukázat všechna družstva</button></div>
       </AppCard>
     );
@@ -381,41 +389,41 @@ function LastUtkaniCard() {
   }
   const liveTeam = Math.max(0, vm.next.findIndex((c) => c.myTeam.name === last.myTeam));
   return (
-    <AppCard onClick={() => {
+    <AppCard bg={C.Navy} className="darkcard" onClick={() => {
       if (last.running) vm.go({ t: "Live", team: liveTeam });
       else if (last.zapisPath) vm.go({ t: "ZapisDetail", path: last.zapisPath, myTeam: last.myTeam });
     }}>
       <div className="row">
-        <T bold size={16} style={{ flex: 1 }}>{last.title}</T>
-        <T semi color={C.Blue}>{last.running ? "Živě ›" : "Zápis ›"}</T>
+        <T bold size={16} color="#fff" style={{ flex: 1 }}>{last.title}</T>
+        <T bold color="#fff">{last.running ? "Živě ›" : "Zápis ›"}</T>
       </div>
       {team != null && (
         <div onClick={(e) => e.stopPropagation()}>
           <Chips options={[["team", "Aktuální družstvo"], ["all", "Všechna"]]} selected={vm.lastByTeam ? "team" : "all"} onSelect={(k) => vm.set("lastByTeam", k === "team")} />
-          {!vm.lastByTeam && <Muted text={last.myTeam} size={12} style={{ paddingTop: 8 }} />}
+          {!vm.lastByTeam && <Muted text={last.myTeam} size={12} color={C.MutedOnNavy} style={{ paddingTop: 8 }} />}
         </div>
       )}
-      {last.unofficial && <Muted text="Výsledky a STR jsou odhad podle online zápisu – oficiálně je přepočítá STIS." color={C.OrangeText} size={12} maxLines={3} />}
+      {last.unofficial && <Muted text="Výsledky a STR jsou odhad podle online zápisu – oficiálně je přepočítá STIS." color={C.Peach} size={12} maxLines={3} />}
       {last.unofficial ? last.live.map((g, i) => (
         <div className="row g10" key={i}>
-          {g.won != null ? <ResultBadge won={g.won} text={g.won ? "V" : "P"} /> : <div style={{ width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Muted text={`${g.game.no}.`} size={13} /></div>}
+          {g.won != null ? <ResultBadge won={g.won} text={g.won ? "V" : "P"} /> : <div style={{ width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Muted text={`${g.game.no}.`} size={13} color={C.MutedOnNavy} /></div>}
           <div className="col w1">
-            <T semi lines={1}>{g.opponent.name + (g.opponent.str != null ? ` (${g.opponent.str})` : "")}</T>
-            <Muted size={12} maxLines={1} text={
+            <T semi lines={1} color="#fff">{g.opponent.name + (g.opponent.str != null ? ` (${g.opponent.str})` : "")}</T>
+            <Muted size={12} maxLines={1} color={C.MutedOnNavy} text={
               g.won != null && g.game.homeSets != null ? `sety ${g.home ? `${g.game.homeSets}:${g.game.awaySets}` : `${g.game.awaySets}:${g.game.homeSets}`}`
                 : g.game.inProgress ? "hraje se"
                   : g.won == null ? `výhra ${Math.round(g.ifWin)} · prohra ${Math.round(g.ifLoss)}` : ""} />
           </div>
-          {g.strAfter != null && <T bold color={C.delta(g.strAfter - g.strBefore)}>{signedInt(Math.round(g.strAfter - g.strBefore))}</T>}
+          {g.strAfter != null && <T bold color={g.strAfter - g.strBefore >= 0 ? C.WinLight : C.Peach}>{signedInt(Math.round(g.strAfter - g.strBefore))}</T>}
         </div>
       )) : [...last.official].reverse().map((m, i) => (
         <div className="row g10" key={i}>
           <ResultBadge won={m.won} text={m.won ? "V" : "P"} />
           <div className="col w1">
-            <T semi lines={1}>{m.opponent + (m.oppStrBefore != null ? ` (${m.oppStrBefore})` : "")}</T>
-            <Muted text={`${m.score} · ${m.opponentTeam}`} size={12} maxLines={1} />
+            <T semi lines={1} color="#fff">{m.opponent + (m.oppStrBefore != null ? ` (${m.oppStrBefore})` : "")}</T>
+            <Muted text={`${m.score} · ${m.opponentTeam}`} size={12} maxLines={1} color={C.MutedOnNavy} />
           </div>
-          {m.delta != null && <T bold color={C.delta(m.delta)}>{signedInt(m.delta)}</T>}
+          {m.delta != null && <T bold color={m.delta >= 0 ? C.WinLight : C.Peach}>{signedInt(m.delta)}</T>}
         </div>
       ))}
     </AppCard>

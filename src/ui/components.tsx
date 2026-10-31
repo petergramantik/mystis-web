@@ -81,14 +81,17 @@ export function AppCard({ children, onClick, padding = 14, bg = "#fff", style, c
 }
 export function ListCard({ children, style }: { children: ReactNode; style?: CSSProperties }) { return <div className="listcard" style={style}>{children}</div>; }
 
-export function StatTile({ label, value, dark, valueColor, sub, onClick }: {
-  label: string; value: string; dark?: boolean; valueColor?: string; sub?: string | null; onClick?: () => void; subLeftEllipsis?: boolean;
+export function StatTile({ label, value, dark, valueColor, sub, onClick, busy }: {
+  label: string; value: string; dark?: boolean; valueColor?: string; sub?: string | null; onClick?: () => void; subLeftEllipsis?: boolean; busy?: boolean;
 }) {
   const mc = dark ? C.MutedOnNavy : C.Muted;
   return (
     <div className={"tile" + (dark ? " dark" : "") + (onClick ? " clickable" : "")} onClick={onClick}>
       <Marquee text={label} color={mc} size={12} />
-      <BigNumber text={value} color={valueColor ?? (dark ? "#fff" : C.Ink)} size={22} />
+      <div className="row" style={{ gap: 6 }}>
+        <BigNumber text={value} color={valueColor ?? (dark ? "#fff" : C.Ink)} size={22} />
+        {busy && <Spinner size={13} width={2} color={mc} />}
+      </div>
       {sub != null && <Marquee text={sub} color={mc} size={11} />}
     </div>
   );

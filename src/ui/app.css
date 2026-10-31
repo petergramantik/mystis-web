@@ -149,3 +149,8 @@ button { font-family: inherit; }
 .seg button { min-width: 0; padding: 0 8px; }
 
 @keyframes ringspin { from { transform: rotate(-90deg); } to { transform: rotate(270deg); } }
+
+/* tmavá karta (Poslední utkání) */
+.darkcard .chip { background: transparent; color: #fff; border-color: rgba(255,255,255,0.35); }
+.darkcard .chip.on { background: #fff; color: var(--navy); border-color: #fff; }
+.darkcard .textbtn { color: #AFC3EE; }

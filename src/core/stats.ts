@@ -155,7 +155,9 @@ export const Stats = {
   form(page: PlayerPage, lastN = 5, sampleN = 20): FormInfo {
     const ch = page.chronological;
     const last = ch.slice(Math.max(0, ch.length - lastN)).reverse();
-    const sample = ch.slice(Math.max(0, ch.length - sampleN)).filter((m) => m.strBefore != null && m.oppStrBefore != null);
+    // posledních sampleN zápasů se známým STR obou hráčů (nejdřív filtr, pak výběr -> stabilní počet)
+    const known = ch.filter((m) => m.strBefore != null && m.oppStrBefore != null);
+    const sample = known.slice(Math.max(0, known.length - sampleN));
     const over = sum(sample.map((m) => (m.won ? 1 : 0) - wp(m)));
     return { last, wins: last.filter((m) => m.won).length, losses: last.filter((m) => !m.won).length, overExpected: over, sample: sample.length };
   },
