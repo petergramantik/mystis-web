@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useZapisRefresh } from "../zapis";
 import { vm } from "../../app/vm";
 import type { PlayerPage, ZapisGame } from "../../core/models";
 import { Stats, StrModel, sum } from "../../core/stats";
@@ -93,7 +94,7 @@ export function PairScreen({ aId0, aName0, bId0, bName0 }: { aId0: string; aName
 }
 
 export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: string }) {
-  useEffect(() => { vm.loadZapis(path); }, [path]);
+  useZapisRefresh(path);
   const z = vm.zapisy.get(path);
   if (!z) return <Loading text="Načítám zápis o utkání…" />;
   const myHome = Stats.fold(z.home) === Stats.fold(myTeam) ? true : Stats.fold(z.away) === Stats.fold(myTeam) ? false : true;
@@ -194,3 +195,4 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
     </div>
   );
 }
+

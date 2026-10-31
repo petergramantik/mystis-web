@@ -12,6 +12,7 @@ import {
 import { fmtDMYdt, fmtWhenShort } from "../fmt";
 import { ProxySetup } from "./Records";
 import { InstallBanner, InstallButton } from "../install";
+import { useZapisRefresh } from "../zapis";
 
 export function OnboardingScreen() {
   return (
@@ -310,7 +311,7 @@ function NextCard({ ctx }: { ctx: NextMatchContext | null }) {
 
 function PreviousCard({ ctx, prev, back, total, onHome }: { ctx: NextMatchContext | null; prev: [LosMatch | null, string] | undefined; back: number; total: number; onHome: () => void }) {
   const path = prev?.[1] ?? "";
-  useEffect(() => { if (path) vm.loadZapis(path); }, [path]);
+  useZapisRefresh(path);
   const z = vm.zapisy.get(path);
   const muted = "#B7C2D8";
   const m = prev?.[0] ?? null;

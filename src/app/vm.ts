@@ -133,6 +133,8 @@ export class AppVm {
 
   private defaultTeamIndex(ctxs: NextMatchContext[], m: PlayerPage): number {
     if (ctxs.length <= 1) return 0;
+    const live = ctxs.findIndex((c) => c.liveNow && !this.liveFinished(c));
+    if (live >= 0) return live;
     const season = m.matches.length ? Math.max(...m.matches.map((x) => x.season)) : Stis.currentRocnik();
     const counts = ctxs.map((c) => {
       const byMatches = m.matches.filter((x) => x.season === season && x.valid && Stats.fold(x.myTeam) === Stats.fold(c.myTeam.name)).length;
@@ -404,6 +406,17 @@ export class AppVm {
     return !!z && this.zapisBelongs(z, ctx) && Live.isZapisFinished(z, this.format);
   }
 
+  /** Výsledek z rozpisu je konečný (ne průběžný stav): dosažený cíl nebo odehrané všechny hry. */
+  scoreFinal(score: string): boolean {
+    const p = /^(\d+):(\d+)$/.exec(score.trim());
+    if (!p) return false;
+    const h = +p[1], a = +p[2], f = this.format;
+    return (f.target != null && (h >= f.target || a >= f.target)) || h + a >= f.games;
+  }
+
+  /** Utkání se právě hraje a ještě neskončilo. */
+  liveRunning(ctx: NextMatchContext): boolean { return ctx.liveNow && !this.liveFinished(ctx); }
+
   upcoming(ctx: NextMatchContext): LosMatch | null {
     const n = ctx.next;
     if (!n) return null;
@@ -557,12 +570,13 @@ export class AppVm {
     const out: [LosMatch | null, string][] = [];
     const liveDone = ctx.liveNow && this.liveFinished(ctx);
     if (liveDone) { const l = this.liveLinks.get(this.teamKey(ctx)); if (l) out.push([ctx.next, l]); }
-    const losPaths = new Set(ctx.los.filter((x) => x.played).map((x) => x.zapisPath));
+    const losPaths = new Set(ctx.los.filter((x) => x.played && !(ctx.liveNow && x === ctx.next)).map((x) => x.zapisPath));
     Array.from(this.zapisy.values())
       .filter((z) => !losPaths.has(z.path) && !out.some((o) => o[1] === z.path) && this.zapisBelongs(z, ctx) && Live.isZapisFinished(z, this.format))
       .sort((a, b) => (Parsers.date(b.dateText) ?? LDATE_MIN) - (Parsers.date(a.dateText) ?? LDATE_MIN))
       .forEach((z) => out.push([ctx.los.find((x) => x.zapisPath === z.path) ?? null, z.path]));
-    ctx.los.filter((x) => x.played && !(liveDone && x === ctx.next))
+    const running = this.liveRunning(ctx);
+    ctx.los.filter((x) => x.played && !((liveDone || running) && x === ctx.next))
       .sort((a, b) => (b.dateTime ?? -LDT_MAX) - (a.dateTime ?? -LDT_MAX))
       .forEach((x) => out.push([x, x.zapisPath]));
     return out;
@@ -881,7 +895,7 @@ export class AppVm {
       try {
         const finished = new Set([...this.next.filter((c) => c.liveNow && this.liveFinished(c)).map((c) => c.myTeam.ref?.id).filter((x): x is string => !!x), ...this.finishedTeams]);
         for (const f of finished) this.finishedTeams.add(f);
-        const ctx = await this.repo.nextMatches(m, nowLdt(), finished);
+        const ctx = await this.repo.nextMatches(m, nowLdt(), finished, (s) => this.scoreFinal(s));
         this.next = ctx;
         for (const c of ctx) {
           const key = this.teamKey(c);
@@ -926,14 +940,31 @@ export class AppVm {
   }
 
   private zapisLoading = new Set<string>();
-  loadZapis(path: string, track = false) {
-    if (this.zapisy.has(path) || !path || this.zapisLoading.has(path)) return;
+  private zapisFetched = new Map<string, number>();
+  /** Zápis je načtený, ale utkání ještě není dohrané. */
+  zapisRunning(path: string): boolean {
+    const z = this.zapisy.get(path);
+    return !!z && !Live.isZapisFinished(z, this.format);
+  }
+  /**
+   * Načte zápis. Dohraný zápis se bere z mezipaměti (30 dní); rozehraný se stahuje znovu,
+   * pokud je starší než minuta ([force] = vždy znovu).
+   */
+  loadZapis(path: string, track = false, force = false) {
+    if (!path || this.zapisLoading.has(path)) return;
+    const have = this.zapisy.get(path);
+    if (have && !force && (Live.isZapisFinished(have, this.format) || Date.now() - (this.zapisFetched.get(path) ?? 0) < 60_000)) return;
     this.zapisLoading.add(path);
     if (track) this.stepsAdd(1, "Načítám zápisy utkání…");
     (async () => {
       try {
-        const z = await this.repo.zapis(path);
-        if (z) this.zapisy.set(path, z);
+        let z = have || force ? null : await this.repo.zapis(path);
+        if (!z || !Live.isZapisFinished(z, this.format)) z = await this.repo.zapis(path, force ? 0 : 60_000) ?? z;
+        if (z) {
+          const wasRunning = !!have && !Live.isZapisFinished(have, this.format);
+          this.zapisy.set(path, z); this.zapisFetched.set(path, Date.now());
+          if (wasRunning && Live.isZapisFinished(z, this.format) && this.next.some((c) => c.liveNow && this.zapisBelongs(z!, c))) this.loadNext(false);
+        }
       } catch { /* detail setů je jen doplněk */ }
       finally {
         this.zapisLoading.delete(path);

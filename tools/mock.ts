@@ -31,6 +31,13 @@ function teamPage(id: string) {
   return pad(hall + `<h5>Žebříček družstva</h5><table class="table"><thead><tr><th>Pořadí</th><th>Hráč</th><th>Nar.</th><th>Žebříček</th><th>STR</th><th>STR+-</th><th>Bilance</th><th>Zápasy</th></tr></thead><tbody>` +
     rows.map(([pid, n, s, i]) => `<tr><td>${(i as number) + 1}</td><td><a href="/hrac-${pid}/svaz-420802/rocnik-2026">${n}</a></td><td>1970</td><td>kraj. muži</td><td>${s}</td><td>${(i as number) % 2 ? 4 : -3}</td><td>${5 - (i as number)}:${2 + (i as number)}</td><td>0/0/1</td></tr>`).join("") + `</tbody></table>`);
 }
+// MOCK_LIVE=1: kolo 6 začalo před 30 min, rozpis ukazuje průběžný stav 3:2, zápis má 5 her
+const LIVE = process.env.MOCK_LIVE === "1";
+function liveStart() {
+  const d = new Date(Date.now() - 30 * 60_000); // místní čas (spouštět s TZ=Europe/Prague)
+  const p = (x: number) => String(x).padStart(2, "0");
+  return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 function losPage(id: string) {
   const t = TEAMS.find((x) => x.id === id) ?? TEAMS[1];
   const me = `<a href="/druzstvo-${t.id}/svaz-420802/rocnik-2026/soutez-${t.soutez}">${t.name}</a>`;
@@ -38,7 +45,7 @@ function losPage(id: string) {
   const o2 = `<a href="/druzstvo-${OPP.id}/svaz-420802/rocnik-2026/soutez-${t.soutez}">${OPP.name}</a>`;
   const rows = [
     `<tr><td>5.</td><td>23.10.2026 18:00</td><td>${o1}</td><td>${me}</td><td><a href="/zapis/svaz-420802/rocnik-2026/soutez-${t.soutez}/utkani-672291">9:9</a></td></tr>`,
-    `<tr><td>6.</td><td>30.10.2026 17:30</td><td>${me}</td><td>${o1}</td><td><a href="/zapis/svaz-420802/rocnik-2026/soutez-${t.soutez}/utkani-700001">online</a></td></tr>`,
+    `<tr><td>6.</td><td>${LIVE ? liveStart() : "30.10.2026 17:30"}</td><td>${me}</td><td>${o1}</td><td><a href="/zapis/svaz-420802/rocnik-2026/soutez-${t.soutez}/utkani-700001">${LIVE ? "3:2" : "online"}</a></td></tr>`,
     `<tr><td>7.</td><td>06.11.2026 18:00</td><td>${o2}</td><td>${me}</td><td></td></tr>`,
     `<tr><td>8.</td><td>13.11.2026 17:30</td><td>${me}</td><td>${o1}</td><td></td></tr>`,
     `<tr><td>9.</td><td>20.11.2026 18:00</td><td>${o2}</td><td>${me}</td><td></td></tr>`,
@@ -62,12 +69,12 @@ function zapisPage(no: string) {
   };
   game(cell(home.slice(0, 2)), cell(away.slice(0, 2)), true);
   game(cell(home.slice(2)), cell(away.slice(2)), false);
-  order.forEach(([i, j], k) => { if (h < 10 && a < 10) game(cell([home[i]]), cell([away[j]]), k % 3 !== 2); });
+  order.forEach(([i, j], k) => { if (h < 10 && a < 10 && !(LIVE && no === "700001" && n > 5)) game(cell([home[i]]), cell([away[j]]), k % 3 !== 2); });
   const hn = no === "700001" ? "TTC Bystřice B" : OPP2.name, an = no === "700001" ? OPP2.name : "TTC Bystřice B";
   const hid = no === "700001" ? "66625" : OPP2.id, aid = no === "700001" ? OPP2.id : "66625";
   return pad(`<table class="zapis_H"><tr><td>Název soutěže: <b><a href="#">OS 1</a></b> Kolo: <b>${no === "700001" ? 6 : 5}</b> online</td></tr>
     <tr><td>POŘÁDAJÍCÍ</td><td><a href="/druzstvo-${hid}/x">${hn}</a></td><td>HOSTUJÍCÍ</td><td><a href="/druzstvo-${aid}/x">${an}</a></td></tr>
-    <tr><td>Datum dle rozpisu</td><td>${no === "700001" ? "30.10.2026 17:30" : "23.10.2026 18:00"}</td><td>Hráno v místnosti</td><td>Bystřice, sokolovna</td></tr>
+    <tr><td>Datum dle rozpisu</td><td>${no === "700001" ? (LIVE ? liveStart() : "30.10.2026 17:30") : "23.10.2026 18:00"}</td><td>Hráno v místnosti</td><td>Bystřice, sokolovna</td></tr>
     <tr><td>${h}</td><td>:</td><td>${a}</td><td>33</td><td>:</td><td>34</td><td>632</td><td>:</td><td>640</td><td>x</td></tr></table>
     <table class="zapis">${rows.join("\n")}</table>`);
 }

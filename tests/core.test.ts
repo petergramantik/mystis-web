@@ -343,6 +343,13 @@ async function main() {
   const nowL = ldtOf(2026, 10, 30, 19, 0);
   const liveC = await frepo.nextMatches(fakeMe, nowL);
   const doneC = await frepo.nextMatches(fakeMe, nowL, new Set(["66625"]));
+  const losScore = losToday.replace('TJ Sokol Dobrá</a></td><td></td>', 'TJ Sokol Dobrá</a></td><td>1:0</td>');
+  const srepo = new StisRepository({ async get(path) { if (path.startsWith("/los-vse")) return losScore; if (path in pages) return pages[path]; throw new Error("404"); } });
+  const final18 = (sc: string) => { const [h, a] = sc.split(":").map(Number); return h >= 10 || a >= 10 || h + a >= 18; };
+  const runC = await srepo.nextMatches(fakeMe, nowL, new Set(), final18);
+  check("live s průběžným stavem", runC[0].liveNow && runC[0].next?.round === "6" && runC[0].next?.played === true, () => `${runC[0].liveNow} ${runC[0].next?.round}`);
+  const finC = await new StisRepository({ async get(path) { if (path.startsWith("/los-vse")) return losScore.replace(">1:0<", ">10:4<"); if (path in pages) return pages[path]; throw new Error("404"); } }).nextMatches(fakeMe, nowL, new Set(), final18);
+  check("konečný výsledek v rozpisu = dohráno", !finC[0].liveNow && finC[0].next?.round === "7", () => `${finC[0].liveNow} ${finC[0].next?.round}`);
   check("live then next", liveC[0].liveNow && liveC[0].next?.round === "6" && !doneC[0].liveNow && doneC[0].next?.round === "7", () => `${liveC[0].next?.round} ${doneC[0].next?.round}`);
 
   // ---------- oficiální žebříček STR soutěže (dvě možné podoby stránky)

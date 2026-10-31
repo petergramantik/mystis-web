@@ -134,7 +134,12 @@ export class StisRepository {
   async searchPlayers(query: string): Promise<SearchPlayer[]> { return Search.players(await this.fetcher.get(Search.playersPath(query), HOUR)); }
   async searchClubs(query: string): Promise<SearchClub[]> { return Search.clubs(await this.fetcher.get(Search.clubsPath(query), HOUR)); }
 
-  async nextMatches(me: PlayerPage, now: LDT = nowLdt(), finishedTeams: Set<string> = new Set()): Promise<NextMatchContext[]> {
+  /**
+   * Probíhající utkání: začátek v okně (now−5 h, now+30 min). STIS do rozpisu zapisuje i průběžný stav
+   * (např. „1:0“), proto se výsledek v rozpisu bere jako konečný jen tehdy, když ho [scoreFinal] uzná
+   * (dosažený cíl / všechny hry), nebo když je družstvo ve [finishedTeams] (zápis ukázal konec).
+   */
+  async nextMatches(me: PlayerPage, now: LDT = nowLdt(), finishedTeams: Set<string> = new Set(), scoreFinal: (score: string) => boolean = () => false): Promise<NextMatchContext[]> {
     const out: NextMatchContext[] = [];
     for (const t of this.myTeams(me)) {
       const ref = t.ref;
@@ -142,7 +147,7 @@ export class StisRepository {
       let los: LosMatch[] = [];
       try { los = await this.los(ref); } catch { los = []; }
       const done = finishedTeams.has(ref.id);
-      const liveMatch = done ? null : los.find((m) => !m.played && m.dateTime != null && m.dateTime > now - 5 * 60 && m.dateTime < now + 30) ?? null;
+      const liveMatch = done ? null : los.find((m) => (!m.played || !scoreFinal(m.score)) && m.dateTime != null && m.dateTime > now - 5 * 60 && m.dateTime < now + 30) ?? null;
       const next = liveMatch ?? (done
         ? minBy(los.filter((m) => !m.played && (m.dateTime == null || m.dateTime > now)), (m) => m.dateTime ?? LDT_MAX)
         : Stats.nextMatch(los, now));
