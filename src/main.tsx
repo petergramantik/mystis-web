@@ -8,7 +8,7 @@ import { StrScreen } from "./ui/screens/StrScreen";
 import { MatchesScreen } from "./ui/screens/Matches";
 import { ClubScreen, H2HScreen, OpponentsScreen } from "./ui/screens/Opponents";
 import { FixtureScreen, NextMatchScreen } from "./ui/screens/NextMatch";
-import { LiveScreen } from "./ui/screens/LiveMatch";
+import { LiveScreen, LiveTopRing } from "./ui/screens/LiveMatch";
 import { PairScreen, ZapisDetailScreen } from "./ui/screens/Duel";
 import { CaptainScreen, CompareScreen } from "./ui/screens/Captain";
 import { PlayerScreen, RecordsScreen, SettingsScreen } from "./ui/screens/Records";
@@ -60,7 +60,7 @@ function Body({ s }: { s: Screen }) {
     case "Settings": return <SettingsScreen />;
     case "Player": return <PlayerScreen path={s.path} />;
     case "Live": return <LiveScreen team={s.team} />;
-    case "Duel": return <PairScreen aId0={s.aId} aName0={s.aName} bId0={s.bId} bName0={s.bName} />;
+    case "Duel": return <PairScreen aId0={s.aId} aName0={s.aName} bId0={s.bId} bName0={s.bName} pA0={s.pA} />;
     case "ZapisDetail": return <ZapisDetailScreen path={s.path} myTeam={s.myTeam} />;
     case "Fixture": return <FixtureScreen team={s.team} round={s.round} home={s.home} away={s.away} />;
   }
@@ -104,7 +104,10 @@ function Root() {
         {canBack() ? <button className="iconbtn" onClick={goBack} aria-label="Zpět"><Icon name="back" /></button> : <div className="spacer44" />}
         <div className="spacer44" />
         <div className="title">{title(screen)}</div>
-        <button className="iconbtn" onClick={() => vm.refreshAll()} aria-label="Obnovit data"><Icon name="refresh" /></button>
+        {(() => {
+          const refresh = <button className="iconbtn" onClick={() => vm.refreshAll()} aria-label="Obnovit data"><Icon name="refresh" /></button>;
+          return screen.t === "Live" ? <LiveTopRing team={screen.team} fallback={refresh} /> : refresh;
+        })()}
         <button className="iconbtn" onClick={() => setMenu(true)} aria-label="Další funkce"><Icon name="more" /></button>
         {menu && (
           <>

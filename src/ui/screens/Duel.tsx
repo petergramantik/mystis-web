@@ -10,7 +10,8 @@ import {
   SetsLine,
 } from "../components";
 
-export function PairScreen({ aId0, aName0, bId0, bName0 }: { aId0: string; aName0: string; bId0: string; bName0: string }) {
+/** [pA0] = šance hráče A převzatá z živého utkání (stejný výpočet jako v seznamu her). */
+export function PairScreen({ aId0, aName0, bId0, bName0, pA0 }: { aId0: string; aName0: string; bId0: string; bName0: string; pA0?: number }) {
   const me = vm.meWithLive();
   const isMe = (id: string, name: string) => !!me && ((id !== "" && id === me.id) || Stats.fold(name) === Stats.fold(me.name));
   // A je vždy hráč, jehož stránku máme (já), jinak domácí hráč
@@ -78,12 +79,30 @@ export function PairScreen({ aId0, aName0, bId0, bName0 }: { aId0: string; aName
       </NavyHeader>
       <div className="col g12 px16">
         {strA != null && strB != null && (() => {
-          const p = StrModel.winProbability(strA, strB);
+          const p = pA0 != null ? (swap ? 1 - pA0 : pA0) : StrModel.winProbability(strA, strB);
+          // strana mého družstva: zeleně; soupeř oranžově. Když nejde o moje družstvo: barvy podle avatarů.
+          const mineTeams = new Set([...vm.next.map((c) => Stats.fold(c.myTeam.name)), ...me.matches.map((m) => Stats.fold(m.myTeam))]);
+          const aMine = aIsMe || mineTeams.has(Stats.fold(lastTeam(pageA)));
+          const bMine = !aMine && mineTeams.has(Stats.fold(lastTeam(pageB)));
+          const colA = aMine ? C.Win : bMine ? C.OrangeText : C.Blue, colB = bMine ? C.Win : aMine ? C.OrangeText : C.Orange;
+          const even = Math.abs(p - 0.5) < 0.005;
+          const fav = p >= 0.5 ? aName : bName, favP = Math.max(p, 1 - p), favCol = p >= 0.5 ? colA : colB;
+          const pct = (x: number) => Stats.pct(x);
           return (
             <AppCard>
-              <div className="row"><T bold style={{ flex: 1 }}>Šance: {first(aName)}</T><BigNumber text={Stats.pct(p)} color={p >= 0.5 ? C.Win : C.OrangeText} size={22} /></div>
-              <ProbBar p={p} />
-              <Muted size={13} text={`${first(aName)}: výhra +${StrModel.gainIfWin(strA, strB)}, prohra −${-StrModel.lossIfLose(strA, strB)} STR`} />
+              <div className="row">
+                <T bold style={{ flex: 1 }}>{even ? "Vyrovnané" : `Favorit: ${first(fav)}`}</T>
+                <BigNumber text={pct(even ? 0.5 : favP)} color={even ? C.Ink : favCol} size={22} />
+              </div>
+              <div className="row" style={{ height: 9, borderRadius: 5, overflow: "hidden" }}>
+                <div style={{ width: `${p * 100}%`, background: colA, height: "100%" }} />
+                <div style={{ flex: 1, background: colB, opacity: 0.85, height: "100%" }} />
+              </div>
+              <div className="row">
+                <T size={13} bold color={colA} style={{ flex: 1 }}>{`${first(aName)} ${pct(p)}`}</T>
+                <T size={13} bold color={colB}>{`${pct(1 - p)} ${first(bName)}`}</T>
+              </div>
+              <Muted size={13} maxLines={3} text={`${first(aName)}: výhra +${StrModel.gainIfWin(strA, strB)} / prohra −${-StrModel.lossIfLose(strA, strB)} · ${first(bName)}: výhra +${StrModel.gainIfWin(strB, strA)} / prohra −${-StrModel.lossIfLose(strB, strA)} STR`} />
             </AppCard>
           );
         })()}

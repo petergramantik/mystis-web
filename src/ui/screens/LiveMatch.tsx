@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { vm } from "../../app/vm";
 import type { RosterPlayer } from "../../core/models";
 import { Stats, maxBy } from "../../core/stats";
@@ -126,8 +126,6 @@ export function LiveScreen({ team }: { team: number }) {
             {!found && <Muted text="Aplikace sama najde online zápis o utkání na STIS (objevuje se pár minut po začátku) a čte sestavy, pořadí her a průběžné výsledky. Obnovuje se každou minutu." size={13} maxLines={5} />}
             {found && (!showField || manualLink) && (
               <div className="row g12">
-                {z && Live.isZapisFinished(z, vm.format) ? null
-                  : <CountdownRing next={updated + LIVE_PERIOD} period={LIVE_PERIOD} busy={loading} onClick={() => vm.loadLive(tk, found, true)} />}
                 <div className="col w1">
                   <T semi size={14}>{z && Live.isZapisFinished(z, vm.format) ? "Utkání dohráno" : loading ? "Aktualizuji…" : "Sleduji online zápis"}</T>
                   <Muted size={13} text={updated > 0 ? `${loaded?.online ? "online · " : ""}aktualizováno ${hhmm(updated)}` : "načítám zápis…"} />
@@ -165,7 +163,7 @@ export function LiveScreen({ team }: { team: number }) {
             <ListCard>
               {games.map((g, i) => {
                 const h = g.home[0], a = g.away[0];
-                const onOpen = !g.doubles && h && a ? () => vm.go({ t: "Duel", aId: h.id ?? "", aName: h.name, bId: a.id ?? "", bName: a.name }) : null;
+                const onOpen = !g.doubles && h && a ? () => vm.go({ t: "Duel", aId: h.id ?? "", aName: h.name, bId: a.id ?? "", bName: a.name, pA: st.gameProb[i] }) : null;
                 const onResult = z == null ? () => vm.toggleManualResult(tk, g.no) : null;
                 return <GameRow key={g.no} g={g} pHome={st.gameProb[i]} myHome={myHome} mine={mine.get(g.no) ?? null} onOpen={onOpen} onResult={onResult} />;
               })}
@@ -209,10 +207,18 @@ function GameRow({ g, pHome, myHome, mine, onOpen, onResult }: { g: LiveGame; pH
   let right;
   if (g.result == null) {
     const myP = myHome ? pHome : 1 - pHome;
+    // favorit: jméno a jeho šance; zeleně můj hráč, oranžově soupeř
+    const favHome = pHome >= 0.5;
+    const favSide = favHome ? g.home : g.away;
+    const favName = favSide.map((p) => p.name.replace(/\(.*?\)/g, "").trim().split(" ")[0]).join(" + ");
+    const favP = favHome ? pHome : 1 - pHome;
+    const even = Math.abs(pHome - 0.5) < 0.005;
     right = (
       <>
-        <T bold color={myP >= 0.5 ? C.Win : C.OrangeText}>{Stats.pct(myP)}</T>
-        <Muted text={g.inProgress ? `hraje se ${g.homeSets ?? 0}:${g.awaySets ?? 0}` : onResult ? "zadat ›" : "šance"} size={11} maxLines={1} />
+        <T bold color={even ? C.Ink : myP >= 0.5 ? C.Win : C.OrangeText} style={{ whiteSpace: "nowrap" }}>{even ? "50 : 50" : g.doubles ? Stats.pct(favP) : `${favName} ${Stats.pct(favP)}`}</T>
+        {g.doubles && !even && !g.inProgress
+          ? <T size={11} semi color={myP >= 0.5 ? C.Win : C.OrangeText} lines={1} style={{ maxWidth: 130 }}>{favName}</T>
+          : <Muted text={g.inProgress ? `hraje se ${g.homeSets ?? 0}:${g.awaySets ?? 0}` : onResult ? "zadat ›" : even ? "vyrovnané" : "favorit"} size={11} maxLines={1} />}
       </>
     );
   } else {
@@ -318,5 +324,19 @@ function LineupCard({ prefix, teamName, roster }: { prefix: string; teamName: st
       })}
       {warnings.map((w, i) => <Muted key={i} text={w} color={C.OrangeText} size={12} />)}
     </AppCard>
+  );
+}
+
+/** Horní lišta Živého utkání: kolečko s odpočtem do další aktualizace (dokud se hraje), jinak běžné obnovení. */
+export function LiveTopRing({ team, fallback }: { team: number; fallback: ReactNode }) {
+  const ctx = vm.next[team];
+  const tk = ctx ? vm.teamKey(ctx) : "";
+  const link = ctx ? vm.liveLinks.get(tk) : undefined;
+  const z = ctx ? vm.liveZapisFor(tk) : null;
+  if (!ctx || !link || (z && Live.isZapisFinished(z, vm.format))) return <>{fallback}</>;
+  return (
+    <div style={{ width: 44, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
+      <CountdownRing dark next={(vm.liveUpdated.get(tk) ?? 0) + LIVE_PERIOD} period={LIVE_PERIOD} busy={vm.liveLoadingKeys.get(tk) === true} onClick={() => vm.loadLive(tk, link, true)} />
+    </div>
   );
 }

@@ -17,7 +17,7 @@ export type Screen =
   | { t: "Club"; name: string } | { t: "H2H"; key: string } | { t: "NextMatch" } | { t: "Captain" }
   | { t: "Compare"; a: string | null; b: string | null } | { t: "Records" } | { t: "Settings" }
   | { t: "Player"; path: string } | { t: "Live"; team: number }
-  | { t: "Duel"; aId: string; aName: string; bId: string; bName: string }
+  | { t: "Duel"; aId: string; aName: string; bId: string; bName: string; pA?: number }
   | { t: "ZapisDetail"; path: string; myTeam: string }
   | { t: "Fixture"; team: number; round: string; home: string; away: string };
 

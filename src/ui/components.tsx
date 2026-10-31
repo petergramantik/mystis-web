@@ -229,20 +229,20 @@ export function ProbBar({ p, reverse = false }: { p: number; reverse?: boolean }
 }
 
 /** Kolečko s odpočtem do další aktualizace; klepnutí = obnovit hned. */
-export function CountdownRing({ next, period, busy, onClick }: { next: number; period: number; busy: boolean; onClick: () => void }) {
+export function CountdownRing({ next, period, busy, onClick, dark = false }: { next: number; period: number; busy: boolean; onClick: () => void; dark?: boolean }) {
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(t); }, []);
   const left = Math.max(0, next - Date.now());
-  const frac = busy ? 1 : Math.min(1, left / period);
+  const frac = busy ? 0.3 : Math.min(1, left / period);
   const r = 15, len = 2 * Math.PI * r;
   return (
     <div className="clickable" onClick={onClick} title="Obnovit" style={{ width: 40, height: 40, position: "relative", flex: "none" }}>
-      <svg width="40" height="40" viewBox="0 0 40 40" style={{ transform: "rotate(-90deg)" }}>
-        <circle cx="20" cy="20" r={r} fill="none" stroke="#E3E8F2" strokeWidth="4" />
-        <circle cx="20" cy="20" r={r} fill="none" stroke={C.Blue} strokeWidth="4" strokeLinecap="round"
+      <svg width="40" height="40" viewBox="0 0 40 40" style={{ transform: "rotate(-90deg)", animation: busy ? "ringspin 1s linear infinite" : undefined }}>
+        <circle cx="20" cy="20" r={r} fill="none" stroke={dark ? "rgba(255,255,255,0.22)" : "#E3E8F2"} strokeWidth="4" />
+        <circle cx="20" cy="20" r={r} fill="none" stroke={dark ? "#fff" : C.Blue} strokeWidth="4" strokeLinecap="round"
           strokeDasharray={len} strokeDashoffset={len * (1 - frac)} style={{ transition: "stroke-dashoffset 1s linear" }} />
       </svg>
-      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: C.Blue }}>
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: dark ? "#fff" : C.Blue }}>
         {busy ? "…" : Math.ceil(left / 1000)}
       </div>
     </div>
