@@ -1,0 +1,31 @@
+name: Nasadit web
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rozbalit web ze zipu
+        run: |
+          ZIP=$(ls *.zip | head -n 1)
+          echo "Rozbaluji $ZIP"
+          mkdir site
+          unzip -o -q "$ZIP" -d site -x ".github/*"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
