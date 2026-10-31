@@ -41,7 +41,8 @@ export function CaptainScreen() {
       {ctx?.next != null && ctx.opponentRoster.length > 0 && (
         <>
           <SectionTitle text={`Proti ${ctx.opponentName}`} action="Rozbor ›" onAction={() => vm.go(S.NextMatch)} />
-          <TeamForecast me={me} minePick={lineupP} theirsPick={vm.lineupFor(ctx.opponentName, ctx.opponentRef, vm.fresh(ctx.opponentRoster))} fmt={vm.format} />
+          <TeamForecast me={me} minePick={lineupP} theirsPick={vm.lineupFor(ctx.opponentName, ctx.opponentRef, vm.fresh(ctx.opponentRoster))} fmt={vm.format}
+            theirRoster={ctx.opponentRoster} theirRef={ctx.opponentRef} />
         </>
       )}
       <SectionTitle text="Celá soupiska" />

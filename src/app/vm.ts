@@ -411,6 +411,18 @@ export class AppVm {
     return minBy(ctx.los.filter((x) => !x.played && x !== n && (x.dateTime == null || n.dateTime == null || x.dateTime > n.dateTime)), (x) => x.dateTime ?? LDT_MAX);
   }
 
+  /**
+   * Stav upřesňování sestav pro očekávaný výsledek: dočítají se stránky hráčů (aktuální STR, účast)
+   * a rozpis soupeře. busy = výpočet se ještě změní.
+   */
+  refineState(players: RosterPlayer[], ref: TeamRef | null): { busy: boolean; done: number; total: number } {
+    const paths = players.map((p) => p.path).filter((x): x is string => !!x)
+      .filter((p) => this.players.has(p) || this.loadingPlayers.has(p));
+    const loading = paths.filter((p) => this.loadingPlayers.get(p) === true).length;
+    const losPending = !!ref && this.teamLos.has(ref.id) && this.teamLos.get(ref.id) === null;
+    return { busy: loading > 0 || losPending || this.loadingClub, done: paths.length - loading, total: paths.length };
+  }
+
   /** Rozbor libovolného budoucího utkání (soupeř a jeho soupiska), stejně jako u příštího zápasu. */
   fixtures = new Map<string, NextMatchContext | null>();
   fixtureKey(team: number, m: { round: string; home: string; away: string }) { return `${team}|${m.round}|${m.home}|${m.away}`; }
