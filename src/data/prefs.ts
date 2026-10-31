@@ -54,6 +54,9 @@ export const prefs = {
     prefs.recentProfiles = [[path, name] as [string, string], ...prefs.recentProfiles.filter((x) => x[0] !== path)].slice(0, 8);
   },
   get matchFormat() { return get("match_format"); },
+  /** Karta Výkon proti predikci v zápisu sbalená. */
+  get predCollapsed() { return get("pred_collapsed") === "true"; },
+  set predCollapsed(v: boolean) { set("pred_collapsed", String(v)); },
   set matchFormat(v: string | null) { set("match_format", v); },
   get firstLoadDone() { return get("first_load_done") === "true"; },
   set firstLoadDone(v: boolean) { set("first_load_done", String(v)); },
