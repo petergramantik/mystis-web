@@ -2,6 +2,7 @@
 import { Match, Stis, type TeamInfo, type StandingRow, type StrLadder, type ClubPage, type LosMatch, type PlayerPage, type RosterPlayer, type TeamRef, type TeamRoster, type Zapis } from "../core/models";
 import { Parsers } from "../core/parsers";
 import { StisRepository, HOUR, type NextMatchContext } from "../core/repository";
+import { playSound } from "./sound";
 import { Stats, LadderEntry, maxBy, minBy, distinct, distinctBy, type SetStats } from "../core/stats";
 import { Live, LiveTimeline, MatchFormats, type MatchFormat, type MyLiveGame } from "../core/live";
 import { Stability, type SearchClub, type SearchPlayer } from "../core/search";
@@ -1080,10 +1081,19 @@ export class AppVm {
     prefs.liveNotify = on;
     this.emit();
     if (!on) return null;
+    return this.askLivePermission();
+  }
+  setLiveSounds(on: boolean) { prefs.liveSounds = on; this.emit(); if (on) playSound("win"); }
+  /** Je potřeba klepnutím povolit notifikace (upozornění zapnutá, prohlížeč se ještě neptal). */
+  needsLivePermission(): boolean {
+    return prefs.liveNotify && typeof Notification !== "undefined" && Notification.permission === "default";
+  }
+  async askLivePermission(): Promise<string | null> {
     if (typeof Notification === "undefined") { prefs.liveNotify = false; this.emit(); return "Tento prohlížeč notifikace nepodporuje."; }
     if (Notification.permission === "default") await Notification.requestPermission();
     if (Notification.permission !== "granted") { prefs.liveNotify = false; this.emit(); return "Notifikace nejsou povolené – povolte je v nastavení webu (zámek u adresy → Oprávnění)."; }
     this.startLiveWatch();
+    this.emit();
     return null;
   }
 
@@ -1098,16 +1108,16 @@ export class AppVm {
     // už načtené zápisy probíhajících utkání: zapamatovat dohrané hry, ať se neoznamují
     for (const c of this.next) { const l = this.liveLinks.get(this.teamKey(c)); const z = l ? this.zapisy.get(l) : null; if (l && z && c.liveNow) this.notifyLive(l, z); }
     if (this.liveWatch != null || typeof window === "undefined") return;
-    this.liveWatch = setInterval(() => this.liveWatchTick(), 120_000);
+    this.liveWatch = setInterval(() => this.liveWatchTick(), 60_000);
   }
   private liveWatchTick() {
-    if (!prefs.liveNotify) return;
+    if (!prefs.liveNotify && !prefs.liveSounds) return;
     this.next.forEach((c, i) => {
       if (!this.liveRunning(c)) return;
       const key = this.teamKey(c);
       const link = this.liveLinks.get(key);
       if (!link) { this.autoFindZapis(i); return; }
-      if (Date.now() - (this.liveUpdated.get(key) ?? 0) < 100_000) return; // obnovila ho právě obrazovka Živé utkání
+      if (Date.now() - (this.liveUpdated.get(key) ?? 0) < 50_000) return; // obnovila ho právě obrazovka Živé utkání
       this.loadLive(key, link, true);
     });
   }
@@ -1125,7 +1135,7 @@ export class AppVm {
       return;
     }
     const myHome = this.zapisMyHome(z, ctx);
-    let h = 0, a = 0;
+    let h = 0, a = 0, lastWon = false;
     const fresh: string[][] = [];
     for (const g of z.games) {
       if (g.result === 1) h++; else if (g.result === -1) a++;
@@ -1134,14 +1144,17 @@ export class AppVm {
       const won = (g.result === 1) === myHome;
       const mine = (myHome ? g.homeNames : g.awayNames).join(" + "), opp = (myHome ? g.awayNames : g.homeNames).join(" + ");
       const ms = myHome ? g.homeSets : g.awaySets, os = myHome ? g.awaySets : g.homeSets;
+      lastWon = won;
       fresh.push([`${won ? "✅" : "❌"} ${mine} – ${opp}${ms != null && os != null ? ` ${ms}:${os}` : ""}`, `${g.no}. hra · stav ${myHome ? h : a}:${myHome ? a : h}`, String(g.no)]);
     }
-    if (!prefs.liveNotify) return;
     const my = myHome ? h : a, op = myHome ? a : h;
+    const endNow = finished && !this.liveEndSent.has(path);
+    if (prefs.liveSounds && (fresh.length || endNow)) playSound(endNow ? (my >= op ? "victory" : "loss") : lastWon ? "win" : "loss");
+    if (!prefs.liveNotify) { if (endNow) this.liveEndSent.add(path); return; }
     if (fresh.length > 3) {
       void this.post(`live-${path}-${fresh[fresh.length - 1][2]}`, `${fresh.length} nových her · stav ${my}:${op}`, fresh.map((f) => f[0]).join("\n"), true, idx);
     } else for (const f of fresh) void this.post(`live-${path}-${f[2]}`, f[0], f[1], true, idx);
-    if (finished && !this.liveEndSent.has(path)) {
+    if (endNow) {
       this.liveEndSent.add(path);
       const opp = myHome ? z.away : z.home;
       void this.post(`live-end-${path}`, `🏁 Konec: ${my > op ? "výhra" : my < op ? "prohra" : "remíza"} ${my}:${op}`, `${ctx.myTeam.name} – ${opp}`, true, idx);

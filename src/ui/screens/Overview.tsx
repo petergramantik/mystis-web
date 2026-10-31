@@ -305,6 +305,11 @@ function NextCard({ ctx }: { ctx: NextMatchContext | null }) {
         <T bold color="#fff">Rozbor soupeřů ›</T>
       </div>
       {body}
+      {ctx && n && ctx.liveNow && n === ctx.next && vm.needsLivePermission() && (
+        <div className="row" style={{ justifyContent: "center" }}>
+          <button className="homebtn" onClick={async (e) => { e.stopPropagation(); await vm.askLivePermission(); }}>🔔 Povolit upozornění</button>
+        </div>
+      )}
     </AppCard>
   );
 }

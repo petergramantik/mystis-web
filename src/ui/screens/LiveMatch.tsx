@@ -8,10 +8,12 @@ import { nowLdt } from "../../core/dates";
 import {
   AppCard, BigNumber, C, Divider, Empty, ListCard, Loading, Muted, NavyHeader, OButton, PrimaryButton, ProbBar, SectionTitle, Segmented,
   StatTile, T, TextField, TileRow, dec1,
-  SetsLine,
+  SetsLine, CountdownRing,
 } from "../components";
 import { hhmm, hhmmLdt } from "../fmt";
 
+
+const LIVE_PERIOD = 60_000;
 
 export function LiveScreen({ team }: { team: number }) {
   const me = vm.me;
@@ -20,6 +22,7 @@ export function LiveScreen({ team }: { team: number }) {
   const suggested = ctx?.next?.zapisPath ?? "";
   const [mode, setMode] = useState("zapis");
   const [link, setLink] = useState(vm.liveLinks.get(tk) ?? suggested);
+  const [manualLink, setManualLink] = useState(false);
   const found = vm.liveLinks.get(tk);
   // odkaz nalezený automaticky doplníme do pole
   useEffect(() => { if (found && !link) setLink(found); }, [found]);
@@ -27,13 +30,13 @@ export function LiveScreen({ team }: { team: number }) {
   const startedOrSoon = start == null || nowLdt() > start - 10;
   const linkEmpty = !link;
 
-  // automatické hledání zápisu: po začátku utkání každé 2 minuty, dokud se odkaz neobjeví
+  // automatické hledání zápisu: po začátku utkání každou minutu, dokud se odkaz neobjeví
   useEffect(() => {
     if (!ctx || mode !== "zapis" || !linkEmpty || !startedOrSoon) return;
     let stop = false;
     const tick = () => { if (stop || vm.liveLinks.get(tk) != null) return; vm.autoFindZapis(team); };
     tick();
-    const id = setInterval(tick, 120_000);
+    const id = setInterval(tick, 60_000);
     return () => { stop = true; clearInterval(id); };
   }, [tk, mode, linkEmpty, startedOrSoon]);
   // načtení zápisu
@@ -42,11 +45,12 @@ export function LiveScreen({ team }: { team: number }) {
   useEffect(() => {
     const path = vm.liveLinks.get(tk);
     if (!ctx || mode !== "zapis" || !path) return;
+    // každou sekundu kontrola, zda od poslední aktualizace uplynula minuta (sedí s odpočtem v kolečku)
     const id = setInterval(() => {
       const zz = vm.liveZapisFor(tk);
       if (zz && Live.isZapisFinished(zz, vm.format)) { clearInterval(id); return; }
-      vm.loadLive(tk, path, true);
-    }, 120_000);
+      if (!vm.liveLoadingKeys.get(tk) && Date.now() - (vm.liveUpdated.get(tk) ?? 0) >= LIVE_PERIOD) vm.loadLive(tk, path, true);
+    }, 1000);
     return () => clearInterval(id);
   }, [tk, mode, found]);
 
@@ -107,6 +111,9 @@ export function LiveScreen({ team }: { team: number }) {
   const loading = vm.liveLoadingKeys.get(tk) === true;
   const updated = vm.liveUpdated.get(tk) ?? 0;
   const searchAt = vm.liveSearchAt.get(tk) ?? 0;
+  // pole s odkazem jen když se zápis nepodařilo najít / načíst (nebo na přání)
+  const searching = vm.liveSearchingKeys.get(tk) === true;
+  const showField = manualLink || !!vm.liveErrors.get(tk) || foreign || (!found && startedOrSoon && !searching && searchAt > 0);
 
   return (
     <div className="col g12">
@@ -116,15 +123,27 @@ export function LiveScreen({ team }: { team: number }) {
         <Segmented options={[["zapis", "Zápis ze STIS"], ["manual", "Ruční sestavy"]]} selected={mode} onSelect={setMode} />
         {mode === "zapis" ? (
           <AppCard>
-            <Muted text="Aplikace sama najde online zápis o utkání na STIS (objevuje se pár minut po začátku) a čte sestavy, pořadí her a průběžné výsledky. Obnovuje se každé 2 minuty." size={13} maxLines={5} />
+            {!found && <Muted text="Aplikace sama najde online zápis o utkání na STIS (objevuje se pár minut po začátku) a čte sestavy, pořadí her a průběžné výsledky. Obnovuje se každou minutu." size={13} maxLines={5} />}
+            {found && (!showField || manualLink) && (
+              <div className="row g12">
+                {z && Live.isZapisFinished(z, vm.format) ? null
+                  : <CountdownRing next={updated + LIVE_PERIOD} period={LIVE_PERIOD} busy={loading} onClick={() => vm.loadLive(tk, found, true)} />}
+                <div className="col w1">
+                  <T semi size={14}>{z && Live.isZapisFinished(z, vm.format) ? "Utkání dohráno" : loading ? "Aktualizuji…" : "Sleduji online zápis"}</T>
+                  <Muted size={13} text={updated > 0 ? `${loaded?.online ? "online · " : ""}aktualizováno ${hhmm(updated)}` : "načítám zápis…"} />
+                </div>
+                <span className="clickable" onClick={() => setManualLink((x) => !x)} style={{ flex: "none", fontSize: 13, fontWeight: 600, color: C.Blue }}>{manualLink ? "Skrýt odkaz" : "Odkaz"}</span>
+              </div>
+            )}
             {link ? null : !startedOrSoon ? <Muted color={C.Ink} size={13} maxLines={3} text={`Zápis začnu hledat 10 minut před začátkem utkání (${start != null ? hhmmLdt(start) : ""}). Do té doby můžete připravit ruční sestavy.`} />
               : vm.liveSearchingKeys.get(tk) ? <Muted text="Hledám zápis na STIS…" color={C.Ink} size={13} />
-                : <Muted color={C.Ink} size={13} maxLines={3} text={"Zápis zatím není zveřejněný – další pokus za 2 minuty" + (searchAt > 0 ? ` (naposledy ${hhmm(searchAt)})` : "") + "."} />}
-            <TextField value={link} onChange={setLink} label="Odkaz na zápis (vyplní se sám)" placeholder="stis.ping-pong.cz/zapis/…/utkani-…" />
-            <div className="row g8">
-              <PrimaryButton text={loading ? "Načítám…" : "Sledovat"} onClick={() => vm.loadLive(tk, link, true)} enabled={!!link.trim() && !loading} />
-              {updated > 0 && z && <Muted text={`${z.online ? "online · " : ""}aktualizováno ${hhmm(updated)}`} size={13} />}
-            </div>
+                : <Muted color={C.Ink} size={13} maxLines={3} text={"Zápis zatím není zveřejněný – další pokus za minutu" + (searchAt > 0 ? ` (naposledy ${hhmm(searchAt)})` : "") + "."} />}
+            {showField && <>
+              <TextField value={link} onChange={setLink} label="Odkaz na zápis" placeholder="stis.ping-pong.cz/zapis/…/utkani-…" />
+              <div className="row g8">
+                <PrimaryButton text={loading ? "Načítám…" : "Sledovat"} onClick={() => { setManualLink(false); vm.loadLive(tk, link, true); }} enabled={!!link.trim() && !loading} />
+              </div>
+            </>}
             {vm.liveErrors.get(tk) && <Muted text={vm.liveErrors.get(tk)!} color={C.OrangeText} size={14} maxLines={4} />}
             {foreign && loaded ? (
               <Muted color={C.OrangeText} size={13} maxLines={4} text={`Tento zápis patří k jinému utkání (${loaded.home} – ${loaded.away}), ve kterém ${ctx.myTeam.name} nehraje. Vložte odkaz na zápis správného utkání.`} />
@@ -174,12 +193,13 @@ function ScoreHeader({ st, myHome, homeName, awayName }: { st: LiveState; myHome
         <BigNumber text={`${st.home} : ${st.away}`} color="#fff" size={48} style={{ padding: "0 10px", whiteSpace: "nowrap" }} />
         <T bold color="#fff" lines={2} end style={{ flex: 1 }}>{awayName}</T>
       </div>
+      {/* dlaždice pod družstvem, kterého se týkají: moje šance na výhru na mé straně */}
       <TileRow>
-        <StatTile label="Výhra" value={Stats.pct(pWin)} dark valueColor={C.WinLight} />
+        {myHome ? <StatTile label="Výhra" value={Stats.pct(pWin)} dark valueColor={C.WinLight} /> : <StatTile label="Prohra" value={Stats.pct(pLoss)} dark valueColor={C.Peach} />}
         <StatTile label="Remíza" value={Stats.pct(st.pDraw)} dark />
-        <StatTile label="Prohra" value={Stats.pct(pLoss)} dark valueColor={C.Peach} />
+        {myHome ? <StatTile label="Prohra" value={Stats.pct(pLoss)} dark valueColor={C.Peach} /> : <StatTile label="Výhra" value={Stats.pct(pWin)} dark valueColor={C.WinLight} />}
       </TileRow>
-      <ProbBar p={pWin + st.pDraw / 2} />
+      <ProbBar p={pWin + st.pDraw / 2} reverse={!myHome} />
       <Muted color={C.MutedOnNavy} size={13} text={st.finished ? `Konečný výsledek z pohledu vašeho družstva: ${my} : ${opp}` : `Očekávaný konečný stav ${a} : ${b} · odehráno ${st.played} z ${st.games.length}`} />
     </NavyHeader>
   );

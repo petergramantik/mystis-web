@@ -223,8 +223,30 @@ export function OButton({ text, onClick, enabled = true, full, style }: { text: 
 export function Avatar({ text, color = C.Blue, size = 40, square }: { text: string; color?: string; size?: number; square?: boolean }) {
   return <div className={"avatar" + (square ? " sq" : "")} style={{ width: size, height: size, background: color, fontSize: size / 2.6 }}>{initials(text)}</div>;
 }
-export function ProbBar({ p }: { p: number }) {
-  return <div className="probbar"><div style={{ width: `${Math.max(0, Math.min(1, p)) * 100}%` }} /></div>;
+/** Pásek šance: zelená = moje družstvo; [reverse] = zelená zprava (hrajeme venku, jsme vpravo). */
+export function ProbBar({ p, reverse = false }: { p: number; reverse?: boolean }) {
+  return <div className="probbar"><div style={{ width: `${Math.max(0, Math.min(1, p)) * 100}%`, marginLeft: reverse ? "auto" : undefined }} /></div>;
+}
+
+/** Kolečko s odpočtem do další aktualizace; klepnutí = obnovit hned. */
+export function CountdownRing({ next, period, busy, onClick }: { next: number; period: number; busy: boolean; onClick: () => void }) {
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(t); }, []);
+  const left = Math.max(0, next - Date.now());
+  const frac = busy ? 1 : Math.min(1, left / period);
+  const r = 15, len = 2 * Math.PI * r;
+  return (
+    <div className="clickable" onClick={onClick} title="Obnovit" style={{ width: 40, height: 40, position: "relative", flex: "none" }}>
+      <svg width="40" height="40" viewBox="0 0 40 40" style={{ transform: "rotate(-90deg)" }}>
+        <circle cx="20" cy="20" r={r} fill="none" stroke="#E3E8F2" strokeWidth="4" />
+        <circle cx="20" cy="20" r={r} fill="none" stroke={C.Blue} strokeWidth="4" strokeLinecap="round"
+          strokeDasharray={len} strokeDashoffset={len * (1 - frac)} style={{ transition: "stroke-dashoffset 1s linear" }} />
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: C.Blue }}>
+        {busy ? "…" : Math.ceil(left / 1000)}
+      </div>
+    </div>
+  );
 }
 export function Divider() { return <div className="divider" />; }
 export function KeyValue({ label, value, valueColor = C.Ink }: { label: string; value: string; valueColor?: string }) {

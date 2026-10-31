@@ -217,9 +217,18 @@ export function SettingsScreen() {
         <div className="row g12">
           <div className="col w1">
             <T bold>Upozornění na živé utkání</T>
-            <Muted size={13} maxLines={5} text="Při probíhajícím utkání se každé 2 minuty obnoví zápis a každá nově dohraná hra (✅/❌ a stav) i konec utkání přijdou jako notifikace. Funguje jen při otevřené aplikaci." />
+            <Muted size={13} maxLines={5} text="Při probíhajícím utkání se každou minutu obnoví zápis a každá nově dohraná hra (✅/❌ a stav) i konec utkání přijdou jako notifikace. Funguje jen při otevřené aplikaci." />
           </div>
           <div className={"switch" + (liveNotif ? " on" : "")} role="switch" aria-checked={liveNotif} onClick={async () => { const e = await vm.setLiveNotify(!liveNotif); if (e) setMsg(e); }} />
+        </div>
+      </AppCard>
+      <AppCard>
+        <div className="row g12">
+          <div className="col w1">
+            <T bold>Zvuky živého utkání</T>
+            <Muted size={13} maxLines={5} text="Zajásání davu při vyhrané hře, zahučení při prohrané a potlesk na konci vítězného utkání. Hraje, když je aplikace na obrazovce." />
+          </div>
+          <div className={"switch" + (vm.prefs.liveSounds ? " on" : "")} role="switch" aria-checked={vm.prefs.liveSounds} onClick={() => vm.setLiveSounds(!vm.prefs.liveSounds)} />
         </div>
       </AppCard>
       <AppCard>

@@ -22,7 +22,10 @@ export const prefs = {
   get notifications() { return get("notifications") !== "false"; },
   set notifications(v: boolean) { set("notifications", String(v)); },
   /** Notifikace o hrách probíhajícího utkání (jen při otevřené aplikaci). */
-  get liveNotify() { return get("live_notify") === "true"; },
+  get liveNotify() { return get("live_notify") !== "false"; },
+  set liveSounds(v: boolean) { set("live_sounds", String(v)); },
+  /** Zvuk davu při dohrané hře (výhra / prohra) a na konci utkání. */
+  get liveSounds() { return get("live_sounds") !== "false"; },
   set liveNotify(v: boolean) { set("live_notify", String(v)); },
   get lastMatchCount() { return num("last_match_count", -1); },
   set lastMatchCount(v: number) { set("last_match_count", String(v)); },
