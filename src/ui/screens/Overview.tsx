@@ -139,6 +139,7 @@ export function OverviewScreen() {
       <InstallBanner />
       {vm.error != null && <div className="px16"><ErrorBox text={vm.error} onRetry={() => vm.loadMe(true)} /></div>}
       <div className="col g12 px16">
+        {vm.next.length >= 1 && <Muted size={12} style={{ padding: "0 4px", marginBottom: -4 }} text={vm.next.length > 1 ? "Vyberte družstvo, dalším klepnutím otevřete jeho detail ›" : "Klepnutím otevřete detail družstva ›"} />}
         {vm.next.length >= 1 && <Chips options={vm.next.map((c, i) => [String(i), c.myTeam.name + (i === vm.nextSelected ? " ›" : "")])} selected={String(vm.nextSelected)}
           onSelect={(k) => { const i = parseInt(k, 10); if (i === vm.nextSelected) vm.go({ t: "Team", team: i }); else vm.selectTeam(i); }} />}
         <MatchPager ctx={nextCtx} />
