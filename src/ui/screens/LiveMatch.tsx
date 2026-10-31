@@ -8,10 +8,10 @@ import { nowLdt } from "../../core/dates";
 import {
   AppCard, BigNumber, C, Divider, Empty, ListCard, Loading, Muted, NavyHeader, OButton, PrimaryButton, ProbBar, SectionTitle, Segmented,
   StatTile, T, TextField, TileRow, dec1,
+  SetsLine,
 } from "../components";
 import { hhmm, hhmmLdt } from "../fmt";
 
-const setsText = (sets: number[]) => sets.map((v) => { const pts = Math.abs(v); const w = pts >= 10 ? pts + 2 : 11; return v > 0 ? `${w}:${pts}` : `${pts}:${w}`; }).join("  ");
 
 export function LiveScreen({ team }: { team: number }) {
   const me = vm.me;
@@ -214,7 +214,7 @@ function GameRow({ g, pHome, myHome, mine, onOpen, onResult }: { g: LiveGame; pH
           <div className="col w1">
             <T size={14} bold={myHome} lines={1}>{g.home.map((p) => p.name).join(" + ")}</T>
             <T size={14} bold={!myHome} lines={1}>{g.away.map((p) => p.name).join(" + ")}</T>
-            {g.sets.length > 0 && <Muted text={setsText(g.sets)} size={11} maxLines={1} style={{ whiteSpace: "pre" }} />}
+            {g.sets.length > 0 && <SetsLine sets={g.sets} myHome={myHome} />}
           </div>
           <div className={"col" + (onResult ? " clickable" : "")} style={{ alignItems: "flex-end", padding: onResult ? 4 : 0 }}
             onClick={onResult ? (e) => { e.stopPropagation(); onResult(); } : undefined}>{right}</div>

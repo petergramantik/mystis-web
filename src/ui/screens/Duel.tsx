@@ -7,6 +7,7 @@ import { Live } from "../../core/live";
 import { HallCard } from "../hall";
 import {
   AppCard, BigNumber, C, DMY, Divider, Empty, HeaderPlayer, KeyValue, ListCard, Loading, Muted, NavyHeader, ProbBar, ResultBadge, SectionTitle, T, dec1, signedInt,
+  SetsLine,
 } from "../components";
 
 export function PairScreen({ aId0, aName0, bId0, bName0 }: { aId0: string; aName0: string; bId0: string; bName0: string }) {
@@ -111,7 +112,6 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
   const my = myHome ? hPts : aPts, op = myHome ? aPts : hPts;
   const stats = Live.playerStats(z);
   let h = 0, a = 0;
-  const setsText = (sets: number[]) => sets.map((v) => { const pts = Math.abs(v); const w = pts >= 10 ? pts + 2 : 11; return v > 0 ? `${w}:${pts}` : `${pts}:${w}`; }).join("  ");
   return (
     <div className="col g12">
       <NavyHeader>
@@ -172,7 +172,7 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
                     <div className="col w1">
                       <T size={14} bold={g.result === 1} lines={1}>{g.homeNames.join(" + ")}</T>
                       <T size={14} bold={g.result === -1} lines={1}>{g.awayNames.join(" + ")}</T>
-                      {g.sets.length > 0 && <Muted text={setsText(g.sets)} size={11} maxLines={1} style={{ whiteSpace: "pre" }} />}
+                      {g.sets.length > 0 && <SetsLine sets={g.sets} myHome={myHome} />}
                     </div>
                     <div className="col" style={{ alignItems: "flex-end" }}>
                       {g.result != null ? (
