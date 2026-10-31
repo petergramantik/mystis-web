@@ -10,6 +10,7 @@ import { StisRepository, type Fetcher } from "../src/core/repository";
 import { Live, LiveTimeline, MatchFormats, lp } from "../src/core/live";
 import { Search, Stability, roundScore } from "../src/core/search";
 import { ldOf, ldtOf } from "../src/core/dates";
+import { matchOdds, pointsRule, predictSeason } from "../src/core/season";
 
 let failures = 0, passes = 0;
 function check(name: string, cond: boolean, detail: () => string = () => "") {
@@ -361,6 +362,22 @@ async function main() {
   check("STR stejné", StrModel.gainIfWin(1500, 1500) === 6 && StrModel.lossIfLose(1500, 1500) === -6);
   check("STR favorit", StrModel.gainIfWin(1700, 1500) === 1 && StrModel.gainIfWin(1750, 1500) === 0 && StrModel.gainIfWin(1540, 1500) === 5 && StrModel.lossIfLose(1500, 1540) === -5);
   check("STR outsider", StrModel.gainIfWin(1500, 1700) === 12 && StrModel.lossIfLose(1700, 1500) === -12);
+
+  // ---------- predikce konečné tabulky
+  const trows = Parsers.tabulka(`<script>var initTabData = "${escaped}";</script>`);
+  check("body 3/2/1", J(pointsRule(trows)) === J([3, 2, 1]), () => J(pointsRule(trows)));
+  const f18b = MatchFormats.of("18_10");
+  const [pH, pD, pA] = matchOdds([1500, 1500, 1500, 1500], [1500, 1500, 1500, 1500], f18b);
+  check("stejná družstva", Math.abs(pH - pA) < 1e-9 && Math.abs(pH + pD + pA - 1) < 1e-9);
+  const strong = matchOdds([1700, 1650, 1600, 1600], [1400, 1380, 1350, 1300], f18b);
+  check("silnější vyhraje", strong[0] > 0.95, () => J(strong));
+  const steams = [
+    { name: "A", points: 10, played: 4, wins: 3, draws: 1, losses: 0, diff: 20, lineup: [1600, 1580, 1550, 1500] },
+    { name: "B", points: 9, played: 4, wins: 2, draws: 1, losses: 1, diff: 5, lineup: [1450, 1430, 1400, 1380] },
+    { name: "C", points: 6, played: 4, wins: 0, draws: 2, losses: 2, diff: -25, lineup: [1300, 1280, 1250, 1200] },
+  ];
+  const pred = predictSeason(steams, [{ home: "A", away: "B" }, { home: "B", away: "C" }, { home: "C", away: "A" }], [3, 2, 1], f18b, 2000);
+  check("predikce pořadí", pred.teams[0].name === "A" && pred.teams[2].name === "C" && Math.abs(pred.teams[0].posProb.reduce((a, b) => a + b, 0) - 1) < 1e-9 && pred.teams[0].remaining === 2, () => J(pred.teams));
 
   console.log(`\nTESTY: ${passes} OK, ${failures} chyb`);
   if (failures > 0) process.exit(1);

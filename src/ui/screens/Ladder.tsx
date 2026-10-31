@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { vm, S } from "../../app/vm";
 import { Clubs, Stis, type StandingRow, type StrLadder, type StrLadderRow } from "../../core/models";
 import { Stats, avg, maxBy, type LadderEntry } from "../../core/stats";
-import { AppCard, BigNumber, C, Chips, Dialog, Divider, Empty, ErrorBox, ErrorWithDiagnostics, ListCard, Loading, Muted, Segmented, StatTile, T, TileRow, dec1, f0, signedInt } from "../components";
+import type { SeasonPrediction } from "../../core/season";
+import { AppCard, BigNumber, C, Chips, Dialog, Pill, Spinner, Divider, Empty, ErrorBox, ErrorWithDiagnostics, ListCard, Loading, Muted, Segmented, StatTile, T, TileRow, dec1, f0, signedInt } from "../components";
 
 export function shortTeam(team: string, club: string): string {
   const letter = Clubs.teamLetter(team);
@@ -64,7 +65,7 @@ function CompetitionView({ kind }: { kind: "tabulka" | "stis" }) {
       {seasons.length > 1 && <Chips options={seasons.map((y) => [String(y), `${y}/${(y + 1) % 100}`])} selected={String(season)} onSelect={(k) => { vm.set("compSeason", parseInt(k, 10)); vm.set("compId", null); }} />}
       {list.length > 1 && <Chips options={list.map((c) => [c.soutez, c.label])} selected={comp.soutez} onSelect={(k) => vm.set("compId", k)} />}
       {error ? <ErrorBox text={error} onRetry={reload} />
-        : kind === "tabulka" ? <StandingsTable comp={comp} rows={vm.tabulky.get(path)} loading={loading} />
+        : kind === "tabulka" ? <StandingsTable comp={comp} rows={vm.tabulky.get(path)} loading={loading} current={season === seasons[0]} />
           : <OfficialLadder comp={comp} data={vm.strLadders.get(path)} loading={loading} />}
       <div style={{ height: 8 }} />
     </div>
@@ -73,13 +74,40 @@ function CompetitionView({ kind }: { kind: "tabulka" | "stis" }) {
 
 const myClubFold = () => Stats.fold(Clubs.clubName(vm.me?.clubName ?? vm.club.name ?? ""));
 
-function StandingsTable({ comp, rows, loading }: { comp: Comp; rows: StandingRow[] | undefined; loading: boolean }) {
+function StandingsTable({ comp, rows, loading, current }: { comp: Comp; rows: StandingRow[] | undefined; loading: boolean; current: boolean }) {
   if (!rows) return loading ? <Loading text="Načítám tabulku soutěže…" /> : <Empty text="Tabulka zatím není načtená." />;
   if (!rows.length) return <Empty text="Tabulka soutěže je prázdná nebo ji STIS zatím nezveřejnil." />;
   const club = myClubFold();
-  const mine = (r: StandingRow) => comp.teams.some((t) => Stats.fold(t) === Stats.fold(r.name)) || (!!club && Stats.fold(Clubs.clubName(r.name)) === club);
+  const mine = (r: { name: string }) => comp.teams.some((t) => Stats.fold(t) === Stats.fold(r.name)) || (!!club && Stats.fold(Clubs.clubName(r.name)) === club);
+  const key = Stis.tabulka(comp.svaz, comp.rocnik, comp.soutez);
+  const computing = vm.predLoading.get(key) === true;
+  const pred = vm.predictions.get(key);
+  const showPred = current && vm.predOn;
+  const toggle = current && (
+    <button className={"chip" + (vm.predOn ? " on" : "")} style={{ display: "flex", alignItems: "center", gap: 8, alignSelf: "flex-start", height: 36 }}
+      onClick={() => {
+        const on = !vm.predOn;
+        vm.set("predOn", on);
+        if (on) vm.loadPrediction(comp.svaz, comp.rocnik, comp.soutez);
+      }}>
+      {computing && <Spinner size={16} width={2} color={vm.predOn ? "#fff" : C.Blue} />}
+      {computing ? "Počítám…" : "Predikce po sezóně"}
+    </button>
+  );
+  if (showPred) {
+    const perr = vm.predErrors.get(key);
+    return (
+      <>
+        {toggle}
+        {computing ? <Loading text={vm.predProgress || "Počítám predikci…"} />
+          : perr ? <ErrorBox text={perr} onRetry={() => vm.loadPrediction(comp.svaz, comp.rocnik, comp.soutez, true)} />
+            : pred ? <PredictionView comp={comp} pred={pred} mine={mine} /> : null}
+      </>
+    );
+  }
   return (
     <>
+      {toggle}
       <Muted text={`${comp.label} · ${comp.rocnik}/${(comp.rocnik + 1) % 100}`} size={14} />
       <div className="row" style={{ padding: "0 14px" }}>
         <Muted text="#" size={12} style={{ width: 28 }} />
@@ -189,6 +217,66 @@ function OfficialLadder({ comp, data, loading }: { comp: Comp; data: StrLadder |
         </div>
       ))}
       <Muted size={12} maxLines={3} text={`Oficiální žebříček STR soutěže ze STIS. Modře hráči vašeho oddílu${vm.club.ladder.length ? "" : " (oddíl se ještě načítá)"}. Klepnutím otevřete profil hráče.`} />
+    </>
+  );
+}
+
+function PredictionView({ comp, pred, mine }: { comp: Comp; pred: SeasonPrediction; mine: (r: { name: string }) => boolean }) {
+  const my = pred.teams.filter(mine);
+  const remaining = pred.matches.length;
+  return (
+    <>
+      <Muted text={`${comp.label} · předpokládaná konečná tabulka`} size={14} />
+      {my.map((t) => {
+        const ranked = t.posProb.map((p, i) => [i + 1, p] as [number, number]).filter((x) => x[1] >= 0.005).sort((a, b) => b[1] - a[1]);
+        const best = ranked[0];
+        return (
+          <AppCard key={t.name}>
+            <div className="row">
+              <div className="col w1">
+                <T bold size={16}>{t.name}</T>
+                <Muted text={`nyní ${t.points} b. po ${t.played} utk. · zbývá ${t.remaining} · odhad ${f0(t.expPoints)} b.`} size={13} />
+              </div>
+              <div className="col" style={{ alignItems: "flex-end" }}>
+                <BigNumber text={best ? `${best[0]}.` : "–"} color={C.Blue} size={30} />
+                <Muted text={best ? `místo · ${Stats.pct(best[1])}` : ""} size={12} />
+              </div>
+            </div>
+            <div className="row g6" style={{ flexWrap: "wrap" }}>
+              {ranked.slice(0, 6).map(([pos, p]) => <Pill key={pos} text={`${pos}. místo ${Stats.pct(p)}`} bg={pos === best?.[0] ? C.Blue : C.Tint} fg={pos === best?.[0] ? "#fff" : C.Blue} />)}
+            </div>
+          </AppCard>
+        );
+      })}
+      <div className="row" style={{ padding: "0 14px" }}>
+        <Muted text="#" size={12} style={{ width: 28 }} />
+        <Muted text="DRUŽSTVO" size={12} style={{ flex: 1 }} />
+        <Muted text="NYNÍ" size={12} style={{ width: 44, textAlign: "center" }} />
+        <Muted text="ODHAD" size={12} style={{ width: 50, textAlign: "center" }} />
+        <Muted text="ŠANCE" size={12} style={{ width: 50, textAlign: "right" }} />
+      </div>
+      <ListCard>
+        {pred.teams.map((t, i) => {
+          const m = mine(t);
+          const p = t.posProb[i] ?? 0;
+          return (
+            <div key={t.name}>
+              <div className="row" style={{ background: m ? C.Tint : "#fff", padding: "10px 14px" }}>
+                <BigNumber text={`${i + 1}`} size={18} color={i < 3 ? C.Orange : C.Ink} style={{ width: 28, flex: "none" }} />
+                <div className="col w1">
+                  <T semi={!m} bold={m} size={15} lines={2}>{t.name}</T>
+                  <Muted text={`průměrně ${dec1(t.expPosition)}. místo`} size={12} maxLines={1} />
+                </div>
+                <T size={14} center color={C.Muted} style={{ width: 44, flex: "none" }}>{t.points}</T>
+                <BigNumber text={f0(t.expPoints)} size={18} style={{ width: 50, flex: "none", textAlign: "center" }} />
+                <T size={13} end color={C.Muted} style={{ width: 50, flex: "none" }}>{Stats.pct(p)}</T>
+              </div>
+              <Divider />
+            </div>
+          );
+        })}
+      </ListCard>
+      <Muted size={12} maxLines={6} text={`Odhad z ${remaining} zbývajících utkání: každé utkání podle STR pravděpodobných sestav (nejsilnější hráči soupisky, každý s každým + čtyřhry), sezóna nasimulovaná ${pred.sims}×. Body za výhru/remízu/prohru ${pred.rule.join("/")}. ŠANCE = pravděpodobnost, že družstvo skončí přesně na tomto místě.`} />
     </>
   );
 }

@@ -11,6 +11,7 @@ import {
 } from "../components";
 import { fmtDMYdt, fmtWhenShort } from "../fmt";
 import { ProxySetup } from "./Records";
+import { InstallBanner, InstallButton } from "../install";
 
 export function OnboardingScreen() {
   return (
@@ -27,6 +28,7 @@ export function OnboardingScreen() {
         <Muted text="Napište své jméno (aplikace vás najde na STIS), nebo vložte odkaz na svou stránku hráče či číslo hráče." size={14} maxLines={5} />
         <ProfileInput dark={false} buttonText="Načíst moje statistiky" onDone={() => {}} />
       </AppCard>
+      <InstallButton />
       <Muted text="Aplikace čte veřejné stránky STIS (stejně jako prohlížeč), šetrně a s ukládáním do mezipaměti. Bez připojení ukáže poslední stažená data." color={C.MutedOnNavy} size={13} maxLines={5} />
     </div>
   );
@@ -123,6 +125,7 @@ export function OverviewScreen() {
           <StatTile label="Úspěšnost" value={seasonMatches.length ? Stats.pct(wins / seasonMatches.length) : "–"} dark sub="sezóna" />
         </TileRow>
       </NavyHeader>
+      <InstallBanner />
       {vm.error != null && <div className="px16"><ErrorBox text={vm.error} onRetry={() => vm.loadMe(true)} /></div>}
       <div className="col g12 px16">
         {vm.next.length > 1 && <Chips options={vm.next.map((c, i) => [String(i), c.myTeam.name])} selected={String(vm.nextSelected)} onSelect={(k) => vm.selectTeam(parseInt(k, 10))} />}
@@ -222,6 +225,7 @@ function MatchPager({ ctx }: { ctx: NextMatchContext | null }) {
     const w = el.clientWidth + 10;
     setPage(Math.max(0, Math.min(count - 1, Math.round(el.scrollLeft / w))));
   };
+  const goHome = () => { const el = ref.current; if (el) el.scrollTo({ left: nextIdx * (el.clientWidth + 10), behavior: "smooth" }); };
   const hint = count === 1 ? "  zatím žádné další utkání"
     : page === nextIdx ? "  " + [prevs.length ? `‹ předchozí (${prevs.length})` : "", futures.length ? `další (${futures.length}) ›` : ""].filter((x) => x).join(" · ")
       : page < nextIdx ? `  utkání ${nextIdx - page} z ${prevs.length} zpět · doleva novější ›`
@@ -232,8 +236,8 @@ function MatchPager({ ctx }: { ctx: NextMatchContext | null }) {
         {Array.from({ length: count }, (_, p) => (
           <div className="page" key={p === nextIdx ? "next" : p < nextIdx ? prevs[nextIdx - 1 - p]?.[1] || "p" + p : "f" + (p - nextIdx)}>
             {p === nextIdx ? <NextCard ctx={ctx} />
-              : p < nextIdx ? <PreviousCard ctx={ctx} prev={prevs[nextIdx - 1 - p]} back={nextIdx - p} total={prevs.length} />
-                : <FutureCard ctx={ctx!} m={futures[p - nextIdx - 1]} ahead={p - nextIdx + 1} team={Math.max(0, vm.next.indexOf(ctx!))} />}
+              : p < nextIdx ? <PreviousCard ctx={ctx} prev={prevs[nextIdx - 1 - p]} back={nextIdx - p} total={prevs.length} onHome={goHome} />
+                : <FutureCard ctx={ctx!} m={futures[p - nextIdx - 1]} ahead={p - nextIdx + 1} team={Math.max(0, vm.next.indexOf(ctx!))} onHome={goHome} />}
           </div>
         ))}
       </div>
@@ -249,7 +253,11 @@ function MatchPager({ ctx }: { ctx: NextMatchContext | null }) {
 }
 
 /** Další budoucí utkání (posunem doleva od příštího zápasu). */
-function FutureCard({ ctx, m, ahead, team }: { ctx: NextMatchContext; m: LosMatch; ahead: number; team: number }) {
+function HomeButton({ onHome, left }: { onHome: () => void; left: boolean }) {
+  return <button className="homebtn" onClick={(e) => { e.stopPropagation(); onHome(); }}>{left ? "‹ Nejbližší zápas" : "Nejbližší zápas ›"}</button>;
+}
+
+function FutureCard({ ctx, m, ahead, team, onHome }: { ctx: NextMatchContext; m: LosMatch; ahead: number; team: number; onHome: () => void }) {
   const onBlue = "#D6E1FA";
   const home = Stats.isHome(m, ctx.myTeam.ref, ctx.myTeam.name);
   const opp = home ? m.away : m.home;
@@ -264,6 +272,7 @@ function FutureCard({ ctx, m, ahead, team }: { ctx: NextMatchContext; m: LosMatc
         <T semi size={14} color="#fff">{m.dateTime != null ? fmtWhenShort(m.dateTime) : m.dateText}</T>
         <Pill text={`${m.round}. kolo`} bg={C.Navy} fg="#fff" />
       </div>
+      <div><HomeButton onHome={onHome} left /></div>
     </AppCard>
   );
 }
@@ -298,7 +307,7 @@ function NextCard({ ctx }: { ctx: NextMatchContext | null }) {
   );
 }
 
-function PreviousCard({ ctx, prev, back, total }: { ctx: NextMatchContext | null; prev: [LosMatch | null, string] | undefined; back: number; total: number }) {
+function PreviousCard({ ctx, prev, back, total, onHome }: { ctx: NextMatchContext | null; prev: [LosMatch | null, string] | undefined; back: number; total: number; onHome: () => void }) {
   const path = prev?.[1] ?? "";
   useEffect(() => { if (path) vm.loadZapis(path); }, [path]);
   const z = vm.zapisy.get(path);
@@ -310,7 +319,7 @@ function PreviousCard({ ctx, prev, back, total }: { ctx: NextMatchContext | null
       {path && <T bold color="#fff">Celý zápis ›</T>}
     </div>
   );
-  if (!prev || !ctx) return <AppCard bg={C.Navy}>{head}<Muted text="V této sezóně družstvo ještě nehrálo." color={muted} /></AppCard>;
+  if (!prev || !ctx) return <AppCard bg={C.Navy}>{head}<Muted text="V této sezóně družstvo ještě nehrálo." color={muted} /><div><HomeButton onHome={onHome} left={false} /></div></AppCard>;
   const homeName = (z?.home.trim() ? z.home : null) ?? m?.home ?? "";
   const awayName = (z?.away.trim() ? z.away : null) ?? m?.away ?? "";
   const hp = z ? z.points[0] ?? z.games.filter((g) => g.result === 1).length : null;
@@ -338,6 +347,7 @@ function PreviousCard({ ctx, prev, back, total }: { ctx: NextMatchContext | null
           {p.doublesWon + p.doublesLost > 0 && <T size={13} color={muted} style={{ whiteSpace: "pre" }}>{`  4hra ${p.doublesWon}–${p.doublesLost}`}</T>}
         </div>
       ))}
+      <div><HomeButton onHome={onHome} left={false} /></div>
     </AppCard>
   );
 }

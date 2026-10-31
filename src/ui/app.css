@@ -136,3 +136,7 @@ button { font-family: inherit; }
 .switch.on::after { width: 24px; height: 24px; top: 2px; left: 22px; background: #fff; }
 .chart text { font-family: var(--font); }
 .onboard { background: var(--navy); min-height: 100vh; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+
+.homebtn { border: 1px solid rgba(255,255,255,.55); background: rgba(255,255,255,.12); color: #fff; border-radius: 16px; padding: 6px 14px; font-weight: 700; font-size: 13px; cursor: pointer; margin-top: 2px; }
+.homebtn:active { background: rgba(255,255,255,.25); }
+.installbar { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 14px; padding: 10px 6px 10px 14px; border: 1px solid #D5DEF5; }

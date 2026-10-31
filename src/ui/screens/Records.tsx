@@ -9,6 +9,7 @@ import {
   StatTile, StrChart, T, TextField, TileRow, Avatar, dec1, signedInt,
 } from "../components";
 import { ProfileInput } from "./Overview";
+import { InstallCard } from "../install";
 import { strPoints } from "./StrScreen";
 
 const signedD = (x: number) => (x >= 0 ? "+" : "−") + dec1(Math.abs(x));
@@ -167,6 +168,7 @@ export function SettingsScreen() {
         <Muted text={`Aktuálně: ${vm.me?.name ?? "–"}`} size={13} />
         <ProfileInput dark={false} buttonText="Najít a načíst" onDone={() => setMsg("Profil načten.")} />
       </AppCard>
+      <InstallCard />
       <ProxySetup />
       <AppCard>
         <T bold>Oddíl</T>

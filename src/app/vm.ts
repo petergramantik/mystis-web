@@ -5,6 +5,7 @@ import { StisRepository, HOUR, type NextMatchContext } from "../core/repository"
 import { Stats, LadderEntry, maxBy, minBy, distinct, distinctBy, type SetStats } from "../core/stats";
 import { Live, LiveTimeline, MatchFormats, type MatchFormat, type MyLiveGame } from "../core/live";
 import { Stability, type SearchClub, type SearchPlayer } from "../core/search";
+import { pointsRule, predictSeason, type SeasonPrediction, type SeasonTeam } from "../core/season";
 import { type LDate, LDATE_MIN, LDT_MAX, fmtDT, ldDay, ldMonth, ldYear, ldtDate, ldtHour, ldtMinute, ldtOf, today, nowLdt } from "../core/dates";
 import { FetchError, WebFetcher } from "../data/fetcher";
 import { prefs } from "../data/prefs";
@@ -580,6 +581,71 @@ export class AppVm {
     this.loadComp(path, async () => { this.strLadders.set(path, await this.repo.strLadder(svaz, rocnik, soutez, force ? 0 : 6 * HOUR)); });
   }
 
+  // ---------- predikce konečné tabulky soutěže
+  predictions = new Map<string, SeasonPrediction>();
+  predLoading = new Map<string, boolean>();
+  predErrors = new Map<string, string>();
+  predProgress = "";
+  /** Spočítá predikci tabulky po sezóně: rozpisy všech družstev soutěže, soupisky, simulace. */
+  loadPrediction(svaz: string, rocnik: number, soutez: string, force = false) {
+    const key = Stis.tabulka(svaz, rocnik, soutez);
+    if (this.predLoading.get(key) || (!force && this.predictions.has(key))) return;
+    this.predLoading.set(key, true); this.predErrors.delete(key); this.predProgress = "Načítám tabulku…"; this.emit();
+    (async () => {
+      try {
+        const rows = this.tabulky.get(key) ?? (await this.repo.tabulka(svaz, rocnik, soutez));
+        this.tabulky.set(key, rows);
+        if (!rows.length) throw new Error("Tabulka soutěže je prázdná – není z čeho počítat.");
+        this.predProgress = "Načítám soupisky soutěže…"; this.emit();
+        const rosters = await this.repo.soupisky(svaz, rocnik, soutez);
+        let refs: TeamRef[] = rosters.map((r) => r.team).filter((x): x is TeamRef => !!x);
+        if (!refs.length) {
+          const mine = this.me?.seasons.flatMap((s) => s.teams).map((t) => t.ref).find((r) => r && r.soutez === soutez && r.rocnik === rocnik);
+          if (mine) refs = await this.repo.competitionTeams(mine);
+        }
+        const tableName = (n: string) => {
+          const f = Stats.fold(n);
+          return rows.find((r) => Stats.fold(r.name) === f)?.name ?? rows.find((r) => f.startsWith(Stats.fold(r.name)) || Stats.fold(r.name).startsWith(f))?.name ?? null;
+        };
+        const future = new Map<string, { home: string; away: string }>();
+        for (let i = 0; i < refs.length; i++) {
+          this.predProgress = `Načítám rozpisy družstev ${i + 1}/${refs.length}…`; this.emit();
+          let los: LosMatch[] = [];
+          try { los = await this.repo.los(refs[i]); } catch { /* družstvo bez rozpisu */ }
+          for (const m of los) {
+            if (m.played) continue;
+            const h = tableName(m.home), a = tableName(m.away);
+            if (!h || !a || h === a) continue;
+            future.set(`${m.round}|${h}|${a}`, { home: h, away: a });
+          }
+        }
+        this.predProgress = "Odhaduji sestavy…"; this.emit();
+        const teams: SeasonTeam[] = [];
+        for (const r of rows) {
+          let players = rosters.find((x) => Stats.fold(x.name) === Stats.fold(r.name))?.players ?? [];
+          if (!players.length) {
+            const ref = refs.find((x) => Stats.fold(x.name) === Stats.fold(r.name));
+            if (ref) { try { players = (await this.repo.teamRoster(ref)).players; } catch { /* bez soupisky */ } }
+          }
+          const lineup = Stats.suggestLineup(this.fresh(players), this.format.players).map((p) => p.str ?? 0).filter((x) => x > 0);
+          const [a, b] = r.score.split(":").map((x) => parseInt(x, 10));
+          teams.push({ name: r.name, points: r.points, played: r.played, wins: r.wins, draws: r.draws, losses: r.losses, diff: (a || 0) - (b || 0), lineup });
+        }
+        // průměr soutěže pro družstva bez známé sestavy
+        const all = teams.flatMap((t) => t.lineup);
+        const avgStr = all.length ? Math.round(all.reduce((x, y) => x + y, 0) / all.length) : 1400;
+        for (const t of teams) if (!t.lineup.length) t.lineup = [avgStr];
+        this.predProgress = `Simuluji ${future.size} zbývajících utkání…`; this.emit();
+        await new Promise((r) => setTimeout(r, 30));
+        this.predictions.set(key, predictSeason(teams, Array.from(future.values()), pointsRule(rows), this.format));
+      } catch (e) {
+        this.predErrors.set(key, err(e));
+      } finally {
+        this.predLoading.set(key, false); this.predProgress = ""; this.emit();
+      }
+    })();
+  }
+
   // ---------- místo utkání (herna domácího družstva)
   /** Herna družstva podle některého z jeho domácích zápisů ("Hráno v místnosti"). */
   homePlace(ref: TeamRef | null, name: string): string | null {
@@ -614,8 +680,9 @@ export class AppVm {
   compId: string | null = null;
   strLadderMine = false;
   strLadderSort = "str";
+  predOn = false;
   utkaniTeam: number | null = null;
-  set<K extends "lastByTeam" | "matchesTeam" | "matchesSeason" | "recentTeam" | "oppMode" | "oppComp" | "rankByTeam" | "ladderTab" | "matchesTab" | "compSeason" | "compId" | "strLadderMine" | "strLadderSort" | "utkaniTeam">(k: K, v: AppVm[K]) {
+  set<K extends "lastByTeam" | "matchesTeam" | "matchesSeason" | "recentTeam" | "oppMode" | "oppComp" | "rankByTeam" | "ladderTab" | "matchesTab" | "compSeason" | "compId" | "strLadderMine" | "strLadderSort" | "utkaniTeam" | "predOn">(k: K, v: AppVm[K]) {
     (this as any)[k] = v; this.emit();
   }
 
