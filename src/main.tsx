@@ -139,8 +139,17 @@ function Root() {
 createRoot(document.getElementById("app")!).render(<Root />);
 
 if ("serviceWorker" in navigator && location.protocol === "https:") {
-  window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+  // nová verze aplikace převezme řízení -> jednou obnovit stránku, aby běžel nový kód
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if (hadController && !reloaded) { reloaded = true; location.reload(); } });
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then((r) => r.update()).catch(() => {});
+  });
 }
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") navigator.serviceWorker?.getRegistration().then((r) => r?.update()).catch(() => {});
+});
 // při návratu do aplikace (z pozadí) dočíst čerstvá data, jako při spuštění Android aplikace
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && vm.me && Date.now() - vm.prefs.lastSync > 30 * 60_000) vm.loadMe(false);

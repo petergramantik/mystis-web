@@ -17,3 +17,5 @@ declare module "react-dom/client" { export function createRoot(el: Element): { r
 declare module "react/jsx-runtime" { export const jsx: any; export const jsxs: any; export const Fragment: any; }
 declare namespace JSX { interface IntrinsicElements { [k: string]: any } interface Element {} interface ElementAttributesProperty {} interface IntrinsicAttributes { key?: any } }
 declare module "*.css";
+
+declare const __BUILD__: string;

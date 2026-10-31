@@ -224,7 +224,8 @@ export function SettingsScreen() {
       <AppCard>
         <T bold>O aplikaci</T>
         <Muted size={13} maxLines={10} text={"MySTIS čte veřejné stránky stis.ping-pong.cz. Změny STR počítá podle oficiálního popisu eSTeR, doladěného na 5 080 skutečných zápasech. " +
-          (standalone ? "Aplikace běží z plochy." : "Na plochu telefonu ji přidáte v menu prohlížeče → Přidat na plochu (Chrome) nebo Sdílet → Přidat na plochu (Safari).")} />
+          (standalone ? "Aplikace běží z plochy." : "Na plochu telefonu ji přidáte v menu prohlížeče → Přidat na plochu (Chrome) nebo Sdílet → Přidat na plochu (Safari).") +
+          ` Verze ${typeof __BUILD__ !== "undefined" ? __BUILD__.replace(/^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d).*/, "$3. $2. $1 $4:$5 UTC") : "vývojová"}.`} />
       </AppCard>
       <div style={{ height: 8 }} />
     </div>

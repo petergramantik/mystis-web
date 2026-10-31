@@ -103,7 +103,11 @@ export function OverviewScreen() {
               <Spinner size={72} width={5} color={C.Peach} />
               <T bold size={18} color="#fff" style={{ position: "absolute" }}>{vm.progressPercent} %</T>
             </div>
-          ) : <Sparkline values={me.graph.map((p) => p.str).filter((x): x is number => x != null).slice(-40)} />}
+          ) : (
+            <div className="clickable" onClick={() => vm.tab(S.Str)} aria-label="Vývoj STR" style={{ padding: "6px 0 6px 6px", margin: "-6px 0 -6px -6px" }}>
+              <Sparkline values={me.graph.map((p) => p.str).filter((x): x is number => x != null).slice(-40)} />
+            </div>
+          )}
         </div>
         {vm.firstLoad && vm.busy && (
           <div className="col g4" style={{ background: C.Navy2, borderRadius: 14, padding: 12 }}>
