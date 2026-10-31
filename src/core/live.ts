@@ -53,6 +53,8 @@ export interface PlayerLive {
 export interface LiveState {
   games: LiveGame[]; gameProb: number[]; home: number; away: number;
   pHomeWin: number; pDraw: number; pAwayWin: number; expHome: number; expAway: number;
+  /** nejpravděpodobnější konečný výsledek [domácí, hosté] a jeho pravděpodobnost (u formátů bez cíle zaokrouhlený součet) */
+  likely: [number, number]; likelyP: number;
   players: PlayerLive[]; finished: boolean; played: number;
 }
 
@@ -230,6 +232,9 @@ export const Live = {
       if (h > a) pw += pr; else if (h === a) pd += pr; else pl += pr;
       eh += h * pr; ea += a * pr;
     }
+    let likely: [number, number] = [home, away], likelyP = 0;
+    for (const [key, pr] of states) if (pr > likelyP) { likelyP = pr; likely = [Math.floor(key / 1000), key % 1000]; }
+    if (target == null) { const t = Math.round(eh + ea), m = Math.max(0, Math.min(t, Math.round(eh))); likely = [m, t - m]; }
 
     const keys = new Map<string, PlayerLive>();
     games.forEach((gm, i) => {
@@ -259,7 +264,7 @@ export const Live = {
       }
     });
     return {
-      games, gameProb: probs, home, away, pHomeWin: pw, pDraw: pd, pAwayWin: pl, expHome: eh, expAway: ea,
+      games, gameProb: probs, home, away, pHomeWin: pw, pDraw: pd, pAwayWin: pl, expHome: eh, expAway: ea, likely, likelyP,
       players: Array.from(keys.values()), finished: done || Live.isFinished(games, format),
       played: games.filter((x) => x.result != null).length,
     };

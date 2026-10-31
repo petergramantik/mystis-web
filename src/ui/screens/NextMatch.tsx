@@ -3,7 +3,8 @@ import { vm } from "../../app/vm";
 import { RosterPlayer, Stis, type PlayerPage, type TeamRef } from "../../core/models";
 import { Stats } from "../../core/stats";
 import { MatchFormats, type MatchFormat } from "../../core/live";
-import { roundScore, type SearchClub } from "../../core/search";
+import { type SearchClub } from "../../core/search";
+import { matchForecast } from "../../core/season";
 import type { NextMatchContext } from "../../core/repository";
 import {
   AppCard, Spinner, Avatar, BigNumber, C, Chips, Divider, Empty, ErrorBox, ErrorWithDiagnostics, FormDots, ListCard, Loading, Muted, OButton,
@@ -127,12 +128,17 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
   const theirs = theirsPick.map((x) => x[0]);
   if (!mine.length || !theirs.length) return null;
   const exp = Stats.expectedTeamScore(mine.map((p) => [p.name, p.str ?? 0]), theirs.map((p) => p.str ?? 0), fmt.doubles);
-  const [my, op] = roundScore(exp.my, exp.opp);
+  // nejpravděpodobnější konečný výsledek (hraje se do cíle, proto ne zaokrouhlený součet všech her)
+  const fc = matchForecast(mine.map((p) => p.str ?? 1400), theirs.map((p) => p.str ?? 1400), fmt);
+  const [my, op] = fc.likely;
   const label = (p: [RosterPlayer, boolean]) => `${p[0].name.split(" ")[0]} ${p[0].str ?? ""}` + (p[1] ? " (náhradník)" : "");
   return (
     <AppCard>
       <div className="row g8">
-        <T bold style={{ flex: 1 }}>Očekávaný výsledek</T>
+        <div className="col w1">
+          <T bold>Nejpravděpodobnější výsledek</T>
+          <Muted size={12} text={`vy : soupeř${fmt.target != null ? ` · ${Stats.pct(fc.likelyP)} · výhra ${Stats.pct(fc.pWin)}, remíza ${Stats.pct(fc.pDraw)}, prohra ${Stats.pct(fc.pLoss)}` : ""}`} maxLines={2} />
+        </div>
         {rs.busy && <Spinner size={18} width={2} />}
         <BigNumber text={`${my} : ${op}`} color={rs.busy ? C.Muted : my > op ? C.Win : my < op ? C.OrangeText : C.Ink} size={26} />
       </div>

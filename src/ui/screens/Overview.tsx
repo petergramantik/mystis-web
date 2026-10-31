@@ -531,16 +531,16 @@ function CardForecast({ ctx, oppName, oppRef, oppRoster, home }: {
   const rs = vm.refineState(oppRoster, oppRef);
   if (!mine.length || !theirs.length) return <ForecastBox><Muted text={oppRoster.length ? "Počítám predikci…" : "Soupiska soupeře zatím není k dispozici."} color="#D6E1FA" size={13} /></ForecastBox>;
   const f = matchForecast(mine.map((p) => p.str ?? 1400), theirs.map((p) => p.str ?? 1400), vm.format);
-  const [my, op] = roundScore(f.expHome, f.expAway);
+  // f je z pohledu mého družstva -> výsledek v pořadí domácí : hosté jako na kartě
+  const [hh, aa] = home ? f.likely : [f.likely[1], f.likely[0]];
   const meIn = me ? mine.find((p) => p.id === me.id || Stats.fold(p.name) === Stats.fold(me.name)) : undefined;
   const myStr = me?.currentStr ?? meIn?.str ?? null;
   const mySingles = meIn && myStr != null ? theirs.map((o) => [o.name.split(" ")[0], StrModel.winProbability(myStr, o.str ?? 1400)] as [string, number]) : [];
-  void home;
   return (
     <ForecastBox>
       <MiniOdds win={f.pWin} draw={f.pDraw} loss={f.pLoss} busy={rs.busy} />
       <div style={{ opacity: rs.busy ? 0.6 : 1 }}><ProbBar p={f.pWin + f.pDraw / 2} /></div>
-      <T size={13} semi color="#fff" center>{`Očekávaný stav ${my} : ${op}${rs.busy ? " · upřesňuji…" : ""}`}</T>
+      <T size={13} semi color="#fff" center>{`Nejpravděpodobnější výsledek ${hh} : ${aa}${vm.format.target != null ? ` (${Stats.pct(f.likelyP)})` : ""}${rs.busy ? " · upřesňuji…" : ""}`}</T>
       {mySingles.length > 0 && (
         <T size={12} color="#D6E1FA" center lines={2}>
           {`Vy: ${Math.round(sum(mySingles.map((x) => x[1])))} z ${mySingles.length} dvouher (`}

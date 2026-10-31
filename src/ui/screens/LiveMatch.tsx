@@ -198,8 +198,8 @@ export function LiveScreen({ team }: { team: number }) {
 function ScoreHeader({ st, myHome, homeName, awayName, empty }: { st: LiveState; myHome: boolean; homeName: string; awayName: string; empty: boolean }) {
   const my = myHome ? st.home : st.away, opp = myHome ? st.away : st.home;
   const pWin = myHome ? st.pHomeWin : st.pAwayWin, pLoss = myHome ? st.pAwayWin : st.pHomeWin;
-  const expMy = myHome ? st.expHome : st.expAway, expOpp = myHome ? st.expAway : st.expHome;
-  const [a, b] = roundScore(expMy, expOpp);
+  // nejpravděpodobnější konečný výsledek, pořadí domácí : hosté jako velké skóre
+  const [a, b] = st.likely;
   return (
     <NavyHeader>
       <div className="row">
@@ -215,7 +215,7 @@ function ScoreHeader({ st, myHome, homeName, awayName, empty }: { st: LiveState;
         {myHome ? <StatTile label="Prohra" value={Stats.pct(pLoss)} dark valueColor={C.Peach} /> : <StatTile label="Výhra" value={Stats.pct(pWin)} dark valueColor={C.WinLight} />}
       </TileRow>
       <ProbBar p={pWin + st.pDraw / 2} reverse={!myHome} />
-      <Muted color={C.MutedOnNavy} size={13} text={st.finished ? `Konečný výsledek z pohledu vašeho družstva: ${my} : ${opp}` : `Očekávaný konečný stav ${a} : ${b} · odehráno ${st.played} z ${st.games.length}`} />
+      <Muted color={C.MutedOnNavy} size={13} text={st.finished ? `Konečný výsledek z pohledu vašeho družstva: ${my} : ${opp}` : `Nejpravděpodobnější výsledek ${a} : ${b}${vm.format.target != null ? ` (${Stats.pct(st.likelyP)})` : ""} · odehráno ${st.played} z ${st.games.length}`} />
       </>}
     </NavyHeader>
   );

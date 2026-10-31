@@ -7,6 +7,7 @@ import { Parsers } from "../src/core/parsers";
 import { Clubs, Match, PlayerPage, Stis, RosterPlayer, Zapis, ZapisGame, teamRef, type TeamMembership } from "../src/core/models";
 import { Stats, StrModel, sum } from "../src/core/stats";
 import { StisRepository, type Fetcher } from "../src/core/repository";
+import { matchForecast } from "../src/core/season";
 import { Live, LiveGame, LiveTimeline, MatchFormats, lp } from "../src/core/live";
 import { Search, Stability, roundScore } from "../src/core/search";
 import { ldOf, ldtOf } from "../src/core/dates";
@@ -343,6 +344,14 @@ async function main() {
   const zs = new Zapis("/z", "", "", "H", "A", null, null, "", "", [7, 10], games18);
   const zk = new Zapis("/z", "", "", "H", "A", null, null, "", "", [10, 0], [zg(1, true)]);
   check("zapis score", J(zs.score) === J([8, 10]) && J(zk.score) === J([10, 0]), () => J(zs.score));
+  // ---------- nejpravděpodobnější výsledek je platný konečný stav (do 10)
+  {
+    const f = matchForecast([1500, 1480, 1450, 1400], [1550, 1530, 1500, 1460], MatchFormats.DEFAULT);
+    const [h, a] = f.likely;
+    check("likely platný", (h === 10 && a < 10) || (a === 10 && h < 10) || (h === 9 && a === 9), () => `${h}:${a}`);
+    const fa = matchForecast([1500, 1480, 1450, 1400], [1550, 1530, 1500, 1460], MatchFormats.of("18_all"));
+    check("likely všechny hry", fa.likely[0] + fa.likely[1] === 18, () => J(fa.likely));
+  }
   // ---------- šance rozehrané hry podle setů
   const q61 = Live.setProb(0.61);
   check("setProb", Math.abs(Live.fromSets(q61, 3, 3) - 0.61) < 1e-6 && Math.abs(Live.setProb(0.5) - 0.5) < 1e-6, () => String(q61));
