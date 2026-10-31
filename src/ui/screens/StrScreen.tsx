@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { SearchPlayer } from "../../core/search";
 import { vm } from "../../app/vm";
 import { Stis, type PlayerPage } from "../../core/models";
 import { Stats, StrModel, sum } from "../../core/stats";
 import { type LDate, LDATE_MIN, ldDay, ldMinusYears, ldMonth, ldOf, ldYear, today } from "../../core/dates";
-import { AppCard, BigNumber, C, Chips, DMY, KeyValue, Legend, Loading, Muted, ProbBar, SectionTitle, StatTile, StrChart, StrTimelineChart, T, TextField, TileRow, dec1, f0, signedInt } from "../components";
+import { AppCard, Avatar, Segmented, BigNumber, C, Chips, DMY, KeyValue, Legend, Loading, Muted, ProbBar, SectionTitle, StatTile, StrChart, StrTimelineChart, T, TextField, TileRow, dec1, f0, signedInt } from "../components";
 
 function minusMonths(d: LDate, n: number): LDate {
   let y = ldYear(d), m = ldMonth(d) - n;
@@ -27,6 +28,65 @@ export function strPoints(p: PlayerPage, period: string): [LDate, number][] {
   return f.length >= 2 ? f : pts.slice(-30);
 }
 
+/** Hledání soupeře pro kalkulačku: nejdřív mezi soupeři z historie, pak na STIS. */
+function OpponentFinder() {
+  const [q, setQ] = useState("");
+  const [stis, setStis] = useState<SearchPlayer[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const me = vm.meWithLive();
+  const query = q.trim();
+  const local = me && query.length >= 2 ? Stats.searchOpponents(me, query).slice(0, 8) : [];
+  useEffect(() => {
+    setStis([]); setErr(null);
+    if (query.length < 3) return;
+    const t = setTimeout(() => {
+      setSearching(true);
+      vm.searchPlayers(query, (r, e) => { setSearching(false); if (e) setErr(e); else setStis(r ?? []); });
+    }, 700);
+    return () => clearTimeout(t);
+  }, [query]);
+  if (!me) return null;
+  const known = new Set(local.map((o) => o.id).filter((x) => x));
+  const others = stis.filter((r) => r.id !== me.id && !known.has(r.id) && !Stats.opponents(me).some((o) => o.id === r.id)).slice(0, 15);
+  const fromHistory = stis.filter((r) => !known.has(r.id)).map((r) => Stats.opponents(me).find((o) => o.id === r.id)).filter((x): x is NonNullable<typeof x> => !!x);
+  const mine = [...local, ...fromHistory.filter((o) => !local.includes(o))];
+  const myStr = me.currentStr;
+  return (
+    <div className="col g8">
+      <TextField value={q} onChange={setQ} label="Jméno soupeře" icon="search" placeholder="např. Novák" />
+      {query.length > 0 && query.length < 2 && <Muted text="Pište dál…" size={12} />}
+      {mine.length > 0 && <Muted text="VAŠI SOUPEŘI" size={12} />}
+      {mine.map((o) => (
+        <div key={o.key} className="row g10 clickable" style={{ background: C.Tint, borderRadius: 10, padding: "8px 12px" }} onClick={() => vm.go({ t: "H2H", key: o.key })}>
+          <Avatar text={o.name} color={C.Grey} size={32} />
+          <div className="col w1">
+            <T semi lines={1}>{o.name}</T>
+            <Muted text={`${o.team}${o.lastStr != null ? ` · STR ${o.lastStr}` : ""} · vzájemně ${o.record}`} size={12} maxLines={1} />
+          </div>
+          {myStr != null && o.lastStr != null && <T bold color={StrModel.winProbability(myStr, o.lastStr) >= 0.5 ? C.Win : C.OrangeText}>{Stats.pct(StrModel.winProbability(myStr, o.lastStr))}</T>}
+        </div>
+      ))}
+      {searching && <Loading text="Hledám na STIS…" />}
+      {err && <Muted text={err} color={C.OrangeText} size={13} maxLines={3} />}
+      {others.length > 0 && <Muted text="DALŠÍ HRÁČI NA STIS" size={12} />}
+      {others.map((r) => (
+        <div key={r.id} className="row g10 clickable" style={{ background: "#F0F2F5", borderRadius: 10, padding: "8px 12px" }}
+          onClick={() => vm.go({ t: "Duel", aId: me.id, aName: me.name, bId: r.id, bName: r.name })}>
+          <Avatar text={r.name} color={C.Grey} size={32} />
+          <div className="col w1">
+            <T semi lines={1}>{r.name + (r.birthYear != null ? ` (${r.birthYear})` : "")}</T>
+            <Muted text={r.club || " "} size={12} maxLines={1} />
+          </div>
+          {myStr != null && r.str != null && r.str > 0 && <T bold color={StrModel.winProbability(myStr, r.str) >= 0.5 ? C.Win : C.OrangeText}>{Stats.pct(StrModel.winProbability(myStr, r.str))}</T>}
+        </div>
+      ))}
+      {query.length >= 3 && !searching && !mine.length && !others.length && !err && stis.length === 0 && <Muted text="Nikoho jsem nenašel." size={13} />}
+      <Muted text="Klepnutím otevřete vzájemné zápasy se šancí na výhru a změnou STR." size={12} />
+    </div>
+  );
+}
+
 export function StrScreen() {
   const me = vm.me;
   const nextOpp = (() => {
@@ -35,6 +95,7 @@ export function StrScreen() {
   })();
   const [period, setPeriod] = useState("sez");
   const [oppText, setOppText] = useState(String(nextOpp ?? me?.currentStr ?? 0));
+  const [calcMode, setCalcMode] = useState("str");
   if (!me) return <Loading />;
   const cur = me.currentStr ?? 0;
   const pts = strPoints(me, period);
@@ -79,8 +140,9 @@ export function StrScreen() {
       )}
       <SectionTitle text="Kalkulačka zápasu" />
       <AppCard>
-        <TextField value={oppText} onChange={(v) => setOppText(v.replace(/\D/g, "").slice(0, 4))} label="STR soupeře" numeric />
-        {opp != null && cur > 0 && (() => {
+        <Segmented options={[["str", "Zadat STR"], ["find", "Najít soupeře"]]} selected={calcMode} onSelect={setCalcMode} />
+        {calcMode === "find" ? <OpponentFinder /> : <TextField value={oppText} onChange={(v) => setOppText(v.replace(/\D/g, "").slice(0, 4))} label="STR soupeře" numeric />}
+        {calcMode === "str" && opp != null && cur > 0 && (() => {
           const p = StrModel.winProbability(cur, opp);
           return (
             <>

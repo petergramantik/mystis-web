@@ -49,6 +49,12 @@ function CompetitionView({ kind }: { kind: "tabulka" | "stis" }) {
   // výchozí soutěž = soutěž hlavního družstva hráče
   const mainSoutez = vm.next[vm.mainTeamIndex]?.myTeam.ref?.soutez;
   const comp = list.find((c) => c.soutez === vm.compId) ?? list.find((c) => c.soutez === mainSoutez) ?? list[0] ?? null;
+  // po přepnutí na soutěž bez spočítané predikce se ukáže oficiální tabulka
+  useEffect(() => {
+    if (!comp || !vm.predOn) return;
+    const k = Stis.tabulka(comp.svaz, comp.rocnik, comp.soutez);
+    if (!vm.predictions.has(k) && !vm.predLoading.get(k)) vm.set("predOn", false);
+  }, [comp?.svaz, comp?.rocnik, comp?.soutez, season]);
   useEffect(() => {
     if (!comp) return;
     if (kind === "tabulka") vm.loadTabulka(comp.svaz, comp.rocnik, comp.soutez);
@@ -82,11 +88,11 @@ function StandingsTable({ comp, rows, loading, current }: { comp: Comp; rows: St
   const key = Stis.tabulka(comp.svaz, comp.rocnik, comp.soutez);
   const computing = vm.predLoading.get(key) === true;
   const pred = vm.predictions.get(key);
-  const showPred = current && vm.predOn;
+  const showPred = current && vm.predOn && (computing || !!pred || vm.predErrors.has(key));
   const toggle = current && (
     <button className={"chip" + (vm.predOn ? " on" : "")} style={{ display: "flex", alignItems: "center", gap: 8, alignSelf: "flex-start", height: 36 }}
       onClick={() => {
-        const on = !vm.predOn;
+        const on = !(vm.predOn && (computing || !!pred));
         vm.set("predOn", on);
         if (on) vm.loadPrediction(comp.svaz, comp.rocnik, comp.soutez);
       }}>
@@ -108,6 +114,7 @@ function StandingsTable({ comp, rows, loading, current }: { comp: Comp; rows: St
   return (
     <>
       {toggle}
+      {current && <Muted size={12} maxLines={3} text="Predikce odhadne konečné pořadí podle STR sestav a zbývajících utkání. Výpočet spustíte tlačítkem, trvá několik sekund." />}
       <Muted text={`${comp.label} · ${comp.rocnik}/${(comp.rocnik + 1) % 100}`} size={14} />
       <div className="row" style={{ padding: "0 14px" }}>
         <Muted text="#" size={12} style={{ width: 28 }} />

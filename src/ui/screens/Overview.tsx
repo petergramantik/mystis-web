@@ -112,7 +112,7 @@ export function OverviewScreen() {
           </div>
         )}
         <TileRow>
-          <StatTile label="Pořadí" value={pos != null ? `${pos}. / ${scoped.length}` : vm.loadingClub ? "…" : "–"} dark sub={scopeTeam ?? "celý oddíl"} subLeftEllipsis
+          <StatTile label="Pořadí" value={pos != null ? `${pos}. / ${scoped.length}` : vm.loadingClub ? "…" : "–"} dark sub={(scopeTeam ?? "celý oddíl") + " ›"} subLeftEllipsis
             onClick={() => {
               const n = vm.next.length;
               if (n === 0) return;
@@ -122,7 +122,8 @@ export function OverviewScreen() {
             }} />
           <StatTile label="Bilance" value={`${wins}–${seasonMatches.length - wins}`} dark sub="zápasy ›"
             onClick={() => { vm.matchesTeam = "all"; vm.matchesSeason = null; vm.matchesTab = "zapasy"; vm.tab(S.Matches); }} />
-          <StatTile label="Úspěšnost" value={seasonMatches.length ? Stats.pct(wins / seasonMatches.length) : "–"} dark sub="sezóna" />
+          <StatTile label="Úspěšnost" value={seasonMatches.length ? Stats.pct(wins / seasonMatches.length) : "–"} dark sub="sezóna ›"
+            onClick={() => { vm.ladderTab = "stis"; vm.strLadderSort = "pct"; vm.compSeason = null; vm.compId = null; vm.tab(S.Ladder); }} />
         </TileRow>
       </NavyHeader>
       <InstallBanner />
