@@ -1,5 +1,5 @@
 // Karta "Herna a vybavení" domácího družstva (údaje ze stránky družstva na STIS).
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { vm } from "../app/vm";
 import type { TeamInfo, TeamRef } from "../core/models";
 import { AppCard, C, KeyValue, Loading, Muted, T } from "./components";
@@ -11,15 +11,24 @@ export function mapsUrl(info: TeamInfo | null | undefined, teamName: string): st
 }
 
 export function HallCard({ teamRef, teamName, fallbackPlace }: { teamRef: TeamRef | null; teamName: string; fallbackPlace?: string | null }) {
+  const [open, setOpen] = useState(false);
   useEffect(() => { if (teamRef) vm.loadTeamInfo(teamRef); }, [teamRef?.id]);
   const info = teamRef ? vm.teamInfos.get(teamRef.id) : undefined;
   const loading = teamRef ? vm.teamInfoLoading.has(teamRef.id) : false;
   const place = info?.herna ?? fallbackPlace ?? null;
   const url = mapsUrl(info ?? (place ? { herna: place } as TeamInfo : null), teamName);
-  if (!info && !place) return loading ? <AppCard><Loading text="Načítám hernu…" /></AppCard> : null;
+  if (!info && !place && !loading) return null;
+  const head = (
+    <div className="row clickable" onClick={() => setOpen(!open)} style={{ justifyContent: "space-between" }}>
+      <T bold>Herna a vybavení</T>
+      <span style={{ color: C.Muted, fontSize: 18, transform: open ? "rotate(180deg)" : undefined, transition: "transform .15s" }}>⌄</span>
+    </div>
+  );
+  if (!open) return <AppCard>{head}</AppCard>;
+  if (!info && !place) return <AppCard>{head}<Loading text="Načítám hernu…" /></AppCard>;
   return (
     <AppCard>
-      <T bold>Herna a vybavení</T>
+      {head}
       <Muted text={`domácí: ${teamName}`} size={12} />
       {place && <KeyValue label="Herna" value={place} />}
       {info?.gpsText && <KeyValue label="GPS" value={info.gpsText} />}

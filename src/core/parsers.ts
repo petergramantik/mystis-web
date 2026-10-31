@@ -451,7 +451,8 @@ export const Parsers = {
       const block = [...(first ? [first] : []), ...lines.slice(oi + 1)];
       for (const l of block) {
         if (isLabel(l)) break;
-        if (l.includes("@")) { email ??= l.replace(/\s+/g, ""); continue; }
+        const at = l.replace(/\s*(\(a\)|\(at\)|\[at\]|\[a\]|\{at\}|@)\s*/i, "@");
+        if (at.includes("@") && /\S+@\S+\.\S+/.test(at.replace(/\s+/g, ""))) { email ??= at.replace(/\s+/g, ""); continue; }
         const ph = l.replace(/[^\d+]/g, "");
         if (/^\+?\d{9,13}$/.test(ph)) { if (!phones.includes(l.trim())) phones.push(l.trim()); continue; }
         if (!contactName) contactName = l;

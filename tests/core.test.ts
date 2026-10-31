@@ -372,6 +372,9 @@ async function main() {
   const ti = Parsers.teamInfo(dru);
   check("herna", ti.herna === "Ježov 50,Tělocvična ZŠ" && ti.balls === "Joola Flash, plast, Bílá" && ti.tables === "Donic, Donic 25, Modrá", () => J(ti));
   check("kontakt", ti.contactName === "Kůřil Pavel ml." && ti.email === "koura@email.cz" && ti.phones.length === 1 && ti.phones[0] === "+420 722 210765", () => J(ti));
+  const ti2 = Parsers.teamInfo(dru.replace('koura <i class="fa fa-at"></i> email.cz', "koura (a) email.cz"));
+  check("e-mail (a)", ti2.email === "koura@email.cz", () => J(ti2.email));
+  check("e-mail [at]", Parsers.teamInfo(dru.replace('koura <i class="fa fa-at"></i> email.cz', "koura [at] email.cz")).email === "koura@email.cz");
   check("gps", !!ti.gps && Math.abs(ti.gps[0] - 49.02499) < 1e-4 && Math.abs(ti.gps[1] - 17.21352) < 1e-4, () => J(ti.gps));
 
   // ---------- predikce konečné tabulky
