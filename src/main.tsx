@@ -10,9 +10,10 @@ import { ClubScreen, H2HScreen, OpponentsScreen } from "./ui/screens/Opponents";
 import { FixtureScreen, NextMatchScreen } from "./ui/screens/NextMatch";
 import { LiveScreen, LiveTopRing } from "./ui/screens/LiveMatch";
 import { TeamScreen } from "./ui/screens/Team";
+import { ProfileScreen } from "./ui/screens/Profile";
 import { PairScreen, ZapisDetailScreen } from "./ui/screens/Duel";
 import { CaptainScreen, CompareScreen } from "./ui/screens/Captain";
-import { PlayerScreen, RecordsScreen, SettingsScreen } from "./ui/screens/Records";
+import { RecordsScreen, SettingsScreen } from "./ui/screens/Records";
 import "./ui/app.css";
 
 const TABS: [Screen, string, string][] = [
@@ -37,7 +38,7 @@ function title(s: Screen): string {
     case "Compare": return "Porovnání hráčů";
     case "Records": return "Rekordy a statistiky";
     case "Settings": return "Nastavení";
-    case "Player": return vm.players.get(s.path)?.name ?? "Hráč";
+    case "Player": return "Profil hráče";
     case "Team": return "Družstvo";
     case "Live": return "Živé utkání";
     case "Duel": return "Vzájemné zápasy";
@@ -60,7 +61,7 @@ function Body({ s }: { s: Screen }) {
     case "Compare": return <CompareScreen a0={s.a} b0={s.b} />;
     case "Records": return <RecordsScreen />;
     case "Settings": return <SettingsScreen />;
-    case "Player": return <PlayerScreen path={s.path} />;
+    case "Player": return <ProfileScreen path={s.path} />;
     case "Team": return <TeamScreen team={s.team} />;
     case "Live": return <LiveScreen team={s.team} />;
     case "Duel": return <PairScreen aId0={s.aId} aName0={s.aName} bId0={s.bId} bName0={s.bName} pA0={s.pA} />;

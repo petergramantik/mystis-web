@@ -47,7 +47,7 @@ export function OverviewScreen() {
   const seasonMatches = meL.chronological.filter((m) => m.season === season);
   const start = seasonMatches[0]?.strBefore ?? null;
   const cur = me.currentStr;
-  const form = Stats.form(meL);
+  const form = Stats.form(meL, 5, 1e9, season);
   // zápasy z online zápisu, u kterých se ještě dočítá STR soupeře (Výkon se může změnit)
   const formBusy = meL.chronological.slice(-25).some((m) => m.unofficial && m.oppStrBefore == null)
     && Array.from(vm.loadingPlayers.values()).some((x) => x);
@@ -77,10 +77,10 @@ export function OverviewScreen() {
       {switching && <SwitchPlayerDialog onClose={() => setSwitching(false)} />}
       <NavyHeader>
         <div className="row g12">
-          <Avatar text={me.name} color={C.Blue} size={48} />
-          <div className="col w1">
+          <div className="clickable" onClick={() => vm.go({ t: "Player", path: me.path })} style={{ flex: "none" }}><Avatar text={me.name} color={C.Blue} size={48} /></div>
+          <div className="col w1 clickable" onClick={() => vm.go({ t: "Player", path: me.path })}>
             <div className="row" style={{ minWidth: 0 }}>
-              <T size={20} bold color="#fff" lines={1} style={{ minWidth: 0 }}>{me.name}</T>
+              <T size={20} bold color="#fff" lines={1} style={{ minWidth: 0 }}>{me.name + " ›"}</T>
               {vm.busy && !vm.firstLoad && (
                 <>
                   <div style={{ width: 10 }} />
@@ -95,14 +95,14 @@ export function OverviewScreen() {
           </div>
           <button className="iconbtn" style={{ color: "#fff" }} onClick={() => setSwitching(true)} aria-label="Přepnout hráče"><Icon name="swap" /></button>
         </div>
-        <div className="rowb">
+        <div className="rowb clickable" onClick={() => vm.tab(S.Str)} aria-label="Vývoj STR">
           <div className="col w1">
             <div style={{ width: "calc(100% + 150px)", position: "relative", zIndex: 1 }}>
-              <Marquee text={provisional == null ? "AKTUÁLNÍ STR" : running ? "STR · ODHAD Z PROBÍHAJÍCÍHO UTKÁNÍ" : "STR · ODHAD · NEOFICIÁLNÍ VÝSLEDKY"} color={C.MutedOnNavy} size={13} />
+              <Marquee text={provisional == null ? "STR ›" : "STR · NEOFICIÁLNÍ ODHAD ›"} color={C.MutedOnNavy} size={13} />
             </div>
             <BigNumber text={(provisional ?? cur)?.toString() ?? "—"} color="#fff" size={72} />
             {provisional != null && cur != null ? (
-              <T semi size={14} color={provisional >= cur ? C.WinLight : C.Peach}>oficiálně {cur} · změna {signedInt(provisional - cur)} zatím neoficiální</T>
+              <T semi size={14} color={provisional >= cur ? C.WinLight : C.Peach}>oficiálně {cur} · změna {signedInt(provisional - cur)}</T>
             ) : start != null && cur != null ? (
               <T semi size={15} color={cur >= start ? C.WinLight : C.Peach}>{(cur >= start ? "▲ " : "▼ ") + signedInt(cur - start)} za sezónu</T>
             ) : null}
@@ -113,7 +113,7 @@ export function OverviewScreen() {
               <T bold size={18} color="#fff" style={{ position: "absolute" }}>{vm.progressPercent} %</T>
             </div>
           ) : (
-            <div className="clickable" onClick={() => vm.tab(S.Str)} aria-label="Vývoj STR" style={{ padding: "6px 0 6px 6px", margin: "-6px 0 -6px -6px" }}>
+            <div style={{ padding: "6px 0 6px 6px", margin: "-6px 0 -6px -6px" }}>
               <Sparkline values={me.graph.map((p) => p.str).filter((x): x is number => x != null).slice(-40)} />
             </div>
           )}
@@ -127,12 +127,13 @@ export function OverviewScreen() {
         <TileRow>
           <StatTile label="Úspěšnost" value={teamMatches.length ? Stats.pct(teamWins / teamMatches.length) : "–"} dark
             sub={activeTeam ? `${activeTeam.competition || activeTeam.name} ›` : scopeSub}
-            onClick={() => { vm.ladderTab = "stis"; vm.strLadderSort = "pct"; vm.compSeason = null; vm.compId = null; vm.tab(S.Ladder); }} />
-          <StatTile label="Bilance" value={`${wins}–${seasonMatches.length - wins}`} dark sub={scopeSub}
-            onClick={() => { vm.matchesTeam = "all"; vm.matchesSeason = null; vm.matchesTab = "zapasy"; vm.tab(S.Matches); }} />
+            onClick={() => { vm.ladderTab = "stis"; vm.strLadderSort = "pct"; vm.compSeason = activeTeam?.ref?.rocnik ?? null; vm.compId = activeTeam?.ref?.soutez ?? null; vm.tab(S.Ladder); }} />
+          <StatTile label="Bilance" value={`${teamWins}–${teamMatches.length - teamWins}`} dark
+            sub={activeTeam ? `${activeTeam.competition || activeTeam.name} ›` : scopeSub}
+            onClick={() => { vm.matchesTeam = activeTeam?.name ?? "all"; vm.matchesSeason = null; vm.matchesTab = "zapasy"; vm.tab(S.Matches); }} />
           <StatTile label="Výkon" value={form.sample ? (form.overExpected >= 0 ? "+" : "−") + dec1(Math.abs(form.overExpected)) : "–"} dark
             valueColor={!form.sample ? undefined : form.overExpected > 0.05 ? C.WinLight : form.overExpected < -0.05 ? C.Peach : "#fff"}
-            busy={formBusy} sub={`posl. ${form.sample} zápasů ›`} onClick={() => { vm.scrollTarget = "klutch"; vm.go(S.Records); }} />
+            busy={formBusy} sub={`sezóna · ${form.sample} zápasů ›`} onClick={() => { vm.scrollTarget = "klutch"; vm.go(S.Records); }} />
         </TileRow>
       </NavyHeader>
       <InstallBanner />
@@ -154,7 +155,7 @@ export function OverviewScreen() {
               </>
             ) : <BigNumber text="–" color={C.Blue} size={26} />}
           </div>
-          <Muted text={`Posledních ${form.sample} zápasů: ${dec1(Math.abs(form.overExpected))} výher ${form.overExpected >= 0 ? "nad" : "pod"} očekáváním podle STR.`} size={13} />
+          {form.sample > 0 && <Muted text={`Tato sezóna (${form.sample} zápasů): ${dec1(Math.abs(form.overExpected))} výher ${form.overExpected >= 0 ? "nad" : "pod"} očekáváním podle STR.`} size={13} />}
         </AppCard>
         <div className="row g8">
           <QuickLink text="Rekordy" onClick={() => vm.go(S.Records)} />

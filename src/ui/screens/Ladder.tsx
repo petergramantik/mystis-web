@@ -37,6 +37,12 @@ function competitions(): Map<number, Comp[]> {
       out.set(r.rocnik, list);
     }
   }
+  const x = vm.extraComp;
+  if (x) {
+    const list = out.get(x.rocnik) ?? [];
+    if (!list.some((c) => c.soutez === x.soutez && c.svaz === x.svaz)) list.push({ ...x, teams: [...x.teams] });
+    out.set(x.rocnik, list);
+  }
   return out;
 }
 
@@ -187,13 +193,17 @@ function OfficialLadder({ comp, data, loading }: { comp: Comp; data: StrLadder |
         const mp = meRow ? pctOf(meRow) : null;
         const all = (vm.meWithLive()?.chronological ?? []).filter((m) => m.season === comp.rocnik);
         const w = all.filter((m) => m.won).length;
+        // v této soutěži včetně nepotvrzených (stejně jako Úspěšnost na Přehledu)
+        const inComp = all.filter((m) => comp.teams.some((t) => Stats.fold(t) === Stats.fold(m.myTeam)));
+        const cw = inComp.filter((m) => m.won).length;
+        const pending = inComp.some((m) => m.unofficial);
         if (!meRow && !all.length) return null;
         return (
           <AppCard padding={12} bg={C.Tint}>
-            <Muted color={C.Ink} size={13} maxLines={3} text={[
-              meRow ? `Vy v této soutěži: ${meRow.bilance ?? meRow.matches ?? "–"}${mp != null ? ` (${Stats.pct(mp)})` : ""}` : "V žebříčku této soutěže zatím nejste",
-              all.length ? `celkem v sezóně ${w}–${all.length - w} (${Stats.pct(w / all.length)})${all.some((m) => m.unofficial) ? " vč. neoficiálních" : ""}` : null,
-            ].filter((x) => x).join(" · ")} />
+            <Muted color={C.Ink} size={13} maxLines={3} text={
+              (meRow ? `Vy v této soutěži: oficiálně ${meRow.bilance ?? meRow.matches ?? "–"}${mp != null ? ` (${Stats.pct(mp)})` : ""}` : "V žebříčku této soutěže zatím nejste")
+              + (pending && inComp.length ? ` · vč. nepotvrzených ${cw}:${inComp.length - cw} (${Stats.pct(cw / inComp.length)})` : "")} />
+            {all.length > 0 && <Muted color={C.Muted} size={12} text={`Všechny soutěže v sezóně: ${w}–${all.length - w} (${Stats.pct(w / all.length)})`} />}
           </AppCard>
         );
       })()}

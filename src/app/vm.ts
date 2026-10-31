@@ -608,7 +608,7 @@ export class AppVm {
       const live = this.myLiveGames(team);
       const running = !Live.isZapisFinished(pending, this.format);
       const myTeam = this.next.find((c) => this.zapisBelongs(pending, c))?.myTeam.name ?? (live[0]?.home === true ? pending.home : pending.away);
-      return { title: running ? "Probíhající utkání" : "Poslední utkání · čeká na potvrzení STIS", unofficial: true, live, official: [], zapisPath: pending.path, myTeam, running };
+      return { title: running ? "Probíhající utkání" : "Poslední utkání", unofficial: true, live, official: [], zapisPath: pending.path, myTeam, running };
     }
     const ch = m.chronological;
     let last: Match | null = null;
@@ -758,6 +758,21 @@ export class AppVm {
   matchesTab = "utkani";
   compSeason: number | null = null;
   compId: string | null = null;
+  /** soutěž otevřená z profilu jiného hráče (není mezi mými soutěžemi) */
+  extraComp: { svaz: string; rocnik: number; soutez: string; label: string; teams: string[] } | null = null;
+  /** Otevře Žebříčky (tabulku / žebříček STR) na zadané soutěži. */
+  openCompetition(ref: TeamRef, label: string, team: string, tab: "tabulka" | "stis") {
+    this.extraComp = { svaz: ref.svaz, rocnik: ref.rocnik, soutez: ref.soutez, label, teams: [team] };
+    this.compSeason = ref.rocnik; this.compId = ref.soutez; this.ladderTab = tab;
+    this.tab(S.Ladder);
+  }
+  /** Soupisky družstev načtené pro profil hráče (klíč = id družstva). */
+  rosters = new Map<string, TeamRoster | null>();
+  loadRoster(ref: TeamRef) {
+    if (this.rosters.has(ref.id)) return;
+    this.rosters.set(ref.id, null); this.emit();
+    this.repo.teamRoster(ref).then((r) => { this.rosters.set(ref.id, r); this.emit(); }, () => { this.rosters.delete(ref.id); this.emit(); });
+  }
   strLadderMine = false;
   strLadderSort = "str";
   predOn = false;
