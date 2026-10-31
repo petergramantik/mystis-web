@@ -8,7 +8,7 @@ import type { NextMatchContext } from "../../core/repository";
 import { roundScore, type SearchPlayer } from "../../core/search";
 import {
   AppCard, Avatar, BigNumber, C, Chips, Marquee, Dialog, Empty, ErrorBox, ErrorWithDiagnostics, FormDots, Icon, ListCard, Loading, MatchRow,
-  Muted, NavyHeader, Pill, PrimaryButton, ProbBar, ResultBadge, SectionTitle, Sparkline, Spinner, StatTile, T, TextField, TileRow, dec1, f0, signedInt,
+  Muted, NavyHeader, Pill, PredictionText, PrimaryButton, ProbBar, ResultBadge, SectionTitle, Sparkline, Spinner, StatTile, T, TextField, TileRow, dec1, f0, signedInt,
 } from "../components";
 import { fmtDMYdt, fmtWhenShort } from "../fmt";
 import { ProxySetup } from "./Records";
@@ -540,7 +540,8 @@ function CardForecast({ ctx, oppName, oppRef, oppRoster, home }: {
     <ForecastBox>
       <MiniOdds win={f.pWin} draw={f.pDraw} loss={f.pLoss} busy={rs.busy} />
       <div style={{ opacity: rs.busy ? 0.6 : 1 }}><ProbBar p={f.pWin + f.pDraw / 2} /></div>
-      <T size={13} semi color="#fff" center>{`Nejpravděpodobnější výsledek ${hh} : ${aa}${vm.format.target != null ? ` (${Stats.pct(f.likelyP)})` : ""}${rs.busy ? " · upřesňuji…" : ""}`}</T>
+      <PredictionText hs={hh} as_={aa} myHome={home} dark center />
+      {rs.busy && <T size={11} color="#D6E1FA" center>upřesňuji…</T>}
       {mySingles.length > 0 && (
         <T size={12} color="#D6E1FA" center lines={2}>
           {`Vy: ${Math.round(sum(mySingles.map((x) => x[1])))} z ${mySingles.length} dvouher (`}

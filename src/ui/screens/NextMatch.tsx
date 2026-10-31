@@ -33,7 +33,7 @@ export function FixtureScreen({ team, round, home, away }: { team: number; round
         <>
           <TeamForecast me={me} minePick={vm.lineupFor(ctx.myTeam.name, ctx.myTeam.ref, vm.fresh(ctx.myRoster))}
             theirsPick={vm.lineupFor(ctx.opponentName, ctx.opponentRef, vm.fresh(ctx.opponentRoster))} fmt={vm.format}
-                  theirRoster={ctx.opponentRoster} theirRef={ctx.opponentRef} />
+                  theirRoster={ctx.opponentRoster} theirRef={ctx.opponentRef} home={ctx.home} />
           <ScoutSection me={me} roster={vm.fresh(ctx.opponentRoster)} title={`Soupeři · ${ctx.opponentName}`} />
         </>
       )}
@@ -68,7 +68,7 @@ export function NextMatchScreen() {
               <>
                 <TeamForecast me={me} minePick={vm.lineupFor(ctx.myTeam.name, ctx.myTeam.ref, vm.fresh(ctx.myRoster))}
                   theirsPick={vm.lineupFor(ctx.opponentName, ctx.opponentRef, vm.fresh(ctx.opponentRoster))} fmt={vm.format}
-                  theirRoster={ctx.opponentRoster} theirRef={ctx.opponentRef} />
+                  theirRoster={ctx.opponentRoster} theirRef={ctx.opponentRef} home={ctx.home} />
                 <ScoutSection me={me} roster={vm.fresh(ctx.opponentRoster)} title={`Soupeři · ${ctx.opponentName}`} />
               </>
             )}
@@ -118,8 +118,10 @@ function MatchHeader({ ctx }: { ctx: NextMatchContext }) {
 }
 
 /** Očekávaný výsledek utkání: doporučená sestava proti pravděpodobné sestavě soupeře. */
-export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFAULT, theirRoster = [], theirRef = null }: {
+export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFAULT, theirRoster = [], theirRef = null, home = null }: {
   me: PlayerPage; minePick: [RosterPlayer, boolean][]; theirsPick: [RosterPlayer, boolean][]; fmt?: MatchFormat; theirRoster?: RosterPlayer[]; theirRef?: TeamRef | null;
+  /** hraje moje družstvo doma? (null = neznámé, skóre pak vy : soupeř) */
+  home?: boolean | null;
 }) {
   const rs = vm.refineState(theirRoster, theirRef);
   const mineP: [RosterPlayer, boolean][] = minePick.length ? minePick
@@ -131,16 +133,17 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
   // nejpravděpodobnější konečný výsledek (hraje se do cíle, proto ne zaokrouhlený součet všech her)
   const fc = matchForecast(mine.map((p) => p.str ?? 1400), theirs.map((p) => p.str ?? 1400), fmt);
   const [my, op] = fc.likely;
+  const [hs, as_] = home === false ? [op, my] : [my, op];
   const label = (p: [RosterPlayer, boolean]) => `${p[0].name.split(" ")[0]} ${p[0].str ?? ""}` + (p[1] ? " (náhradník)" : "");
   return (
     <AppCard>
       <div className="row g8">
         <div className="col w1">
-          <T bold>Nejpravděpodobnější výsledek</T>
-          <Muted size={12} text={`vy : soupeř${fmt.target != null ? ` · ${Stats.pct(fc.likelyP)} · výhra ${Stats.pct(fc.pWin)}, remíza ${Stats.pct(fc.pDraw)}, prohra ${Stats.pct(fc.pLoss)}` : ""}`} maxLines={2} />
+          <T bold>{my > op ? "Predikce: výhra" : my < op ? "Predikce: prohra" : "Predikce: remíza"}</T>
+          <Muted size={12} text={`${home == null ? "vy : soupeř" : "domácí : hosté"} · výhra ${Stats.pct(fc.pWin)}, remíza ${Stats.pct(fc.pDraw)}, prohra ${Stats.pct(fc.pLoss)}`} maxLines={2} />
         </div>
         {rs.busy && <Spinner size={18} width={2} />}
-        <BigNumber text={`${my} : ${op}`} color={rs.busy ? C.Muted : my > op ? C.Win : my < op ? C.OrangeText : C.Ink} size={26} />
+        <BigNumber text={`${hs} : ${as_}`} color={rs.busy ? C.Muted : my > op ? C.Win : my < op ? C.OrangeText : C.Ink} size={26} />
       </div>
       {rs.busy && <Muted color={C.Blue} size={12} text={`Upřesňuji sestavy… ${rs.total ? `(načteno ${rs.done} z ${rs.total} hráčů) · ` : ""}předběžný odhad`} />}
       <div style={{ opacity: rs.busy ? 0.55 : 1, transition: "opacity .2s" }}><ProbBar p={exp.my / exp.games} /></div>

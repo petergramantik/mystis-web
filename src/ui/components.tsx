@@ -502,3 +502,15 @@ export function SetsLine({ sets, myHome }: { sets: number[]; myHome: boolean }) 
     </div>
   );
 }
+
+/** „Predikce: výhra 10 : 8“ – slovo z pohledu mého družstva (barevně), skóre v pořadí domácí : hosté. */
+export function PredictionText({ hs, as_, myHome, size = 13, dark = false, center = false }: { hs: number; as_: number; myHome: boolean | null; size?: number; dark?: boolean; center?: boolean }) {
+  const my = myHome === false ? as_ : hs, op = myHome === false ? hs : as_;
+  const word = my > op ? "výhra" : my < op ? "prohra" : "remíza";
+  const col = my > op ? (dark ? C.WinLight : C.Win) : my < op ? (dark ? C.Peach : C.OrangeText) : dark ? "#fff" : C.Ink;
+  return (
+    <T size={size} semi color={dark ? "#fff" : C.Ink} center={center}>
+      {"Predikce: "}<span style={{ color: col, fontWeight: 800 }}>{word}</span>{` ${hs} : ${as_}`}
+    </T>
+  );
+}

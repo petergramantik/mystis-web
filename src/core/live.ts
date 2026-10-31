@@ -232,8 +232,14 @@ export const Live = {
       if (h > a) pw += pr; else if (h === a) pd += pr; else pl += pr;
       eh += h * pr; ea += a * pr;
     }
+    // nejdřív nejpravděpodobnější výstup (výhra/remíza/prohra domácích), v něm nejpravděpodobnější skóre
+    const outcome = pw >= pd && pw >= pl ? 1 : pl >= pd ? -1 : 0;
     let likely: [number, number] = [home, away], likelyP = 0;
-    for (const [key, pr] of states) if (pr > likelyP) { likelyP = pr; likely = [Math.floor(key / 1000), key % 1000]; }
+    for (const [key, pr] of states) {
+      const h = Math.floor(key / 1000), a = key % 1000;
+      if (Math.sign(h - a) !== outcome) continue;
+      if (pr > likelyP) { likelyP = pr; likely = [h, a]; }
+    }
     if (target == null) { const t = Math.round(eh + ea), m = Math.max(0, Math.min(t, Math.round(eh))); likely = [m, t - m]; }
 
     const keys = new Map<string, PlayerLive>();

@@ -9,7 +9,7 @@ import { nowLdt } from "../../core/dates";
 import {
   AppCard, BigNumber, C, Divider, Empty, ListCard, Loading, Muted, NavyHeader, OButton, PrimaryButton, ProbBar, SectionTitle, Segmented,
   StatTile, T, TextField, TileRow, dec1,
-  SetsLine, CountdownRing,
+  SetsLine, CountdownRing, PredictionText,
 } from "../components";
 import { hhmm, hhmmLdt } from "../fmt";
 
@@ -215,7 +215,8 @@ function ScoreHeader({ st, myHome, homeName, awayName, empty }: { st: LiveState;
         {myHome ? <StatTile label="Prohra" value={Stats.pct(pLoss)} dark valueColor={C.Peach} /> : <StatTile label="Výhra" value={Stats.pct(pWin)} dark valueColor={C.WinLight} />}
       </TileRow>
       <ProbBar p={pWin + st.pDraw / 2} reverse={!myHome} />
-      <Muted color={C.MutedOnNavy} size={13} text={st.finished ? `Konečný výsledek z pohledu vašeho družstva: ${my} : ${opp}` : `Nejpravděpodobnější výsledek ${a} : ${b}${vm.format.target != null ? ` (${Stats.pct(st.likelyP)})` : ""} · odehráno ${st.played} z ${st.games.length}`} />
+      {st.finished ? <Muted color={C.MutedOnNavy} size={13} text={`Konečný výsledek z pohledu vašeho družstva: ${my} : ${opp}`} />
+        : <div className="row g8" style={{ flexWrap: "wrap" }}><PredictionText hs={a} as_={b} myHome={myHome} dark /><Muted color={C.MutedOnNavy} size={13} text={`· odehráno ${st.played} z ${st.games.length}`} /></div>}
       </>}
     </NavyHeader>
   );

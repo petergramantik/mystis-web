@@ -349,6 +349,11 @@ async function main() {
     const f = matchForecast([1500, 1480, 1450, 1400], [1550, 1530, 1500, 1460], MatchFormats.DEFAULT);
     const [h, a] = f.likely;
     check("likely platný", (h === 10 && a < 10) || (a === 10 && h < 10) || (h === 9 && a === 9), () => `${h}:${a}`);
+    const out = f.pWin >= f.pDraw && f.pWin >= f.pLoss ? 1 : f.pLoss >= f.pDraw ? -1 : 0;
+    check("likely v nejpravděpodobnějším výstupu", Math.sign(h - a) === out, () => `${h}:${a} ${f.pWin} ${f.pDraw} ${f.pLoss}`);
+    const fe = matchForecast([1500, 1500, 1500, 1500], [1510, 1505, 1500, 1495], MatchFormats.DEFAULT);
+    const oe = fe.pWin >= fe.pDraw && fe.pWin >= fe.pLoss ? 1 : fe.pLoss >= fe.pDraw ? -1 : 0;
+    check("vyrovnané: skóre podle výstupu", Math.sign(fe.likely[0] - fe.likely[1]) === oe, () => J(fe));
     const fa = matchForecast([1500, 1480, 1450, 1400], [1550, 1530, 1500, 1460], MatchFormats.of("18_all"));
     check("likely všechny hry", fa.likely[0] + fa.likely[1] === 18, () => J(fa.likely));
   }
