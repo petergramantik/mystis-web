@@ -185,11 +185,23 @@ navigator.serviceWorker?.addEventListener("message", (e: MessageEvent) => {
   if (d?.type === "notification" && d.data) vm.openLiveNotification(d.data);
 });
 // sdílený odkaz: ?z= zápis, ?h= hráč, ?d= vzájemné zápasy
+// Odkaz se uloží i do sessionStorage: po aktualizaci aplikace (service worker stránku jednou obnoví)
+// by se jinak adresa bez parametrů otevřela na úvodní obrazovce.
 (() => {
-  const q = new URLSearchParams(location.search);
-  if (!q.has("z") && !q.has("h") && !q.has("d")) return;
-  history.replaceState(history.state, "", location.pathname);
+  let q = new URLSearchParams(location.search);
+  const has = (x: URLSearchParams) => x.has("z") || x.has("h") || x.has("d");
+  try {
+    if (has(q)) sessionStorage.setItem("mystis_share", JSON.stringify({ q: q.toString(), t: Date.now() }));
+    else {
+      const s = JSON.parse(sessionStorage.getItem("mystis_share") ?? "null");
+      if (s && Date.now() - s.t < 60_000) q = new URLSearchParams(s.q);
+    }
+  } catch { /* soukromý režim */ }
+  if (!has(q)) return;
+  if (location.search) history.replaceState(history.state, "", location.pathname);
   vm.openShared(q);
+  // po skutečném otevření už odkaz nepoužívat (další obnovení stránky = normální start)
+  setTimeout(() => { try { sessionStorage.removeItem("mystis_share"); } catch { /* */ } }, 15_000);
 })();
 // aplikace spuštěná klepnutím na notifikaci: ?n={…} -> po načtení utkání otevřít zápis / živé utkání
 (() => {

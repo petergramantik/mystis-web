@@ -150,7 +150,9 @@ export class AppVm {
   /** Otevře sdílený odkaz (?z= zápis, ?h= hráč, ?d= vzájemné zápasy); vrací false, když v něm nic není. */
   openShared(q: URLSearchParams): boolean {
     let s: Screen | null = null;
-    const z = q.get("z"), h = q.get("h"), d = q.get("d");
+    // odkaz může obsahovat i adresu STIS (https://stis.ping-pong.cz/zapis/…) – bere se jen cesta
+    const norm = (x: string | null, part: string) => { if (!x) return null; const i = x.indexOf(part); return i >= 0 ? x.slice(i).split("#")[0] : null; };
+    const z = norm(q.get("z"), "/zapis/"), h = norm(q.get("h"), "/hrac-"), d = q.get("d");
     const idOf = (p: string) => /hrac-(\d+)/.exec(p)?.[1] ?? "";
     if (z && z.startsWith("/zapis/")) s = { t: "Shared", path: z };
     else if (h && h.startsWith("/hrac-")) s = { t: "Player", path: h };
