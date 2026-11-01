@@ -14,7 +14,7 @@ import { useZapisStr } from "./Duel";
 import { useZapisRefresh } from "../zapis";
 import { SoundUnlockBar } from "../soundbar";
 
-type Status = { kind: "future" | "live" | "done"; text: string; h: number | null; a: number | null };
+type Status = { kind: "future" | "live" | "done"; text: string; h: number | null; a: number | null; sub?: string };
 
 /** Stav utkání: konečný výsledek, průběžný stav (z rozpisu nebo zápisu), nebo čas začátku. */
 function statusOf(c: LiveComp, m: LosMatch): Status {
@@ -25,7 +25,7 @@ function statusOf(c: LiveComp, m: LosMatch): Status {
   if (z && z.games.length) {
     const [h, a] = vm.scoreOf(z);
     if (vm.finished(z)) return { kind: "done", text: `${h} : ${a}`, h, a };
-    return { kind: "live", text: `${h} : ${a} · ${z.games.filter((g) => g.result != null).length}/${z.games.length || vm.format.games}`, h, a };
+    return { kind: "live", text: `${h} : ${a}`, h, a, sub: `${z.games.filter((g) => g.result != null).length}/${Math.max(z.games.length, fmt.games)} her` };
   }
   if (sm) {
     const h = +sm[1], a = +sm[2];
@@ -70,6 +70,14 @@ export function LiveBoard() {
   }, [comps.length]);
   const day = today() + vm.liveDay;
   const watched = vm.watched();
+  // online zápisy všech živých utkání (průběh her), obnova jednou za minutu jen při otevřené obrazovce
+  const livePaths = comps.flatMap((c) => (vm.compLos.get(vm.compKey(c)) ?? []).filter((m) => m.zapisPath && statusOf(c, m).kind === "live").map((m) => m.zapisPath));
+  const liveKey = livePaths.join(",");
+  useEffect(() => {
+    for (const p of livePaths) vm.loadZapis(p);
+    const t = setInterval(() => { for (const p of livePaths) vm.loadZapis(p, false, true); }, 60_000);
+    return () => clearInterval(t);
+  }, [liveKey]);
   const sel = comps.some((c) => vm.compKey(c) === vm.liveCompSel) ? vm.liveCompSel : "all";
   const sections = comps.filter((c) => sel === "all" || vm.compKey(c) === sel).map((c) => {
     const los = vm.compLos.get(vm.compKey(c)) ?? [];
@@ -140,7 +148,8 @@ function BoardRow({ c, m, onError }: { c: LiveComp; m: LosMatch; onError: (e: st
           </div>
           <div className="col" style={{ alignItems: "flex-end", flex: "none" }}>
             {st.kind === "live" && <span style={{ fontSize: 11, fontWeight: 700, color: C.Live }}>● živě</span>}
-            <T bold size={st.kind === "future" ? 13 : 15} color={st.kind === "future" ? C.Muted : st.kind === "live" ? C.Live : scoreColor(st, fan)}>{st.kind === "future" ? m.round + ". kolo" : st.text}</T>
+            <T bold size={st.kind === "future" ? 13 : 15} color={st.kind === "future" ? C.Muted : st.kind === "live" ? C.Live : scoreColor(st, fan)} style={{ whiteSpace: "nowrap" }}>{st.kind === "future" ? m.round + ". kolo" : st.text}</T>
+            {st.sub && <span style={{ fontSize: 11, color: C.Muted, whiteSpace: "nowrap" }}>{st.sub}</span>}
           </div>
           {(can || w) ? <span className="clickable" style={{ fontSize: 22, color: w ? "#F5A524" : C.Muted, flex: "none", padding: "0 2px" }}
             onClick={(e) => { e.stopPropagation(); onError(vm.toggleWatch(c, m)); }} aria-label="Sledovat">{w ? "★" : "☆"}</span>
