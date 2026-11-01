@@ -1,6 +1,7 @@
 // Stav aplikace a načítání dat (přepis AppViewModel.kt). Každá změna stavu zavolá emit() a React překreslí obrazovku.
 import { Match, Stis, type TeamInfo, type StandingRow, type StrLadder, type ClubPage, type LosMatch, type PlayerPage, type RosterPlayer, type TeamRef, type TeamRoster, type Zapis, type ZapisGame } from "../core/models";
 import { Parsers } from "../core/parsers";
+import { shortTeam, surname } from "../core/names";
 import { StisRepository, HOUR, type NextMatchContext } from "../core/repository";
 import { playSound } from "./sound";
 import { Stats, LadderEntry, maxBy, minBy, distinct, distinctBy, type SetStats } from "../core/stats";
@@ -1416,7 +1417,7 @@ export class AppVm {
     const w = this.watched().find((x) => x.zapisPath === path);
     if (!w) return;
     const mh = w.fan === "home" ? true : w.fan === "away" ? false : null;
-    this.notifyCore(path, z, mh, w.mode, `${w.home} – ${w.away}`, mh == null ? "" : mh ? w.home : w.away,
+    this.notifyCore(path, z, mh, w.mode, `${shortTeam(w.home)} – ${shortTeam(w.away)}`, mh == null ? "" : mh ? w.home : w.away,
       (tag, t, b) => this.postWatch(tag, t, b, w));
   }
 
@@ -1427,6 +1428,7 @@ export class AppVm {
   private notifyCore(path: string, z: Zapis, myHomeOrNull: boolean | null, mode: "off" | "games" | "sets", label: string | null, endTeam: string,
     send: (tag: string, title: string, body: string) => void) {
     const neutral = myHomeOrNull == null;
+    const pre = label ? `${label} · ` : "";
     const myHome = myHomeOrNull ?? true;
     const done = z.games.filter((g) => g.result != null);
     const seen = this.liveSeen.get(path);
@@ -1453,18 +1455,18 @@ export class AppVm {
         const v = g.sets[now - 1];
         const wonSet = (v > 0) === myHome;
         const pts = Math.abs(v), w = pts >= 10 ? pts + 2 : 11;
-        const mineN = (myHome ? g.homeNames : g.awayNames).join(" + "), oppN = (myHome ? g.awayNames : g.homeNames).join(" + ");
+        const mineN = (myHome ? g.homeNames : g.awayNames).map(surname).join(" + "), oppN = (myHome ? g.awayNames : g.homeNames).map(surname).join(" + ");
         const hs = g.sets.filter((x) => x > 0).length, as = g.sets.filter((x) => x < 0).length;
         lastSetWon = wonSet;
-        freshSets.push([`${neutral ? "•" : wonSet ? "🟢" : "🔴"} ${mineN} – ${oppN}: set ${wonSet ? `${w}:${pts}` : `${pts}:${w}`}`, `${g.no}. hra · sety ${myHome ? hs : as}:${myHome ? as : hs}`, `${g.no}-${now}`]);
+        freshSets.push([`${neutral ? "•" : wonSet ? "🟢" : "🔴"} ${mineN} – ${oppN}: set ${wonSet ? `${w}:${pts}` : `${pts}:${w}`}`, `${pre}${g.no}. hra · sety ${myHome ? hs : as}:${myHome ? as : hs}`, `${g.no}-${now}`]);
       }
       if (g.result == null || seen.has(g.no)) continue;
       seen.add(g.no);
       const won = (g.result === 1) === myHome;
-      const mine = (myHome ? g.homeNames : g.awayNames).join(" + "), opp = (myHome ? g.awayNames : g.homeNames).join(" + ");
+      const mine = (myHome ? g.homeNames : g.awayNames).map(surname).join(" + "), opp = (myHome ? g.awayNames : g.homeNames).map(surname).join(" + ");
       const ms = myHome ? g.homeSets : g.awaySets, os = myHome ? g.awaySets : g.homeSets;
       lastWon = won;
-      fresh.push([`${neutral ? "•" : won ? "✅" : "❌"} ${mine} – ${opp}${ms != null && os != null ? ` ${ms}:${os}` : ""}`, `${g.no}. hra · stav ${myHome ? h : a}:${myHome ? a : h}`, String(g.no)]);
+      fresh.push([`${neutral ? "•" : won ? "✅" : "❌"} ${mine} – ${opp}${ms != null && os != null ? ` ${ms}:${os}` : ""}`, `${pre}${g.no}. hra · stav ${myHome ? h : a}:${myHome ? a : h}`, String(g.no)]);
     }
     const my = myHome ? h : a, op = myHome ? a : h;
     const endNow = finished && !this.liveEndSent.has(path);
@@ -1472,16 +1474,15 @@ export class AppVm {
     if (prefs.liveSounds && !neutral && mode !== "off" && (fresh.length || endNow || withSets))
       playSound(endNow ? (my >= op ? "victory" : "loss") : fresh.length ? (lastWon ? "win" : "loss") : lastSetWon ? "win" : "loss");
     if (mode === "off") { if (endNow) this.liveEndSent.add(path); return; }
-    const pre = label ? `${label}: ` : "";
-    if (withSets) for (const f of freshSets.slice(-3)) send(`live-${path}-set-${f[2]}`, pre + f[0], f[1]);
+    if (withSets) for (const f of freshSets.slice(-3)) send(`live-${path}-set-${f[2]}`, f[0], f[1]);
     if (fresh.length > 3) {
-      send(`live-${path}-${fresh[fresh.length - 1][2]}`, `${pre}${fresh.length} nových her · stav ${my}:${op}`, fresh.map((f) => f[0]).join("\n"));
-    } else for (const f of fresh) send(`live-${path}-${f[2]}`, pre + f[0], f[1]);
+      send(`live-${path}-${fresh[fresh.length - 1][2]}`, `${fresh.length} nových her · stav ${my}:${op}`, (label ? label + "\n" : "") + fresh.map((f) => f[0]).join("\n"));
+    } else for (const f of fresh) send(`live-${path}-${f[2]}`, f[0], f[1]);
     if (endNow) {
       this.liveEndSent.add(path);
       const opp = myHome ? z.away : z.home;
-      if (neutral) send(`live-end-${path}`, `🏁 Konec: ${z.home} ${h}:${a} ${z.away}`, label ?? "");
-      else send(`live-end-${path}`, `🏁 Konec: ${my > op ? "výhra" : my < op ? "prohra" : "remíza"} ${my}:${op}`, `${endTeam} – ${opp}`);
+      if (neutral) send(`live-end-${path}`, `🏁 Konec: ${shortTeam(z.home)} ${h} : ${a} ${shortTeam(z.away)}`, "");
+      else send(`live-end-${path}`, `🏁 Konec: ${my > op ? "výhra" : my < op ? "prohra" : "remíza"} ${my} : ${op}`, `${shortTeam(endTeam)} – ${shortTeam(opp)}`);
     }
   }
 
