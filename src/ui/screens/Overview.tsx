@@ -59,9 +59,16 @@ export function OverviewScreen() {
   const teams = (me.currentSeason?.teams ?? []).filter((t) => !t.notOnRoster).map((t) => t.name).join(", ");
   const nextCtx = vm.next[vm.nextSelected] ?? vm.next.find((c) => c.next != null) ?? null;
   // Úspěšnost v soutěži aktivního družstva
-  const activeTeam = vm.next[vm.nextSelected]?.myTeam ?? null;
+  // dlaždice: stránky = soutěže mých družstev + „Všechny soutěže“; výchozí soutěž aktivního družstva
+  const pages = [...vm.next.map((c) => c.myTeam), null];
+  const defaultIdx = Math.max(0, vm.nextSelected);
+  const tileIdx = vm.ovTile != null && vm.ovTile < pages.length ? vm.ovTile : defaultIdx;
+  const activeTeam = pages[tileIdx] ?? null;
   const teamMatches = activeTeam ? seasonMatches.filter((m) => Stats.fold(m.myTeam) === Stats.fold(activeTeam.name)) : seasonMatches;
   const teamWins = teamMatches.filter((m) => m.won).length;
+  const perf = Stats.overExpectedOf(teamMatches);
+  const compName = activeTeam ? activeTeam.competition || activeTeam.name : "Všechny soutěže";
+  const swipe = (dir: number) => { const n = pages.length; vm.ovTile = (tileIdx + dir + n) % n; vm.emit(); };
   const remaining = Stats.estimateRemaining(me, vm.next.length ? sum(vm.next.map((c) => Stats.remainingTeamMatches(c.los))) : null);
   const fc = Stats.forecast(me, remaining, vm.repo.seasonEnd(vm.next.flatMap((c) => c.los)));
   const live = vm.myLiveGames();
@@ -129,17 +136,25 @@ export function OverviewScreen() {
             <Muted text="První načtení stahuje data celého oddílu ze STIS a trvá déle. Nechte ho prosím doběhnout – příště se aplikace spustí rychle, data se jen doplní." color={C.MutedOnNavy} size={13} maxLines={5} />
           </div>
         )}
+        <SwipeRow onSwipe={swipe} enabled={pages.length > 1}>
         <TileRow>
           <StatTile label="Úspěšnost" value={teamMatches.length ? Stats.pct(teamWins / teamMatches.length) : "–"} dark
-            sub={activeTeam ? `${activeTeam.competition || activeTeam.name} ›` : scopeSub}
+            sub={`${compName} ›`}
             onClick={() => { vm.ladderTab = "stis"; vm.strLadderSort = "pct"; vm.compSeason = activeTeam?.ref?.rocnik ?? null; vm.compId = activeTeam?.ref?.soutez ?? null; vm.tab(S.Ladder); }} />
           <StatTile label="Bilance" value={`${teamWins}–${teamMatches.length - teamWins}`} dark
-            sub={activeTeam ? `${activeTeam.competition || activeTeam.name} ›` : scopeSub}
+            sub={`${compName} ›`}
             onClick={() => { vm.matchesTeam = activeTeam?.name ?? "all"; vm.matchesSeason = null; vm.matchesTab = "zapasy"; vm.tab(S.Matches); }} />
-          <StatTile label="Výkon" value={form.sample ? (form.overExpected >= 0 ? "+" : "−") + dec1(Math.abs(form.overExpected)) : "–"} dark
-            valueColor={!form.sample ? undefined : form.overExpected > 0.05 ? C.WinLight : form.overExpected < -0.05 ? C.Peach : "#fff"}
-            busy={formBusy} sub={`sezóna · ${form.sample} zápasů ›`} onClick={() => { vm.scrollTarget = "klutch"; vm.go(S.Records); }} />
+          <StatTile label="Výkon" value={perf.sample ? (perf.over >= 0 ? "+" : "−") + dec1(Math.abs(perf.over)) : "–"} dark
+            valueColor={!perf.sample ? undefined : perf.over > 0.05 ? C.WinLight : perf.over < -0.05 ? C.Peach : "#fff"}
+            busy={formBusy} sub={`${activeTeam ? compName : "sezóna"} · ${perf.sample} zápasů ›`} onClick={() => { vm.scrollTarget = "klutch"; vm.go(S.Records); }} />
         </TileRow>
+        </SwipeRow>
+        {pages.length > 1 && (
+          <div className="row" style={{ justifyContent: "center", gap: 6, marginTop: -2 }}>
+            {pages.map((_, i) => <div key={i} className="clickable" onClick={() => { vm.ovTile = i; vm.emit(); }}
+              style={{ width: i === tileIdx ? 8 : 6, height: i === tileIdx ? 8 : 6, borderRadius: 4, background: i === tileIdx ? "#fff" : "rgba(255,255,255,0.35)" }} />)}
+          </div>
+        )}
       </NavyHeader>
       <InstallBanner />
       {vm.error != null && <div className="px16"><ErrorBox text={vm.error} onRetry={() => vm.loadMe(true)} /></div>}
@@ -385,10 +400,12 @@ function PreviousCard({ ctx, prev, back, total, onHome }: { ctx: NextMatchContex
   const ap = z ? vm.scoreOf(z)[1] : null;
   const score = hp != null && ap != null ? `${hp} : ${ap}` : m?.score.replace(":", " : ") ?? "–";
   let stats: ReturnType<typeof Live.playerStats> = [];
+  let deltas = new Map<string, { d: number; est: boolean }>();
   if (z) {
     const c = vm.next.find((x) => x.myTeam.name === ctx.myTeam.name);
     const myHome = c ? vm.zapisMyHome(z, c) : true;
     stats = Live.playerStats(z).filter((p) => p.home === myHome);
+    deltas = vm.zapisDeltas(z, myHome);
   }
   return (
     <AppCard bg={C.Navy} onClick={path ? () => vm.go({ t: "ZapisDetail", path, myTeam: ctx.myTeam.name }) : null}>
@@ -401,7 +418,16 @@ function PreviousCard({ ctx, prev, back, total, onHome }: { ctx: NextMatchContex
       <Muted text={[m?.dateTime != null ? fmtDMYdt(m.dateTime) : m?.dateText, m?.round ? `${m.round}. kolo` : null].filter((x) => x).join(" · ")} color={muted} size={12} />
       {!z ? <Muted text={!path ? "Zápis o utkání není k dispozici." : "Načítám zápis…"} color={muted} size={13} /> : stats.map((p, i) => (
         <div className="row" key={i}>
-          <T size={14} color="#fff" lines={1} style={{ flex: 1 }}>{p.name}</T>
+          <T size={14} color="#fff" lines={1} style={{ flex: 1 }}>
+            {p.name}
+            {(() => {
+              const x = deltas.get(p.id || p.name);
+              if (!x) return null;
+              const r = Math.round(x.d);
+              const col = r > 0 ? C.WinLight : r < 0 ? C.Peach : muted;
+              return <span style={{ color: col, fontWeight: 700, fontSize: 12, opacity: x.est ? 0.75 : 1, whiteSpace: "nowrap" }}>{`  ${x.est ? "~" : ""}${r > 0 ? "▲" : r < 0 ? "▼" : "▬"} ${signedInt(r)}`}</span>;
+            })()}
+          </T>
           <T size={13} semi color={p.singlesWon >= p.singlesLost ? C.WinLight : C.Peach}>dvouhry {p.singlesWon}–{p.singlesLost}</T>
           {p.doublesWon + p.doublesLost > 0 && <T size={13} color={muted} style={{ whiteSpace: "pre" }}>{`  4hra ${p.doublesWon}–${p.doublesLost}`}</T>}
         </div>
@@ -446,11 +472,13 @@ function LastUtkaniCard() {
         <div className="row g10" key={i}>
           {g.won != null ? <ResultBadge won={g.won} text={g.won ? "V" : "P"} /> : <div style={{ width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Muted text={`${g.game.no}.`} size={13} color={C.MutedOnNavy} /></div>}
           <div className="col w1">
-            <T semi lines={1} color="#fff">{g.opponent.name + (g.opponent.str != null ? ` (${g.opponent.str})` : "")}</T>
-            <Muted size={12} maxLines={1} color={C.MutedOnNavy} text={
-              g.won != null && g.game.homeSets != null ? `sety ${g.home ? `${g.game.homeSets}:${g.game.awaySets}` : `${g.game.awaySets}:${g.game.homeSets}`}`
+            <T semi lines={1} color="#fff">{g.opponent.name}</T>
+            <div style={{ fontSize: 12, color: C.MutedOnNavy, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {g.won != null && g.game.homeSets != null ? `sety ${g.home ? `${g.game.homeSets}:${g.game.awaySets}` : `${g.game.awaySets}:${g.game.homeSets}`}`
                 : g.game.inProgress ? "hraje se"
-                  : g.won == null ? `výhra ${Math.round(g.ifWin)} · prohra ${Math.round(g.ifLoss)}` : ""} />
+                  : g.won == null ? `výhra ${Math.round(g.ifWin)} · prohra ${Math.round(g.ifLoss)}` : ""}
+              <OppStr opp={g.opponent.str} mine={g.strBefore} won={g.won} />
+            </div>
           </div>
           {g.strAfter != null && <T bold color={g.strAfter - g.strBefore >= 0 ? C.WinLight : C.Peach}>{signedInt(Math.round(g.strAfter - g.strBefore))}</T>}
         </div>
@@ -458,8 +486,11 @@ function LastUtkaniCard() {
         <div className="row g10" key={i}>
           <ResultBadge won={m.won} text={m.won ? "V" : "P"} />
           <div className="col w1">
-            <T semi lines={1} color="#fff">{m.opponent + (m.oppStrBefore != null ? ` (${m.oppStrBefore})` : "")}</T>
-            <Muted text={`${m.score} · ${m.opponentTeam}`} size={12} maxLines={1} color={C.MutedOnNavy} />
+            <T semi lines={1} color="#fff">{m.opponent}</T>
+            <div style={{ fontSize: 12, color: C.MutedOnNavy, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {`sety ${m.score}`}
+              <OppStr opp={m.oppStrBefore} mine={m.strBefore} won={m.won} />
+            </div>
           </div>
           {m.delta != null && <T bold color={m.delta >= 0 ? C.WinLight : C.Peach}>{signedInt(m.delta)}</T>}
         </div>
@@ -606,3 +637,31 @@ function LiveMini({ ctx }: { ctx: NextMatchContext }) {
     </ForecastBox>
   );
 }
+
+/** „ · STR 1441 (−10)“ na tmavém pozadí: barva rozdílu jako v seznamu zápasů. */
+function OppStr({ opp, mine, won }: { opp: number | null | undefined; mine: number | null | undefined; won: boolean | null }) {
+  if (opp == null) return null;
+  const d = mine != null ? Math.round(opp - mine) : null;
+  const col = d == null ? C.MutedOnNavy : won === true && d >= 50 ? C.WinLight : won === false && d <= -50 ? C.Peach : C.MutedOnNavy;
+  return <span>{` · STR ${opp}`}{d != null && <span style={{ color: col, fontWeight: 600 }}>{` (${signedInt(d)})`}</span>}</span>;
+}
+
+/** Obal s vodorovným tažením (posun dlaždic mezi soutěžemi); klepnutí zůstávají funkční. */
+function SwipeRow({ children, onSwipe, enabled }: { children: ReactNode; onSwipe: (dir: number) => void; enabled: boolean }) {
+  const start = useRef<{ x: number; y: number } | null>(null);
+  return (
+    <div style={{ touchAction: "pan-y", userSelect: "none", WebkitUserSelect: "none" }}
+      onPointerDown={(e) => { start.current = { x: e.clientX, y: e.clientY }; }}
+      onPointerUp={(e) => {
+        const s = start.current; start.current = null;
+        if (!enabled || !s) return;
+        const dx = e.clientX - s.x, dy = e.clientY - s.y;
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) { lastSwipeAt = Date.now(); onSwipe(dx < 0 ? 1 : -1); e.preventDefault(); }
+      }}
+      onClickCapture={(e) => { if (swiped(e)) e.stopPropagation(); }}>
+      {children}
+    </div>
+  );
+}
+let lastSwipeAt = 0;
+function swiped(_e: unknown) { return Date.now() - lastSwipeAt < 300; }

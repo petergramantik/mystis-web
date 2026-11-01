@@ -160,7 +160,7 @@ export class AppVm {
     if (prefs.playerPath != null && typeof window !== "undefined") this.loadMe(false);
   }
 
-  selectTeam(i: number) { this.nextSelected = i; this.nextSelectedByUser = true; this.emit(); }
+  selectTeam(i: number) { this.nextSelected = i; this.nextSelectedByUser = true; this.ovTile = null; this.emit(); }
 
   private defaultTeamIndex(ctxs: NextMatchContext[], m: PlayerPage): number {
     if (ctxs.length <= 1) return 0;
@@ -872,6 +872,8 @@ export class AppVm {
   matchesTab = "zapasy";
   // ---------- Živě: utkání soutěží a sledovaná utkání
   liveDay = 0;
+  /** stránka dlaždic Úspěšnost/Bilance/Výkon na Přehledu (null = soutěž aktivního družstva) */
+  ovTile: number | null = null;
   liveOnlyWatched = false;
   liveQuery = "";
   compLos = new Map<string, LosMatch[]>();
@@ -998,6 +1000,32 @@ export class AppVm {
     for (const c of this.liveComps()) for (const m of this.compLos.get(this.compKey(c)) ?? []) add(m, watchedKeys.has(this.boardKey(c, m)));
     return Array.from(out.values()).sort((a, b) => a.dateTime - b.dateTime);
   }
+  /**
+   * Změna STR hráčů jedné strany zápisu (klíč = id nebo jméno): skutečná ze stránky hráče (zápas započítaný STIS),
+   * jinak odhad podle výsledků a STR soupeřů (est = true). Chybějící stránky se dočtou na pozadí.
+   */
+  zapisDeltas(z: Zapis, home: boolean): Map<string, { d: number; est: boolean }> {
+    const out = new Map<string, { d: number; est: boolean }>();
+    const games = Live.fromZapis(z, (id, n) => this.strOf(id, n), (id, n) => this.rangeOf(id, n));
+    const st = Live.evaluate(games, this.fmtOf(z));
+    const svaz = Stis.svaz(z.path);
+    for (const p of st.players.filter((x) => x.home === home)) {
+      const key = p.id || p.name;
+      const page = p.id ? (this.me?.id === p.id ? this.me : Array.from(this.players.values()).find((x) => x.id === p.id)) : null;
+      const ms = page ? page.matches.filter((m) => m.zapisPath === z.path && m.delta != null) : [];
+      if (ms.length) out.set(key, { d: ms.reduce((s, m) => s + (m.delta ?? 0), 0), est: false });
+      else {
+        out.set(key, { d: p.strDelta, est: true });
+        if (p.id && !page && Date.now() - (this.deltaPageAsked.get(p.id) ?? 0) > 10 * 60_000) {
+          this.deltaPageAsked.set(p.id, Date.now());
+          const id = p.id;
+          queueMicrotask(() => this.loadPlayer(svaz != null ? `/hrac-${id}/svaz-${svaz}/rocnik-${Stis.currentRocnik()}` : `/hrac-${id}`));
+        }
+      }
+    }
+    return out;
+  }
+  private deltaPageAsked = new Map<string, number>();
   /** Počet právě probíhajících utkání ve všech soutěžích na obrazovce Živě. */
   boardLiveCount(): number {
     const now = nowLdt();
@@ -1250,8 +1278,9 @@ export class AppVm {
       try {
         const p = await this.repo.player(path, force ? 0 : 24 * HOUR);
         if (p) this.players.set(path, p);
-      } catch (e) {
-        this.error = err(e);
+      } catch {
+        // stránky hráčů se většinou načítají na pozadí (STR soupeřů, změny STR) – chyba se nehlásí globálně;
+        // obrazovka profilu ukáže vlastní „nepodařilo se načíst“
       } finally {
         this.loadingPlayers.set(path, false); this.emit();
       }

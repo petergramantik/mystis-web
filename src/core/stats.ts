@@ -153,6 +153,11 @@ function streak(ch: Match[], win: boolean): Streak {
 export const Stats = {
   // ------------------------------------------------------------ forma a predikce
   /** Forma; výkon (nad/pod očekáváním) z posledních [sampleN] zápasů se známým STR, případně jen v sezóně [season]. */
+  /** Výkon nad/pod očekáváním podle STR pro dané zápasy (jen se známým STR obou hráčů). */
+  overExpectedOf(ms: Match[]): { over: number; sample: number } {
+    const r = rated(ms);
+    return { over: sum(r.map((m) => (m.won ? 1 : 0) - wp(m))), sample: r.length };
+  },
   form(page: PlayerPage, lastN = 5, sampleN = 20, season: number | null = null): FormInfo {
     const ch = page.chronological;
     const last = ch.slice(Math.max(0, ch.length - lastN)).reverse();
