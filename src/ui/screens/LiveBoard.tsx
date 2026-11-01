@@ -129,7 +129,7 @@ function BoardRow({ c, m, onError }: { c: LiveComp; m: LosMatch; onError: (e: st
           </div>
           <div className="col" style={{ alignItems: "flex-end", flex: "none" }}>
             {st.kind === "live" && <span style={{ fontSize: 11, fontWeight: 700, color: C.Live }}>● živě</span>}
-            <T bold size={st.kind === "future" ? 13 : 15} color={st.kind === "future" ? C.Muted : st.kind === "live" ? C.Live : scoreColor(st, fan)} style={{ whiteSpace: "nowrap" }}>{st.kind === "future" ? m.round + ". kolo" : st.text}</T>
+            <T bold size={st.kind === "future" ? 13 : 15} color={st.kind === "future" ? C.Muted : st.kind === "live" ? C.Live : scoreColor(st, fan)} style={{ whiteSpace: "nowrap" }}>{st.kind === "future" ? m.round + ". kolo" : st.text + " ›"}</T>
             {st.sub && <span style={{ fontSize: 11, color: C.Muted, whiteSpace: "nowrap" }}>{st.sub}</span>}
           </div>
           {(can || w) ? <span className="clickable" style={{ fontSize: 22, color: w ? "#F5A524" : C.Muted, flex: "none", padding: "0 2px" }}

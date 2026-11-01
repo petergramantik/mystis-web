@@ -17,6 +17,7 @@ import { PairScreen, ZapisDetailScreen } from "./ui/screens/Duel";
 import { CaptainScreen, CompareScreen } from "./ui/screens/Captain";
 import { RecordsScreen, SettingsScreen } from "./ui/screens/Records";
 import { AppShareSheet, GuestBar, ShareSheet, shareOptions } from "./ui/shareActions";
+import { SupportMenuSheet } from "./ui/support";
 import "./ui/app.css";
 
 const TABS: [Screen, string, string][] = [
@@ -108,7 +109,7 @@ function Root() {
   useSyncExternalStore(vm.subscribe, vm.getVersion);
   useBackHandler();
   const [menu, setMenu] = useState(false);
-  const [sheet, setSheet] = useState<"share" | "app" | null>(null);
+  const [sheet, setSheet] = useState<"share" | "app" | "support" | null>(null);
   const toast = vm.toastText && <div className="toast">{vm.toastText}</div>;
   if (vm.onboarding && !vm.guest) return <><OnboardingScreen />{toast}</>;
   const screen = vm.current;
@@ -140,6 +141,7 @@ function Root() {
               {item("Rekordy a statistiky", "trophy", S.Records)}
               {item("Nastavení", "settings", S.Settings)}
               <button onClick={() => { setMenu(false); setSheet("app"); }}><Icon name="share" />Sdílet aplikaci</button>
+              <button onClick={() => { setMenu(false); setSheet("support"); }}><span style={{ width: 22, textAlign: "center", fontSize: 18 }}>☕</span>Podpořit vývoj</button>
               {item("O aplikaci", "info", { t: "About" })}
             </div>
           </>
@@ -150,6 +152,7 @@ function Root() {
       </div>
       {sheet === "share" && <ShareSheet opts={opts} onClose={() => setSheet(null)} />}
       {sheet === "app" && <AppShareSheet onClose={() => setSheet(null)} />}
+      {sheet === "support" && <SupportMenuSheet onClose={() => setSheet(null)} />}
       {toast}
       {guest ? <GuestBar /> : <nav className="bottombar">
         <div className="inner">

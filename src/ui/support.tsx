@@ -37,6 +37,25 @@ export function SupportStrip({ always = false, dark = false }: { always?: boolea
   );
 }
 
+/** Podpora z menu ⋮: nejdřív volba částky, pak QR platba. */
+export function SupportMenuSheet({ onClose }: { onClose: () => void }) {
+  const [amount, setAmount] = useState<number | "custom" | null>(null);
+  if (amount != null) return <SupportSheet initial={amount} onClose={onClose} />;
+  const btn = (label: string, v: number | "custom") => (
+    <button className="chip" style={{ flex: 1, height: 44, justifyContent: "center" }} onClick={() => setAmount(v)}>{label}</button>
+  );
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(10,20,40,.45)", display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={onClose}>
+      <div className="col g12" onClick={(e) => e.stopPropagation()}
+        style={{ background: "#fff", width: "100%", maxWidth: 560, borderRadius: "20px 20px 0 0", padding: "18px 16px calc(18px + env(safe-area-inset-bottom))", color: C.Ink }}>
+        <div className="row"><T bold size={18} style={{ flex: 1 }}>☕ Podpořit vývoj</T><span className="clickable" style={{ fontSize: 22, color: C.Muted, padding: "0 4px" }} onClick={onClose}>✕</span></div>
+        <Muted size={13} maxLines={4} text="Aplikace je zdarma a vzniká ve volném čase s pomocí placené AI služby. Dobrovolný příspěvek pomůže – vyberte částku." />
+        <div className="row g8">{btn("🍺 50 Kč", 50)}{btn("🍛 200 Kč", 200)}{btn("💰 Vlastní", "custom")}</div>
+      </div>
+    </div>
+  );
+}
+
 function SupportSheet({ initial, onClose }: { initial: number | "custom"; onClose: () => void }) {
   const [custom, setCustom] = useState("");
   const amount = initial === "custom" ? (parseInt(custom.replace(/\D/g, ""), 10) || null) : initial;
