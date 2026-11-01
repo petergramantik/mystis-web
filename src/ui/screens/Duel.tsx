@@ -29,9 +29,8 @@ export function PairScreen({ aId0, aName0, bId0, bName0, pA0 }: { aId0: string; 
     if (!aIsMe && aPath) vm.loadPlayer(aPath);
     if (bPath) vm.loadPlayer(bPath);
   }, [aPath, bPath]);
-  if (!me) return <Loading />;
   const pa = aIsMe ? me : aPath ? vm.players.get(aPath) : undefined;
-  const pageA: PlayerPage | null = aIsMe ? me : pa ? vm.withLive(pa) : null;
+  const pageA: PlayerPage | null = aIsMe ? me ?? null : pa ? vm.withLive(pa) : null;
   const pageB = bPath ? vm.players.get(bPath) ?? null : null;
   const strA = pageA?.currentStr ?? vm.strOf(aId, aName);
   const strB = pageB?.currentStr ?? vm.strOf(bId, bName);
@@ -64,9 +63,9 @@ export function PairScreen({ aId0, aName0, bId0, bName0, pA0 }: { aId0: string; 
     <div className="col g12">
       <NavyHeader>
         <div className="rowt">
-          <HeaderPlayer name={aName} str={strA} team={lastTeam(pageA)} color={C.Blue} />
+          <HeaderPlayer name={aName} str={strA} team={lastTeam(pageA)} color={C.Blue} onClick={aPath ? () => vm.go({ t: "Player", path: aPath }) : null} />
           <T bold color={C.MutedOnNavy} style={{ paddingTop: 20, flex: "none" }}>vs</T>
-          <HeaderPlayer name={bName} str={strB} team={lastTeam(pageB)} color={C.Orange} />
+          <HeaderPlayer name={bName} str={strB} team={lastTeam(pageB)} color={C.Orange} onClick={bPath ? () => vm.go({ t: "Player", path: bPath }) : null} />
         </div>
       </NavyHeader>
       <div className="col g12 px16">
@@ -74,7 +73,7 @@ export function PairScreen({ aId0, aName0, bId0, bName0, pA0 }: { aId0: string; 
           : strA != null && strB != null && (() => {
           const p = pA0 != null ? (swap ? 1 - pA0 : pA0) : StrModel.winProbability(strA, strB);
           // strana mého družstva: zeleně; soupeř oranžově. Když nejde o moje družstvo: barvy podle avatarů.
-          const mineTeams = new Set([...vm.next.map((c) => Stats.fold(c.myTeam.name)), ...me.matches.map((m) => Stats.fold(m.myTeam))]);
+          const mineTeams = new Set([...vm.next.map((c) => Stats.fold(c.myTeam.name)), ...(me?.matches ?? []).map((m) => Stats.fold(m.myTeam))]);
           const aMine = aIsMe || mineTeams.has(Stats.fold(lastTeam(pageA)));
           const bMine = !aMine && mineTeams.has(Stats.fold(lastTeam(pageB)));
           const colA = aMine ? C.Win : bMine ? C.OrangeText : C.Blue, colB = bMine ? C.Win : aMine ? C.OrangeText : C.Orange;
@@ -169,13 +168,13 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
                 <Muted text="DVOUHRY" size={11} style={{ width: 70 }} />
                 <Muted text="ČTYŘHRY" size={11} style={{ width: 66 }} />
               </div>
-              {ps.map((p, i) => (
-                <div className="row" key={i} style={isMe(p.id, p.name) ? { padding: "2px 6px", margin: "0 -6px", background: C.Tint, borderRadius: 6 } : { padding: "2px 0" }}>
-                  <T size={14} semi lines={1} color={isMe(p.id, p.name) ? C.Blue : undefined} style={{ flex: 1 }}>{p.name}</T>
+              {ps.map((p, i) => { const go = vm.playerClick(p.id, p.name, path); return (
+                <div className={"row" + (go ? " clickable" : "")} key={i} onClick={go ?? undefined} style={isMe(p.id, p.name) ? { padding: "2px 6px", margin: "0 -6px", background: C.Tint, borderRadius: 6 } : { padding: "2px 0" }}>
+                  <T size={14} semi lines={1} color={isMe(p.id, p.name) ? C.Blue : undefined} style={{ flex: 1 }}>{p.name}{go && <span style={{ color: C.Muted }}> ›</span>}</T>
                   <T size={14} bold color={p.singlesWon >= p.singlesLost ? C.Win : C.OrangeText} style={{ width: 70, flex: "none" }}>{`${p.singlesWon}–${p.singlesLost}`}</T>
                   <T size={14} style={{ width: 66, flex: "none" }}>{p.doublesWon + p.doublesLost > 0 ? `${p.doublesWon}–${p.doublesLost}` : "–"}</T>
                 </div>
-              ))}
+              ); })}
             </AppCard>
           );
         })}
@@ -331,14 +330,15 @@ function PredictionCard({ path, myHome, isMe }: { path: string; myHome: boolean;
               const me = r.kind === "player" && isMe(r.id, r.name);
               const team = r.kind === "team";
               const d = r.won - r.pred;
+              const go = r.kind === "player" ? vm.playerClick(r.id, r.name, path) : null;
               return (
-                <div className="row" key={i} style={{
+                <div className={"row" + (go ? " clickable" : "")} key={i} onClick={go ?? undefined} style={{
                   padding: team ? "4px 0" : "2px 6px 2px 14px", margin: team ? 0 : "0 -6px 0 0",
                   borderTop: team && si ? "1px solid #E3E8F2" : undefined,
                   background: me ? C.Tint : undefined, borderRadius: me ? 6 : 0,
                 }}>
                   <T size={team ? 15 : 14} bold={team} semi={r.kind === "player"} lines={1}
-                    color={me ? C.Blue : r.kind === "doubles" ? C.Muted : undefined} style={{ flex: 1 }}>{r.name}</T>
+                    color={me ? C.Blue : r.kind === "doubles" ? C.Muted : undefined} style={{ flex: 1 }}>{r.name}{go && <span style={{ color: C.Muted }}> ›</span>}</T>
                   <T size={14} bold={team} style={{ width: W.pred, flex: "none", textAlign: "center" }}>{String(r.pred)}</T>
                   <T size={14} bold={team} style={{ width: W.res, flex: "none", textAlign: "center" }}>{String(r.won)}</T>
                   <T size={14} bold color={col(d)} style={{ width: W.d, flex: "none", textAlign: "right" }}>{signed(d)}</T>

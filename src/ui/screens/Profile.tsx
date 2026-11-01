@@ -1,4 +1,5 @@
 // Profil hráče: hlavička, kariéra v číslech, graf STR, sezóny s rozbalovacími družstvy (soutěž, tabulka, soupiska).
+import { playerLink, shareLink } from "../share";
 import { useEffect, useState } from "react";
 import { vm, S } from "../../app/vm";
 import { Stis, type Match, type PlayerPage, type SeasonCard, type TeamMembership } from "../../core/models";
@@ -22,7 +23,7 @@ export function ProfileScreen({ path }: { path: string }) {
   const ch = p.chronological;
   const lastSeason = ch.length ? Math.max(...ch.map((m) => m.season)) : Stis.currentRocnik();
   const sez = strPoints(p, "sez");
-  const sezChange = sez.length >= 2 ? sez[sez.length - 1][1] - sez[0][1] : null;
+  const sezChange = vm.seasonStrChange(isMe && me ? me : p) ?? (sez.length >= 2 ? sez[sez.length - 1][1] - sez[0][1] : null);
   const total = rec(ch);
   const bySeason = new Map<number, Match[]>();
   for (const m of ch) { const l = bySeason.get(m.season) ?? []; l.push(m); bySeason.set(m.season, l); }
@@ -72,6 +73,7 @@ export function ProfileScreen({ path }: { path: string }) {
             <OButton text="Porovnat se mnou" onClick={() => vm.go({ t: "Compare", a: me.path, b: path })} style={{ flex: 1 }} />
           </div>
         )}
+        <OButton full text="Sdílet profil" onClick={() => shareLink(p.name, `${p.name} – STR ${p.currentStr ?? "–"} (MySTIS)`, playerLink(p.path))} />
         {!isMe && me && <OButton full enabled={!vm.loadingMe} text={vm.loadingMe ? "Přepínám…" : "Přepnout aplikaci na tohoto hráče"} onClick={() => vm.setProfile(p.path, () => {})} />}
 
         <div className="row clickable" onClick={() => setSeasonsOpen(!seasonsOpen)} style={{ padding: "8px 4px 0" }}>

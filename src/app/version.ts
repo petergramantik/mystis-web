@@ -1,10 +1,19 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.6.1";
+export const APP_VERSION = "2.7";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.7", date: "1. 11. 2026", title: "Klikatelní hráči",
+    items: [
+      "Jména hráčů otevírají jejich profil: bilance a Výkon proti predikci v zápisu, Vaši hráči / Soupeři v živém utkání, hlavička vzájemných zápasů, porovnání, rekordy",
+      "Profil: tlačítko Sdílet profil (u jiného hráče dál Porovnat se mnou a Vzájemně)",
+      "Změna STR za sezónu v profilu a na obrázku sezóny počítaná stejně jako na Přehledu",
+      "Vzájemné zápasy ze sdíleného odkazu fungují i bez nastavené aplikace",
+    ],
+  },
   {
     version: "2.6.1", date: "1. 11. 2026", title: "Oprava soupisky družstva",
     items: ["Soupiska družstva: vaše aktuální STR a změna za sezónu počítaná stejně jako na Přehledu"],

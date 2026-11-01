@@ -383,9 +383,10 @@ function PlayersCard({ title, list, finished }: { title: string; list: PlayerLiv
         </div>
         {list.map((p, i) => {
           const d = Math.round(p.won - p.expectedBefore);
+          const go = vm.playerClick(p.id, p.name);
           return (
-            <div className="row" key={i} style={{ padding: "3px 0" }}>
-              <T size={14} semi lines={1} style={{ flex: 1 }}>{p.name}</T>
+            <div className={"row" + (go ? " clickable" : "")} key={i} style={{ padding: "3px 0" }} onClick={go ?? undefined}>
+              <T size={14} semi lines={1} style={{ flex: 1 }}>{p.name}{go && <span style={{ color: C.Muted }}> ›</span>}</T>
               <T size={14} style={{ width: 62, flex: "none" }}>{`${p.won}/${p.played}`}</T>
               {finished ? <T size={14} bold color={C.delta(d)} style={{ width: 66, flex: "none" }}>{d > 0 ? `+${d}` : d < 0 ? `−${-d}` : "0"}</T>
                 : <T size={14} style={{ width: 66, flex: "none" }}>{`${Math.round(p.expectedFinal)} z ${p.singles}`}</T>}

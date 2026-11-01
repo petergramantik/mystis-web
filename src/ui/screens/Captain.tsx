@@ -135,7 +135,11 @@ export function CompareScreen({ a0, b0 }: { a0: string | null; b0: string | null
             </AppCard>
             <SectionTitle text="Srovnání" />
             <AppCard>
-              <CompareRow label="" a={pa.name} b={pb.name} bold />
+              <div className="row" style={{ padding: "4px 0" }}>
+                <div style={{ flex: 1 }} />
+                <T size={14} end lines={1} bold color={C.Blue} className="clickable" style={{ width: 100, flex: "none", paddingLeft: 6 }}><span onClick={() => vm.go({ t: "Player", path: pa.path })}>{pa.name} ›</span></T>
+                <T size={14} end lines={1} bold color={C.Blue} className="clickable" style={{ width: 100, flex: "none", paddingLeft: 6 }}><span onClick={() => vm.go({ t: "Player", path: pb.path })}>{pb.name} ›</span></T>
+              </div>
               <CompareRow label="STR" a={`${pa.currentStr ?? "–"}`} b={`${pb.currentStr ?? "–"}`} better={cmp(pa.currentStr, pb.currentStr)} />
               <CompareRow label="Nejvyšší STR" a={`${pa.ster.peak ?? "–"}`} b={`${pb.ster.peak ?? "–"}`} better={cmp(pa.ster.peak, pb.ster.peak)} />
               <CompareRow label="Sezóna" a={`${w(sa)}–${sa.length - w(sa)}`} b={`${w(sb)}–${sb.length - w(sb)}`} better={cmp(rate(w(sa), sa.length), rate(w(sb), sb.length))} />

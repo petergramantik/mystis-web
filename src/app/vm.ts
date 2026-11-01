@@ -716,6 +716,25 @@ export class AppVm {
       return this.strOf(id, n);
     };
   }
+  /** Cesta na profil hráče podle ID (u zápisu svaz zápisu), jinak dohledaná podle jména; null = neznámý. */
+  playerPathFor(id: string | null | undefined, name: string, zapisPath?: string): string | null {
+    const f = Stats.fold(name.replace(/\(.*?\)/g, "").trim());
+    const me = this.me;
+    if (me && (id === me.id || (!id && f === Stats.fold(me.name)))) return me.path;
+    if (id) return zapisPath ? this.zapisPlayerPath(id, zapisPath) : this.playerPathById(id);
+    if (!f) return null;
+    for (const p of this.players.values()) if (Stats.fold(p.name) === f) return p.path;
+    const l = this.club.ladder.find((e) => Stats.fold(e.name) === f && e.path); if (l?.path) return l.path;
+    for (const c of this.next) for (const r of [...c.myRoster, ...c.opponentRoster]) if (r.path && Stats.fold(r.name) === f) return r.path;
+    const ch = me?.chronological ?? [];
+    for (let i = ch.length - 1; i >= 0; i--) if (ch[i].opponentPath && Stats.fold(ch[i].opponent) === f) return ch[i].opponentPath;
+    return null;
+  }
+  /** Klepnutí na jméno hráče: otevře jeho profil (null = hráče nejde dohledat). */
+  playerClick(id: string | null | undefined, name: string, zapisPath?: string): (() => void) | null {
+    const path = this.playerPathFor(id, name, zapisPath);
+    return path ? () => this.go({ t: "Player", path }) : null;
+  }
   /** Stránka hráče ze zápisu (svaz zápisu, aktuální ročník). */
   zapisPlayerPath(id: string, zapisPath: string): string {
     const svaz = Stis.svaz(zapisPath);

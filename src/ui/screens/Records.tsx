@@ -69,13 +69,13 @@ export function RecordsScreen() {
       <AppCard>
         <KeyValue label="Nejdelší série výher" value={`${r.longestWin.length} (${r.longestWin.from?.dateText ?? ""} – ${r.longestWin.to?.dateText ?? ""})`} valueColor={C.Win} />
         <KeyValue label="Nejdelší série proher" value={`${r.longestLoss.length}`} valueColor={C.OrangeText} />
-        {r.biggestScalp && <KeyValue label="Největší skalp" value={`${r.biggestScalp.opponent} (STR ${r.biggestScalp.oppStrBefore})`} />}
-        {r.biggestUpset && <KeyValue label="Největší překvapení" value={`+${(r.biggestUpset.oppStrBefore ?? 0) - (r.biggestUpset.strBefore ?? 0)} STR · ${r.biggestUpset.opponent}`} />}
-        {r.worstLoss && <KeyValue label="Nejbolestivější prohra" value={`${(r.worstLoss.oppStrBefore ?? 0) - (r.worstLoss.strBefore ?? 0)} STR · ${r.worstLoss.opponent}`} />}
+        {r.biggestScalp && <KeyValue label="Největší skalp" onClick={vm.playerClick(r.biggestScalp.opponentId, r.biggestScalp.opponent)} value={`${r.biggestScalp.opponent} (STR ${r.biggestScalp.oppStrBefore})`} />}
+        {r.biggestUpset && <KeyValue label="Největší překvapení" onClick={vm.playerClick(r.biggestUpset.opponentId, r.biggestUpset.opponent)} value={`+${(r.biggestUpset.oppStrBefore ?? 0) - (r.biggestUpset.strBefore ?? 0)} STR · ${r.biggestUpset.opponent}`} />}
+        {r.worstLoss && <KeyValue label="Nejbolestivější prohra" onClick={vm.playerClick(r.worstLoss.opponentId, r.worstLoss.opponent)} value={`${(r.worstLoss.oppStrBefore ?? 0) - (r.worstLoss.strBefore ?? 0)} STR · ${r.worstLoss.opponent}`} />}
         {r.bestSeason && <KeyValue label="Nejlepší sezóna" value={`${r.bestSeason.label} · ${Stats.pct(r.bestSeason.success)} (${r.bestSeason.wins}–${r.bestSeason.losses})`} />}
-        {r.mostPlayed && <KeyValue label="Nejčastější soupeř" value={`${r.mostPlayed.name} ${r.mostPlayed.record}`} />}
-        {r.favourite && <KeyValue label="Oblíbený soupeř" value={`${r.favourite.name} ${r.favourite.record}`} valueColor={C.Win} />}
-        {r.nemesis && <KeyValue label="Postrach" value={`${r.nemesis.name} ${r.nemesis.record}`} valueColor={C.OrangeText} />}
+        {r.mostPlayed && <KeyValue label="Nejčastější soupeř" onClick={vm.playerClick(r.mostPlayed.id, r.mostPlayed.name)} value={`${r.mostPlayed.name} ${r.mostPlayed.record}`} />}
+        {r.favourite && <KeyValue label="Oblíbený soupeř" onClick={vm.playerClick(r.favourite.id, r.favourite.name)} value={`${r.favourite.name} ${r.favourite.record}`} valueColor={C.Win} />}
+        {r.nemesis && <KeyValue label="Postrach" onClick={vm.playerClick(r.nemesis.id, r.nemesis.name)} value={`${r.nemesis.name} ${r.nemesis.record}`} valueColor={C.OrangeText} />}
       </AppCard>
       <div id="klutch"><SectionTitle text="Klutch statistiky" /></div>
       <AppCard>
@@ -122,10 +122,10 @@ export function RecordsScreen() {
         <>
           <SectionTitle text={`Oddíl ${vm.club.name}`} />
           <AppCard>
-            {jumper && <KeyValue label="Skokan sezóny" value={`${jumper.name} ${signedInt(jumper.strChange)}`} valueColor={C.Win} />}
-            {ladder[0] && <KeyValue label="Jednička oddílu" value={`${ladder[0].name} (${ladder[0].str})`} />}
-            {busiest && busiest.played > 0 && <KeyValue label="Nejvytíženější" value={`${busiest.name} · ${busiest.played} dvouher`} />}
-            {best && <KeyValue label="Nejúspěšnější (6+ dvouher)" value={`${best.name} · ${Stats.pct(best.wins / best.played)}`} />}
+            {jumper && <KeyValue label="Skokan sezóny" onClick={vm.playerClick(jumper.id, jumper.name)} value={`${jumper.name} ${signedInt(jumper.strChange)}`} valueColor={C.Win} />}
+            {ladder[0] && <KeyValue label="Jednička oddílu" onClick={vm.playerClick(ladder[0].id, ladder[0].name)} value={`${ladder[0].name} (${ladder[0].str})`} />}
+            {busiest && busiest.played > 0 && <KeyValue label="Nejvytíženější" onClick={vm.playerClick(busiest.id, busiest.name)} value={`${busiest.name} · ${busiest.played} dvouher`} />}
+            {best && <KeyValue label="Nejúspěšnější (6+ dvouher)" onClick={vm.playerClick(best.id, best.name)} value={`${best.name} · ${Stats.pct(best.wins / best.played)}`} />}
             {pos >= 0 && <KeyValue label="Vaše pozice" value={`${pos + 1}. z ${ladder.length}`} valueColor={C.Blue} />}
           </AppCard>
         </>

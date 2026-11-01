@@ -168,11 +168,11 @@ export function Marquee({ text, color, size, bold, center }: { text: string; col
 }
 
 /** Hráč v hlavičce vzájemných zápasů: kolečko, jméno (vždy 2 řádky), STR a družstvo. */
-export function HeaderPlayer({ name, str, team, color }: { name: string; str: number | null | undefined; team: string; color: string }) {
+export function HeaderPlayer({ name, str, team, color, onClick }: { name: string; str: number | null | undefined; team: string; color: string; onClick?: (() => void) | null }) {
   return (
-    <div className="col w1 g4" style={{ alignItems: "center" }}>
+    <div className={"col w1 g4" + (onClick ? " clickable" : "")} style={{ alignItems: "center" }} onClick={onClick ?? undefined}>
       <Avatar text={name} color={color} size={56} />
-      <T bold color="#fff" center lines={2} style={{ minHeight: "2.6em", fontSize: 16 }}>{name}</T>
+      <T bold color="#fff" center lines={2} style={{ minHeight: "2.6em", fontSize: 16 }}>{name + (onClick ? " ›" : "")}</T>
       <Muted text={`STR ${str ?? "–"}`} color={C.MutedOnNavy} size={13} maxLines={1} />
       <Marquee text={team.trim() ? team : " "} color={C.MutedOnNavy} size={12} center />
     </div>
@@ -263,8 +263,8 @@ export function CountdownRing({ next, period, busy, onClick, dark = false }: { n
   );
 }
 export function Divider() { return <div className="divider" />; }
-export function KeyValue({ label, value, valueColor = C.Ink }: { label: string; value: string; valueColor?: string }) {
-  return <div className="kv"><div className="k">{label}</div><div className="v" style={{ color: valueColor }}>{value}</div></div>;
+export function KeyValue({ label, value, valueColor = C.Ink, onClick }: { label: string; value: string; valueColor?: string; onClick?: (() => void) | null }) {
+  return <div className={"kv" + (onClick ? " clickable" : "")} onClick={onClick ?? undefined}><div className="k">{label}</div><div className="v" style={{ color: valueColor }}>{value + (onClick ? " ›" : "")}</div></div>;
 }
 export function Pill({ text, bg = C.Tint, fg = C.Blue }: { text: string; bg?: string; fg?: string }) {
   return <span className="pilltag" style={{ background: bg, color: fg }}>{text}</span>;

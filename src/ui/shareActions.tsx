@@ -194,7 +194,8 @@ export async function seasonImage(p: PlayerPage): Promise<Blob> {
   const ms = ch.filter((m) => m.season === season);
   const w = ms.filter((m) => m.won).length, l = ms.length - w;
   const range = seasonRanges(strPoints(p, "vse")).get(season) ?? null;
-  const delta = range ? range[1] - range[0] : null;
+  // stejně jako Přehled: aktuální STR − STR před prvním zápasem sezóny
+  const delta = vm.seasonStrChange(p) ?? (range ? range[1] - range[0] : null);
   const best = ms.filter((m) => m.won && m.oppStrBefore != null && m.strBefore != null)
     .sort((a, b) => (b.oppStrBefore! - b.strBefore!) - (a.oppStrBefore! - a.strBefore!))[0] ?? null;
   const form = ch.slice(-8).map((m) => m.won);
