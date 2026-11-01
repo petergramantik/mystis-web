@@ -444,9 +444,10 @@ export class AppVm {
   /** Formát soutěže rozpoznaný z načtených zápisů této soutěže (null = zatím neznámý). */
   compFormat(c: { svaz: string; soutez: string }): MatchFormat | null { return this.compFormatInfo(c).fmt; }
   /** Rozpoznání ze zápisů soutěže z minulých dnů (dnešní mohou být rozehrané). */
-  compFormatInfo(c: { svaz: string; soutez: string }) {
+  compFormatInfo(c: { svaz: string; soutez: string; rocnik?: number }) {
     const td = today();
-    const zs = Array.from(this.zapisy.values()).filter((z) => z.path.includes(`/svaz-${c.svaz}/`) && z.path.includes(`/soutez-${c.soutez}/`))
+    const zs = Array.from(this.zapisy.values()).filter((z) => z.path.includes(`/svaz-${c.svaz}/`) && z.path.includes(`/soutez-${c.soutez}/`)
+      && (c.rocnik == null || z.path.includes(`/rocnik-${c.rocnik}/`)))
       .filter((z) => { const d = Parsers.date(z.dateText); return d == null || d < td; });
     return MatchFormats.detectInfo(zs);
   }

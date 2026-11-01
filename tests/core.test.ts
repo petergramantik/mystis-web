@@ -371,7 +371,14 @@ async function main() {
     const allFmt = mk([...Array(10).fill(true), ...Array(4).fill(false), true, false, true, false]); // po 10. bodu se hrálo dál
     const iLate = MatchFormats.detectInfo([late]), iAll = MatchFormats.detectInfo([late, allFmt]);
     check("detect nerozhodné / všechny", !iLate.certain && iAll.certain && iAll.fmt?.key === "18_all", () => J([iLate, iAll]));
-    check("detect rozpor", !MatchFormats.detectInfo([early, allFmt]).certain);
+    // jedno dohrání po 10. bodu (vedoucí už nebodoval) nesmí přebít soutěž do 10
+    const weak = mk([...Array(6).fill(false), ...Array(10).fill(true), false, false]); // 10:8, po 10. bodu dohrány 2 hry
+    const r1 = MatchFormats.detectInfo([early, weak]);
+    check("detect slabé dohrání", r1.fmt?.key === "18_10" && r1.certain, () => J(r1));
+    const capped = new Zapis("/z", "", "", "H", "A", null, null, "", "", [10, 6], [...Array(10).fill(true), ...Array(8).fill(false)].map((r, i) => gm(i + 1, r, i < 2)));
+    check("detect hlavička 10:6 při dohrání", MatchFormats.detectInfo([capped]).fmt?.key === "18_10", () => J(MatchFormats.detectInfo([capped])));
+    const strongAll = mk([...Array(12).fill(true), ...Array(6).fill(false)]);
+    check("detect silné všechny", MatchFormats.detectInfo([strongAll, late]).fmt?.key === "18_all" && MatchFormats.detectInfo([strongAll]).certain);
     check("detect 10 her", MatchFormats.detect([ten])?.key === "10_6", () => J(MatchFormats.detect([ten])));
   }
   // ---------- šance rozehrané hry podle setů

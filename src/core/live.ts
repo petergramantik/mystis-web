@@ -29,7 +29,10 @@ export const MatchFormats = {
     const doubles = Math.max(...done.map((z) => z.games.filter((g) => g.doubles).length));
     const players = Math.max(1, Math.round(Math.sqrt(games - doubles)));
     const t0 = games === 18 ? 10 : games === 10 ? 6 : games === 5 ? 3 : Math.floor(games / 2) + 1;
-    let all = 0, upTo = 0;
+    // silné důkazy: „do hranice“ = po dosažení hranice zbyly nehrané hry; „všechny“ = vedoucí družstvo hranici přetáhlo
+    // (např. 12:6). Slabý důkaz „všechny“: po dosažení hranice se odehrálo pár her, ale vedoucí už nebodoval
+    // (občas se dohrávají jednotlivé zápasy i v soutěžích do 10).
+    let all = 0, weakAll = 0, upTo = 0;
     for (const z of done) {
       const gs = [...z.games].sort((a, b) => a.no - b.no);
       let h = 0, a = 0, reached = -1;
@@ -37,16 +40,23 @@ export const MatchFormats = {
         if (g.result === 1) h++; else if (g.result === -1) a++;
         if (reached < 0 && Math.max(h, a) >= t0) reached = i;
       });
+      // oficiální skóre v hlavičce zápisu: zastavené na hranici, i když se dohrávalo = „do hranice“
+      const [ph, pa] = z.points;
+      if (ph != null && pa != null && ph + pa > 0) {
+        if (Math.max(ph, pa) === t0 && ph + pa < h + a) { upTo++; continue; }
+        if (Math.max(ph, pa) > t0) { all++; continue; }
+      }
+      if (Math.max(h, a) > t0) { all++; continue; }
       if (reached < 0 || reached >= gs.length - 1) continue;
       const after = gs.slice(reached + 1);
-      if (after.some((g) => g.result != null)) all++;
-      else upTo++;
+      if (after.every((g) => g.result == null)) upTo++;
+      else weakAll++;
     }
-    const target: number | null = all > upTo ? null : upTo > 0 ? t0 : t0;
-    const certain = (all > 0) !== (upTo > 0);
+    const target: number | null = upTo > 0 && upTo >= all ? t0 : all > 0 || weakAll > upTo ? null : t0;
+    const certain = target != null ? upTo > 0 && all === 0 : all > 0 ? upTo === 0 : weakAll >= 2 && upTo === 0;
     const known = MatchFormats.ALL.find((f) => f.games === games && f.target === target);
     const fmt = known ?? { key: `auto_${games}_${target ?? "all"}`, label: `${players} hráči · ${games} her · ${target != null ? `do ${target} bodů` : "hrají se všechny"}`, players, games, doubles, target };
-    return { fmt, certain, votes: all + upTo };
+    return { fmt, certain, votes: all + weakAll + upTo };
   },
   detect(zs: Zapis[]): MatchFormat | null { return MatchFormats.detectInfo(zs).fmt; },
 };
