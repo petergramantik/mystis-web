@@ -4,7 +4,7 @@ import { vm, S } from "../../app/vm";
 import { Stis, type Match, type PlayerPage, type SeasonCard, type TeamMembership } from "../../core/models";
 import { Stats } from "../../core/stats";
 import {
-  AppCard, Avatar, BigNumber, C, Divider, Empty, ListCard, Loading, MatchRow, Muted, NavyHeader, OButton, SectionTitle, StatTile, StrChart, T, TileRow, signedInt,
+  AppCard, Avatar, BigNumber, C, Divider, Empty, FormDots, KeyValue, ListCard, Loading, MatchRow, Muted, NavyHeader, OButton, SectionTitle, StatTile, StrChart, T, TileRow, signedInt,
 } from "../components";
 import { strPoints } from "./StrScreen";
 
@@ -14,6 +14,7 @@ const rec = (ms: Match[]) => { const w = ms.filter((m) => m.won).length; return 
 export function ProfileScreen({ path }: { path: string }) {
   const me = vm.me;
   const isMe = !!me && me.path === path;
+  const [seasonsOpen, setSeasonsOpen] = useState(false);
   useEffect(() => { if (!isMe) vm.loadPlayer(path); }, [path, isMe]);
   const p: PlayerPage | null | undefined = isMe ? vm.meWithLive() : vm.players.get(path);
   if (!p) return <div style={{ padding: 16 }}>{vm.loadingPlayers.get(path) !== false ? <Loading /> : <Empty text="Profil hráče se nepodařilo načíst." />}</div>;
@@ -64,6 +65,7 @@ export function ProfileScreen({ path }: { path: string }) {
           {clubs.length > 0 && <Muted size={12} maxLines={3} text={`Oddíly: ${clubs.join(", ")}`} />}
         </AppCard>
         <AppCard><StrChart series={[{ color: isMe ? C.Blue : C.Orange, points: strPoints(p, "vse") }]} height={190} /></AppCard>
+        <ProfileExtras p={p} />
         {!isMe && me && (
           <div className="row g8">
             {mutual.length > 0 && <OButton text={`Vzájemně ${mutual.filter((m) => m.won).length}–${mutual.filter((m) => !m.won).length}`} onClick={() => vm.go({ t: "H2H", key: mutual[mutual.length - 1].opponentKey })} style={{ flex: 1 }} />}
@@ -72,9 +74,15 @@ export function ProfileScreen({ path }: { path: string }) {
         )}
         {!isMe && me && <OButton full enabled={!vm.loadingMe} text={vm.loadingMe ? "Přepínám…" : "Přepnout aplikaci na tohoto hráče"} onClick={() => vm.setProfile(p.path, () => {})} />}
 
-        <SectionTitle text="Sezóny a družstva" />
-        {!seasons.length && <Empty text="STIS neuvádí žádné sezóny." />}
-        {seasons.map((s) => <SeasonBlock key={s.year} s={s} matches={bySeason.get(s.year) ?? []} newest={s.year === newest} isMe={isMe} />)}
+        <div className="row clickable" onClick={() => setSeasonsOpen(!seasonsOpen)} style={{ padding: "8px 4px 0" }}>
+          <div className="col w1">
+            <T bold size={18}>Sezóny a družstva</T>
+            {!seasonsOpen && <Muted size={12} text={`${seasons.length} ${seasons.length === 1 ? "sezóna" : seasons.length < 5 ? "sezóny" : "sezón"}${clubs.length ? ` · ${clubs.length} ${clubs.length === 1 ? "oddíl" : clubs.length < 5 ? "oddíly" : "oddílů"}` : ""}`} />}
+          </div>
+          <span style={{ color: C.Muted, fontSize: 22, transform: seasonsOpen ? "rotate(180deg)" : undefined, transition: "transform .15s" }}>⌄</span>
+        </div>
+        {seasonsOpen && !seasons.length && <Empty text="STIS neuvádí žádné sezóny." />}
+        {seasonsOpen && seasons.map((s) => <SeasonBlock key={s.year} s={s} matches={bySeason.get(s.year) ?? []} newest={s.year === newest} isMe={isMe} />)}
 
         <SectionTitle text="Poslední zápasy" />
         <ListCard>{ch.slice(-10).reverse().map((m, i) => <MatchRow key={i} m={m} onClick={() => {}} />)}</ListCard>
@@ -179,17 +187,17 @@ function TeamBlock({ t, year, newest, isMe }: { t: TeamMembership; year: number;
  * V první sezóně se přeskočí zahajovací fáze: začátek = bod po posledním velkém skoku (≥ 150) z úvodního zařazení
  * (počáteční hodnota se v grafu může opakovat, např. 13, 13, 830, 1180, 1185 …).
  */
-export function biggestJump(pts: [number, number][]): readonly [number, number] | null {
+export function seasonRanges(pts: [number, number][]): Map<number, [number, number]> {
   const bySeason = new Map<number, number[]>();
   for (const [d, v] of [...pts].sort((a, b) => a[0] - b[0])) {
     const y = Stis.currentRocnik(d);
     const l = bySeason.get(y) ?? []; l.push(v); bySeason.set(y, l);
   }
-  if (!bySeason.size) return null;
+  const out = new Map<number, [number, number]>();
+  if (!bySeason.size) return out;
   const firstSeason = Math.min(...bySeason.keys());
-  let best: readonly [number, number] | null = null;
   for (const [y, vs] of bySeason) {
-    let i = 0;
+    let i: number;
     if (y === firstSeason) {
       let last = -1;
       for (let k = 1; k < vs.length; k++) if (Math.abs(vs[k] - vs[k - 1]) >= 150) last = k;
@@ -199,8 +207,130 @@ export function biggestJump(pts: [number, number][]): readonly [number, number] 
       i = vs.findIndex((v) => v > 0);
       if (i < 0) continue;
     }
-    const d = vs[vs.length - 1] - vs[i];
-    if (best == null || d > best[1]) best = [y, d] as const;
+    out.set(y, [vs[i], vs[vs.length - 1]]);
   }
+  return out;
+}
+
+export function biggestJump(pts: [number, number][]): readonly [number, number] | null {
+  let best: readonly [number, number] | null = null;
+  for (const [y, [a, b]] of seasonRanges(pts)) if (best == null || b - a > best[1]) best = [y, b - a] as const;
   return best;
+}
+
+/** Nejcennější výhry, soupeři, síla soupeřů, přehled sezón, rekordy a forma. */
+function ProfileExtras({ p }: { p: PlayerPage }) {
+  const ch = p.chronological;
+  if (!ch.length) return null;
+  const rec0 = Stats.records(p);
+  // nejcennější výhry: seznam ze STIS, jinak výhry s největším rozdílem STR
+  type W = { opponent: string; opponentId: string; oppStr: number | null; diff: number | null; score: string; date: string; comp: string };
+  let wins: W[] = (p.ster.valuableWins ?? []).map((v) => ({ opponent: v.opponent, opponentId: v.opponentId, oppStr: v.opponentStr, diff: v.opponentStr - v.myStr, score: v.score, date: v.date, comp: v.competition }));
+  if (!wins.length) wins = ch.filter((m) => m.won && m.oppStrBefore != null && m.strBefore != null)
+    .sort((a, b) => (b.oppStrBefore! - b.strBefore!) - (a.oppStrBefore! - a.strBefore!))
+    .map((m) => ({ opponent: m.opponent, opponentId: m.opponentId, oppStr: m.oppStrBefore, diff: m.oppStrBefore! - m.strBefore!, score: m.score, date: m.dateText, comp: m.competition }));
+  wins = wins.slice(0, 10);
+  const duel = (id: string, name: string) => vm.go({ t: "Duel", aId: p.id, aName: p.name, bId: id, bName: name });
+  const splits = Stats.splits(ch).filter((s) => s.label.startsWith("Proti"));
+  const ranges = seasonRanges(strPoints(p, "vse"));
+  const seasons = Stats.seasons(p);
+  const five = ch.filter((m) => m.fiveSetter), fiveW = five.filter((m) => m.won).length;
+  const last10 = ch.slice(-10);
+  const cur = rec0.currentStreak;
+  const opp = (o: { name: string; id: string; record: string; matches: Match[] } | null, label: string, color: string) => o && (
+    <div className="row clickable" style={{ padding: "4px 0" }} onClick={() => duel(o.id, o.name)}>
+      <div className="col w1">
+        <Muted text={label} size={12} />
+        <T semi size={15} lines={1}>{o.name}</T>
+      </div>
+      <T bold color={color} style={{ flex: "none" }}>{`${o.record} ›`}</T>
+    </div>
+  );
+  return (
+    <>
+      <SectionTitle text="Nejcennější výhry" />
+      <ListCard>
+        {!wins.length && <Empty text="Zatím žádné výhry se známým STR soupeře." />}
+        {wins.map((w, i) => (
+          <div key={i}>
+            <div className="row g10 clickable" style={{ padding: "9px 14px" }} onClick={() => duel(w.opponentId, w.opponent)}>
+              <T bold color={C.Muted} style={{ width: 24, flex: "none" }}>{`${i + 1}.`}</T>
+              <div className="col w1">
+                <T semi size={15} lines={1}>{w.opponent}</T>
+                <Muted size={12} maxLines={1} text={[w.date, w.comp].filter((x) => x).join(" · ")} />
+              </div>
+              <div className="col" style={{ alignItems: "flex-end", flex: "none" }}>
+                <T bold size={14}>{w.oppStr != null ? `STR ${w.oppStr}` : w.score}</T>
+                <T size={12} semi color={C.Win}>{`${w.diff != null ? signedInt(w.diff) + " · " : ""}${w.score} ›`}</T>
+              </div>
+            </div>
+            <Divider />
+          </div>
+        ))}
+      </ListCard>
+
+      <AppCard>
+        <T bold>Forma</T>
+        <FormDots results={last10.map((m) => m.won)} />
+        <Muted size={13} text={`Posledních ${last10.length}: ${last10.filter((m) => m.won).length}–${last10.filter((m) => !m.won).length} · aktuální série ${Math.abs(cur)}× ${cur > 0 ? "výhra" : "prohra"}`} />
+      </AppCard>
+
+      <AppCard>
+        <T bold>Soupeři v číslech</T>
+        {opp(rec0.nemesis && rec0.nemesis.losses > rec0.nemesis.wins ? rec0.nemesis : null, "Nejtěžší soupeř (min. 3 zápasy)", C.OrangeText)}
+        {opp(rec0.favourite && rec0.favourite.wins > rec0.favourite.losses ? rec0.favourite : null, "Oblíbený soupeř (min. 3 zápasy)", C.Win)}
+        {opp(rec0.mostPlayed, "Nejčastější soupeř", C.Ink)}
+        <Divider />
+        <T semi size={14}>Podle síly soupeře</T>
+        {splits.map((s, i) => (
+          <div className="row" key={i} style={{ padding: "2px 0" }}>
+            <T size={14} style={{ flex: 1 }}>{s.label.replace("Proti ", "")}</T>
+            <T semi size={14} style={{ width: 70, textAlign: "right" }}>{`${s.wins}–${s.losses}`}</T>
+            <T size={13} style={{ width: 52, textAlign: "right" }}>{s.total ? Stats.pct(s.success) : "–"}</T>
+            <T size={13} bold color={s.overExpected >= 0 ? C.Win : C.OrangeText} style={{ width: 52, textAlign: "right" }}>{s.total ? (s.overExpected >= 0 ? "+" : "−") + Math.abs(s.overExpected).toFixed(1).replace(".", ",") : ""}</T>
+          </div>
+        ))}
+        <Muted size={11} maxLines={2} text="Bilance, úspěšnost a o kolik výher víc/méně, než odpovídá STR soupeřů." />
+      </AppCard>
+
+      <AppCard>
+        <T bold>Přehled sezón</T>
+        <div className="row">
+          <Muted text="SEZÓNA" size={11} style={{ flex: 1 }} />
+          <Muted text="ZÁPASY" size={11} style={{ width: 96, textAlign: "right" }} />
+          <Muted text="STR" size={11} style={{ width: 128, textAlign: "right" }} />
+        </div>
+        {seasons.map((s) => {
+          const r = ranges.get(s.year);
+          const a = r?.[0] ?? s.strStart, b = r?.[1] ?? s.strEnd;
+          const ch2 = a != null && b != null ? b - a : null;
+          return (
+            <div className="row" key={s.year} style={{ padding: "3px 0" }}>
+              <T semi size={13} style={{ flex: 1, whiteSpace: "nowrap" }}>{seasonLabel(s.year)}</T>
+              <T size={12} style={{ width: 96, textAlign: "right", whiteSpace: "nowrap", flex: "none" }}>{`${s.wins}–${s.losses} · ${Stats.pct(s.success)}`}</T>
+              <T size={12} style={{ width: 128, textAlign: "right", whiteSpace: "nowrap", flex: "none" }}>
+                {a != null && b != null ? `${a}→${b} ` : "–"}
+                {ch2 != null && <span style={{ color: C.delta(ch2), fontWeight: 700 }}>{signedInt(ch2)}</span>}
+              </T>
+            </div>
+          );
+        })}
+      </AppCard>
+
+      <AppCard>
+        <T bold>Rekordy</T>
+        <KeyValue label="Nejdelší série výher" value={rec0.longestWin.length ? `${rec0.longestWin.length} (${rec0.longestWin.from?.dateText ?? ""} – ${rec0.longestWin.to?.dateText ?? ""})` : "–"} />
+        <KeyValue label="Pětisetové zápasy" value={five.length ? `${fiveW}–${five.length - fiveW}` : "–"} />
+        {rec0.worstLoss && (
+          <div className="row clickable" style={{ padding: "3px 0" }} onClick={() => duel(rec0.worstLoss!.opponentId, rec0.worstLoss!.opponent)}>
+            <div className="col w1">
+              <Muted text="Nejbolestivější prohra" size={14} />
+              <T size={13} lines={1}>{`${rec0.worstLoss.opponent} · ${rec0.worstLoss.dateText}`}</T>
+            </div>
+            <T bold color={C.OrangeText} style={{ flex: "none" }}>{`${rec0.worstLoss.score} · STR ${rec0.worstLoss.oppStrBefore ?? "?"} (${signedInt((rec0.worstLoss.oppStrBefore ?? 0) - (rec0.worstLoss.strBefore ?? 0))}) ›`}</T>
+          </div>
+        )}
+      </AppCard>
+    </>
+  );
 }
