@@ -4,29 +4,31 @@ import { useEffect, useState } from "react";
 import { vm, MAX_WATCHED, type LiveComp, type Watched } from "../../app/vm";
 import { Stis, type LosMatch, type TeamRef } from "../../core/models";
 import { Stats } from "../../core/stats";
-import { Live } from "../../core/live";
+import { Live, MatchFormats } from "../../core/live";
 import { ldtDate, nowLdt, today } from "../../core/dates";
 import type { SearchClub } from "../../core/search";
-import { AppCard, C, Chips, Dialog, Divider, Empty, ListCard, Loading, Muted, OButton, Segmented, T, TextField } from "../components";
+import { AppCard, Avatar, C, Chips, Divider, Empty, ListCard, Loading, Muted, OButton, Segmented, T, shortTeam } from "../components";
 import { hhmmLdt } from "../fmt";
 import { GameRow, ScoreHeader } from "./LiveMatch";
+import { useZapisStr } from "./Duel";
 import { useZapisRefresh } from "../zapis";
 
 type Status = { kind: "future" | "live" | "done"; text: string; h: number | null; a: number | null };
 
 /** Stav utkání: konečný výsledek, průběžný stav (z rozpisu nebo zápisu), nebo čas začátku. */
-function statusOf(m: LosMatch): Status {
+function statusOf(c: LiveComp, m: LosMatch): Status {
   const z = m.zapisPath ? vm.zapisy.get(m.zapisPath) : undefined;
+  const fmt = vm.formatForComp(c);
   const now = nowLdt();
   const sm = /^(\d+)\s*:\s*(\d+)$/.exec(m.score);
   if (z && z.games.length) {
     const [h, a] = z.score;
-    if (Live.isZapisFinished(z, vm.format)) return { kind: "done", text: `${h} : ${a}`, h, a };
+    if (vm.finished(z)) return { kind: "done", text: `${h} : ${a}`, h, a };
     return { kind: "live", text: `${h} : ${a} · ${z.games.filter((g) => g.result != null).length}/${z.games.length || vm.format.games}`, h, a };
   }
   if (sm) {
     const h = +sm[1], a = +sm[2];
-    if (vm.scoreFinal(m.score)) return { kind: "done", text: `${h} : ${a}`, h, a };
+    if (vm.scoreFinal(m.score, fmt)) return { kind: "done", text: `${h} : ${a}`, h, a };
     if (m.dateTime != null && m.dateTime > now - 5 * 60) return { kind: "live", text: `${h} : ${a}`, h, a };
     return { kind: "done", text: `${h} : ${a}`, h, a };
   }
@@ -66,12 +68,11 @@ export function LiveBoard() {
     return () => clearInterval(t);
   }, [comps.length]);
   const day = today() + vm.liveDay;
-  const q = Stats.fold(vm.liveQuery);
   const watched = vm.watched();
-  const sections = comps.map((c) => {
+  const sel = comps.some((c) => vm.compKey(c) === vm.liveCompSel) ? vm.liveCompSel : "all";
+  const sections = comps.filter((c) => sel === "all" || vm.compKey(c) === sel).map((c) => {
     const los = vm.compLos.get(vm.compKey(c)) ?? [];
     const list = los.filter((m) => m.dateTime != null && ldtDate(m.dateTime) === day)
-      .filter((m) => !q || Stats.fold(m.home).includes(q) || Stats.fold(m.away).includes(q))
       .filter((m) => !vm.liveOnlyWatched || watched.some((w) => w.key === vm.boardKey(c, m)))
       .sort((a, b) => (a.dateTime ?? 0) - (b.dateTime ?? 0));
     return { c, list, loading: vm.compLosLoading.has(vm.compKey(c)) && !vm.compLos.has(vm.compKey(c)) };
@@ -79,118 +80,205 @@ export function LiveBoard() {
   const any = sections.some((s) => s.list.length);
   return (
     <div className="col g10 px16">
-      <Chips options={[["-1", "Včera"], ["0", "Dnes"], ["1", "Zítra"]]} selected={String(vm.liveDay)} onSelect={(k) => { vm.liveDay = parseInt(k, 10); vm.emit(); }} />
       <div className="row g8">
-        <div style={{ flex: 1 }}><TextField value={vm.liveQuery} onChange={(v) => { vm.liveQuery = v; vm.emit(); }} label="Hledat družstvo…" /></div>
+        <div style={{ flex: 1 }}><Chips options={[["-1", "Včera"], ["0", "Dnes"], ["1", "Zítra"]]} selected={String(vm.liveDay)} onSelect={(k) => { vm.liveDay = parseInt(k, 10); vm.emit(); }} /></div>
         <OButton text="+ Soutěž" onClick={() => setAdding(true)} />
       </div>
       <Segmented options={[["all", "Všechna"], ["watched", `★ Sledovaná (${watched.length}/${MAX_WATCHED})`]]} selected={vm.liveOnlyWatched ? "watched" : "all"}
         onSelect={(k) => { vm.liveOnlyWatched = k === "watched"; vm.emit(); }} />
+      {comps.length > 1 && <Chips options={[["all", "Všechny"], ...comps.map((c) => [vm.compKey(c), shortComp(c.label)] as [string, string])]} selected={sel}
+        onSelect={(k) => { vm.liveCompSel = k; vm.emit(); }} />}
       {msg && <Muted text={msg} color={C.OrangeText} size={13} maxLines={3} />}
-      {sections.map(({ c, list, loading }) => (
-        <div key={vm.compKey(c)} className="col g6">
-          <div className="row" style={{ padding: "4px 4px 0" }}>
-            <T bold size={13} color={C.Muted} style={{ flex: 1, letterSpacing: 0.5 }}>{c.label.toUpperCase()}</T>
-            {!c.mine && <span className="clickable" style={{ color: C.Muted, fontSize: 13 }} onClick={() => vm.removeLiveComp(c)}>odebrat ×</span>}
+      {sections.map(({ c, list, loading }) => {
+        const fmt = vm.formatAuto ? vm.compFormat(c) : vm.format;
+        return (
+          <div key={vm.compKey(c)} className="col g6">
+            <div className="row g8" style={{ padding: "4px 4px 0" }}>
+              <div className="col w1">
+                <T bold size={13} color={C.Muted} lines={2} style={{ letterSpacing: 0.5 }}>{c.label.toUpperCase()}</T>
+                {fmt && <Muted text={MatchFormats.short(fmt)} size={11} />}
+              </div>
+              <span className="clickable" style={{ color: C.Blue, fontSize: 13, fontWeight: 600, flex: "none" }}
+                onClick={() => vm.openCompetition({ id: "", name: "", svaz: c.svaz, rocnik: c.rocnik, soutez: c.soutez }, c.label, "", "tabulka")}>Tabulka ›</span>
+            </div>
+            {loading ? <AppCard><Loading text="Načítám rozpis soutěže…" /></AppCard>
+              : !list.length ? <Muted text={vm.liveOnlyWatched ? "Žádné sledované utkání." : "V tento den se v soutěži nehraje."} size={13} style={{ paddingLeft: 4 }} />
+                : <ListCard>{list.map((m) => <BoardRow key={vm.boardKey(c, m)} c={c} m={m} onError={setMsg} />)}</ListCard>}
           </div>
-          {loading ? <AppCard><Loading text="Načítám rozpis soutěže…" /></AppCard>
-            : !list.length ? <Muted text={vm.liveOnlyWatched ? "Žádné sledované utkání." : "V tento den se v soutěži nehraje."} size={13} style={{ paddingLeft: 4 }} />
-              : <ListCard>{list.map((m) => <BoardRow key={vm.boardKey(c, m)} c={c} m={m} onError={setMsg} />)}</ListCard>}
-        </div>
-      ))}
+        );
+      })}
       {!any && !sections.some((s) => s.loading) && <Empty text="Ve vybraný den se ve sledovaných soutěžích nehraje. Další soutěž přidáte tlačítkem + Soutěž." />}
-      <Muted size={12} maxLines={5} text={`☆ = sledovat utkání (nejvýš ${MAX_WATCHED}). U sledovaného zvolíte upozornění (Hry / Sety / vypnuto) a komu fandíte – podle toho jsou barvy, notifikace i zvuky. Vaše družstva se sledují automaticky. Upozornění chodí jen při otevřené aplikaci.`} />
-      {adding && <AddCompetitionDialog onClose={() => setAdding(false)} />}
+      <Muted size={12} maxLines={5} text={`☆ = sledovat utkání (nejvýš ${MAX_WATCHED}, jen dnešní a zítřejší, která ještě neskončila). U sledovaného zvolíte upozornění (Hry / Sety / vypnuto) a komu fandíte – podle toho jsou barvy, notifikace i zvuky. Vaše družstva se sledují automaticky. Upozornění chodí jen při otevřené aplikaci.`} />
+      {adding && <AddCompetitionSheet onClose={() => setAdding(false)} />}
       <div style={{ height: 8 }} />
     </div>
   );
 }
 
+/** Krátký popisek soutěže na tlačítko (zkratka z dlouhého názvu). */
+function shortComp(label: string): string {
+  const l = label.replace(/^Soutěž družstva /, "");
+  return l.length > 22 ? l.slice(0, 21) + "…" : l;
+}
+
 function BoardRow({ c, m, onError }: { c: LiveComp; m: LosMatch; onError: (e: string | null) => void }) {
   const key = vm.boardKey(c, m);
   const w = vm.watchOf(key);
-  const st = statusOf(m);
+  const st = statusOf(c, m);
   const fan = w?.fan ?? "home";
+  const can = vm.canWatch(c, m);
   return (
     <div>
       <div className="col clickable" style={{ padding: "10px 14px", background: st.kind === "live" ? C.Tint : undefined }} onClick={() => vm.go({ t: "Watch", key })}>
         <div className="row g10">
           <T bold size={13} color={C.Muted} style={{ width: 40, flex: "none" }}>{m.dateTime != null ? hhmmLdt(m.dateTime) : ""}</T>
           <div className="col w1">
-            <T size={14} semi={fan === "home"} lines={1}>{m.home}</T>
-            <T size={14} semi={fan === "away"} lines={1}>{m.away}</T>
+            <T size={14} semi={fan === "home"} lines={1}>{shortTeam(m.home)}</T>
+            <T size={14} semi={fan === "away"} lines={1}>{shortTeam(m.away)}</T>
           </div>
           <div className="col" style={{ alignItems: "flex-end", flex: "none" }}>
             {st.kind === "live" && <span style={{ fontSize: 11, fontWeight: 700, color: C.Live }}>● živě</span>}
             <T bold size={st.kind === "future" ? 13 : 15} color={st.kind === "future" ? C.Muted : st.kind === "live" ? C.Live : scoreColor(st, fan)}>{st.kind === "future" ? m.round + ". kolo" : st.text}</T>
           </div>
-          <span className="clickable" style={{ fontSize: 22, color: w ? "#F5A524" : C.Muted, flex: "none", padding: "0 2px" }}
+          {(can || w) ? <span className="clickable" style={{ fontSize: 22, color: w ? "#F5A524" : C.Muted, flex: "none", padding: "0 2px" }}
             onClick={(e) => { e.stopPropagation(); onError(vm.toggleWatch(c, m)); }} aria-label="Sledovat">{w ? "★" : "☆"}</span>
+            : <span style={{ width: 26, flex: "none" }} />}
         </div>
-        {w && <div style={{ paddingLeft: 50, paddingTop: 6 }}><WatchControls w={w} /></div>}
+        {w && can && <div style={{ paddingLeft: 50, paddingTop: 6 }}><WatchControls w={w} /></div>}
       </div>
       <Divider />
     </div>
   );
 }
 
-/** Přidání soutěže: vyhledání oddílu -> jeho družstva, nebo odkaz ze STIS (…/svaz-…/rocnik-…/soutez-…). */
-function AddCompetitionDialog({ onClose }: { onClose: () => void }) {
+/** Přidání soutěže: spodní panel s hledáním oddílu při psaní, návrhy, odkazem ze STIS a správou přidaných soutěží. */
+function AddCompetitionSheet({ onClose }: { onClose: () => void }) {
   const [q, setQ] = useState("");
   const [clubs, setClubs] = useState<SearchClub[] | null>(null);
-  const [teams, setTeams] = useState<TeamRef[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const fromLink = () => {
-    const m = /svaz-([^/]+)\/rocnik-(\d+)\/soutez-(\d+)/.exec(q);
-    if (!m) return false;
-    vm.addLiveComp({ id: "", name: "", svaz: m[1], rocnik: +m[2], soutez: m[3] }, `Soutěž ${m[3]}`);
-    onClose();
-    return true;
-  };
-  const search = () => {
-    if (fromLink()) return;
-    if (q.trim().length < 3) { setErr("Zadejte aspoň 3 znaky názvu oddílu, nebo vložte odkaz na soutěž ze STIS."); return; }
-    setBusy(true); setErr(null); setTeams(null);
-    vm.searchClubs(q.trim(), (r, e) => { setBusy(false); if (e) setErr(e); else setClubs(r ?? []); });
-  };
-  const openClub = (c: SearchClub) => {
-    setBusy(true); setErr(null);
-    vm.repo.club(c.path).then((p) => { setTeams(p.teams); setBusy(false); }, (e) => { setErr(String(e?.message ?? e)); setBusy(false); });
-  };
+  const [open, setOpen] = useState<string | null>(null);
+  const [clubTeams, setClubTeams] = useState<Map<string, TeamRef[]>>(new Map());
   const rocnik = Stis.currentRocnik();
+  const link = /svaz-([^/]+)\/rocnik-(\d+)\/soutez-(\d+)/.exec(q);
+  const linkRef: TeamRef | null = link ? { id: "", name: "", svaz: link[1], rocnik: +link[2], soutez: link[3] } : null;
+  // hledání při psaní (od 3 znaků), odkaz se rozpozná hned
+  useEffect(() => {
+    if (linkRef) { vm.loadStrLadder(linkRef.svaz, linkRef.rocnik, linkRef.soutez); vm.loadCompLos(linkRef); return; }
+    const t = q.trim();
+    if (t.length < 3) { setClubs(null); setErr(null); return; }
+    setBusy(true);
+    const id = setTimeout(() => vm.searchClubs(t, (r, e) => { setBusy(false); if (e) setErr(e); else { setErr(null); setClubs(r ?? []); } }), 400);
+    return () => clearTimeout(id);
+  }, [q]);
+  const toggleClub = (c: SearchClub) => {
+    if (open === c.id) { setOpen(null); return; }
+    setOpen(c.id);
+    if (clubTeams.has(c.id)) return;
+    vm.repo.club(c.path).then((p) => {
+      const ts = p.teams.filter((t) => t.rocnik === rocnik);
+      for (const t of ts) { vm.loadStrLadder(t.svaz, t.rocnik, t.soutez); vm.loadCompLos(t); }
+      setClubTeams((m) => new Map(m).set(c.id, ts));
+    }, (e) => setErr(String(e?.message ?? e)));
+  };
+  const added = (t: { svaz: string; rocnik: number; soutez: string }) => vm.liveComps().some((x) => vm.compKey(x) === vm.compKey(t));
+  const mineComps = vm.liveComps().filter((c) => !c.mine);
+  // A: návrhy – soutěže ostatních družstev mého oddílu
+  const suggest = vm.club.teams.filter((t) => t.rocnik === rocnik && !added(t))
+    .filter((t, i, a) => a.findIndex((x) => vm.compKey(x) === vm.compKey(t)) === i);
   return (
-    <Dialog title="Přidat soutěž" onClose={onClose} actions={<OButton text="Zavřít" onClick={onClose} />}>
-      <Muted size={13} maxLines={3} text="Vyhledejte oddíl a vyberte jeho družstvo – přidá se celá soutěž, ve které hraje. Nebo vložte odkaz na soutěž ze STIS." />
-      <div className="row g8">
-        <div style={{ flex: 1 }}><TextField value={q} onChange={setQ} label="Oddíl nebo odkaz" /></div>
-        <OButton text="Hledat" onClick={search} />
+    <div style={{ position: "fixed", inset: 0, zIndex: 50 }}>
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(14,26,51,0.45)" }} />
+      <div className="col g10" style={{ position: "absolute", left: 0, right: 0, bottom: 0, maxHeight: "86vh", overflowY: "auto", background: C.Ground,
+        borderRadius: "22px 22px 0 0", padding: "10px 16px 20px", boxShadow: "0 -8px 30px rgba(0,0,0,0.18)" }}>
+        <div style={{ width: 40, height: 4, borderRadius: 2, background: "#C4C7CF", alignSelf: "center" }} />
+        <div className="row">
+          <T bold size={20} style={{ flex: 1 }}>Přidat soutěž</T>
+          <button className="iconbtn" onClick={onClose} aria-label="Zavřít" style={{ fontSize: 22, color: C.Muted }}>✕</button>
+        </div>
+        <div className="row g8" style={{ background: "#fff", borderRadius: 14, padding: "0 12px", border: "1px solid #D5D9E0" }}>
+          <span style={{ fontSize: 18, color: C.Muted }}>🔍</span>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Oddíl nebo odkaz ze STIS" autoFocus
+            style={{ flex: 1, border: 0, outline: "none", height: 46, fontSize: 16, background: "transparent" }} />
+          {q && <span className="clickable" style={{ color: C.Muted }} onClick={() => setQ("")}>✕</span>}
+        </div>
+        {err && <Muted text={err} color={C.OrangeText} size={13} maxLines={3} />}
+
+        {linkRef && <CompOffer t={linkRef} title={vm.compLabel(linkRef) ?? `Soutěž ${linkRef.soutez}`} added={added(linkRef)} />}
+
+        {!linkRef && q.trim().length < 3 && (
+          <>
+            {suggest.length > 0 && <>
+              <Muted text="SOUTĚŽE VAŠEHO ODDÍLU" size={12} style={{ paddingLeft: 4 }} />
+              {suggest.map((t, i) => <CompOffer key={i} t={t} title={t.name} added={false} />)}
+            </>}
+            {suggest.length === 0 && <Muted text="Začněte psát název oddílu (např. „Ježov“), nebo vložte odkaz na soutěž ze STIS." size={13} maxLines={3} />}
+          </>
+        )}
+
+        {!linkRef && busy && <Loading text="Hledám oddíly…" />}
+        {!linkRef && clubs && !busy && (
+          <div className="col g8">
+            {!clubs.length && <Muted text="Nic nenalezeno." size={13} />}
+            {clubs.slice(0, 12).map((c) => (
+              <AppCard key={c.id} padding={0}>
+                <div className="row g10 clickable" style={{ padding: "10px 12px" }} onClick={() => toggleClub(c)}>
+                  <Avatar text={c.name} color={C.Blue} size={34} />
+                  <T semi size={15} lines={2} style={{ flex: 1 }}>{c.name}</T>
+                  <span style={{ color: C.Muted, fontSize: 20, transform: open === c.id ? "rotate(180deg)" : undefined }}>⌄</span>
+                </div>
+                {open === c.id && (
+                  <div className="col g6" style={{ padding: "0 12px 12px" }}>
+                    {!clubTeams.has(c.id) ? <Loading text="Načítám družstva…" />
+                      : !clubTeams.get(c.id)!.length ? <Muted text="Oddíl nemá v této sezóně žádné družstvo." size={13} />
+                        : clubTeams.get(c.id)!.map((t, i) => <CompOffer key={i} t={t} title={t.name} added={added(t)} flat />)}
+                  </div>
+                )}
+              </AppCard>
+            ))}
+          </div>
+        )}
+
+        {mineComps.length > 0 && (
+          <>
+            <Muted text="MOJE PŘIDANÉ SOUTĚŽE" size={12} style={{ paddingLeft: 4, paddingTop: 6 }} />
+            <AppCard padding={0}>
+              {mineComps.map((c, i) => (
+                <div key={i}>
+                  <div className="row" style={{ padding: "10px 12px" }}>
+                    <T size={14} semi lines={2} style={{ flex: 1 }}>{c.label}</T>
+                    <span className="clickable" style={{ color: C.OrangeText, fontSize: 18, padding: "0 4px" }} onClick={() => vm.removeLiveComp(c)} aria-label="Odebrat">✕</span>
+                  </div>
+                  {i < mineComps.length - 1 && <Divider />}
+                </div>
+              ))}
+            </AppCard>
+          </>
+        )}
       </div>
-      {busy && <Loading />}
-      {err && <Muted text={err} color={C.OrangeText} size={13} maxLines={3} />}
-      {teams ? (
-        <div className="col">
-          {!teams.filter((t) => t.rocnik === rocnik).length && <Muted text="Oddíl nemá v této sezóně žádné družstvo." size={13} />}
-          {teams.filter((t) => t.rocnik === rocnik).map((t, i) => (
-            <div key={i} className="row clickable" style={{ padding: "8px 0" }} onClick={() => { vm.addLiveComp(t, `Soutěž družstva ${t.name}`); onClose(); }}>
-              <T semi size={14} style={{ flex: 1 }}>{t.name}</T>
-              <T bold color={C.Blue}>Přidat ›</T>
-            </div>
-          ))}
-        </div>
-      ) : clubs && (
-        <div className="col">
-          {!clubs.length && <Muted text="Nic nenalezeno." size={13} />}
-          {clubs.slice(0, 12).map((c) => (
-            <div key={c.id} className="row clickable" style={{ padding: "8px 0" }} onClick={() => openClub(c)}>
-              <T semi size={14} style={{ flex: 1 }}>{c.name}</T>
-              <T bold color={C.Blue}>Družstva ›</T>
-            </div>
-          ))}
-        </div>
-      )}
-    </Dialog>
+    </div>
   );
+}
+
+/** Nabídka soutěže: název soutěže, počet družstev, dnešní utkání; tlačítko Přidat / ✓ Přidáno. */
+function CompOffer({ t, title, added, flat = false }: { t: TeamRef; title: string; added: boolean; flat?: boolean }) {
+  const label = vm.compLabel(t);
+  const los = vm.compLos.get(vm.compKey(t));
+  const teams = los ? new Set(los.flatMap((m) => [Stats.fold(m.home), Stats.fold(m.away)])).size : null;
+  const td = today();
+  const todayN = los ? los.filter((m) => m.dateTime != null && ldtDate(m.dateTime) === td).length : null;
+  const info = [label && label !== title ? label : null, teams ? `${teams} družstev` : null, todayN != null ? (todayN ? `dnes ${todayN} utkání` : "dnes se nehraje") : null].filter((x) => x).join(" · ");
+  const body = (
+    <div className="row g10" style={{ padding: flat ? "6px 0" : "10px 12px" }}>
+      <div className="col w1">
+        <T semi size={14} lines={2}>{title}</T>
+        <Muted size={12} maxLines={2} text={info || "načítám informace o soutěži…"} />
+      </div>
+      {added ? <T bold color={C.Win} style={{ flex: "none" }}>✓ Přidáno</T>
+        : <button className="chip on" style={{ height: 34, flex: "none" }} onClick={() => vm.addLiveComp(t, label ?? `Soutěž družstva ${t.name || t.soutez}`)}>+ Přidat</button>}
+    </div>
+  );
+  return flat ? body : <AppCard padding={0}>{body}</AppCard>;
 }
 
 /** Obrazovka sledovaného / cizího utkání: živý stav ze zápisu, po konci celý zápis. */
@@ -210,26 +298,29 @@ export function WatchScreen({ k }: { k: string }) {
   const home = m?.home ?? w?.home ?? "", away = m?.away ?? w?.away ?? "";
   // po konci celý zápis (z pohledu toho, komu fandím)
   useEffect(() => {
-    if (z && z.games.length && Live.isZapisFinished(z, vm.format)) vm.replace({ t: "ZapisDetail", path, myTeam: fan === "away" ? away : home });
-  }, [z?.games.length, z && Live.isZapisFinished(z, vm.format)]);
+    if (z && z.games.length && vm.finished(z)) vm.replace({ t: "ZapisDetail", path, myTeam: fan === "away" ? away : home });
+  }, [z?.games.length, z && vm.finished(z)]);
   if (!m && !w) return <div className="px16"><Loading text="Hledám utkání…" /></div>;
-  const games = z ? Live.fromZapis(z, (id, n) => vm.strOf(id, n), (id, n) => vm.rangeOf(id, n)) : [];
-  const st = Live.evaluate(games, vm.format);
+  // STR všech hráčů ze zápisu (cizí hráči nejsou v mých soupiskách) – do načtení bez procent
+  const strs = useZapisStr(path);
+  const games = z ? Live.fromZapis(z, strs.strOf, (id, n) => vm.rangeOf(id, n)) : [];
+  const st = Live.evaluate(games, z ? vm.fmtOf(z) : vm.format);
   const comp = found?.comp ?? (w ? { svaz: w.svaz, rocnik: w.rocnik, soutez: w.soutez, label: w.compLabel } as LiveComp : null);
   const dt = m?.dateTime ?? w?.dateTime ?? null;
   return (
     <div className="col g12">
-      <ScoreHeader st={st} myHome={myHome} homeName={home} awayName={away} empty={!games.length} neutral={neutral} />
+      <ScoreHeader st={st} myHome={myHome} homeName={home} awayName={away} empty={!games.length || !strs.ready} neutral={neutral}
+        emptyText={games.length && !strs.ready ? `Načítám STR hráčů… (${strs.done}/${strs.total})` : undefined} />
       <div className="col g12 px16">
         <AppCard>
           <div className="row">
             <div className="col w1">
-              <T semi size={14}>{comp?.label ?? ""}</T>
-              <Muted size={12} text={[m?.round ? `${m.round}. kolo` : null, dt != null ? `začátek ${hhmmLdt(dt)}` : null, z?.online ? "online zápis" : null].filter((x) => x).join(" · ")} />
+              <T semi size={14}>{comp ? vm.compLabel(comp) ?? comp.label : ""}</T>
+              <Muted size={12} text={[comp && vm.formatAuto && vm.compFormat(comp) ? MatchFormats.short(vm.compFormat(comp)!) : null, m?.round ? `${m.round}. kolo` : null, dt != null ? `začátek ${hhmmLdt(dt)}` : null, z?.online ? "online zápis" : null].filter((x) => x).join(" · ")} />
             </div>
-            {comp && m && <span className="clickable" style={{ fontSize: 26, color: w ? "#F5A524" : C.Muted }} onClick={() => { const e = vm.toggleWatch(comp, m); if (e) alertless(e); }}>{w ? "★" : "☆"}</span>}
+            {comp && m && (w || vm.canWatch(comp, m)) && <span className="clickable" style={{ fontSize: 26, color: w ? "#F5A524" : C.Muted }} onClick={() => { const e = vm.toggleWatch(comp, m); if (e) alertless(e); }}>{w ? "★" : "☆"}</span>}
           </div>
-          {w ? <WatchControls w={w} /> : <Muted size={12} text="Klepnutím na ☆ utkání sledujete – přijdou upozornění." />}
+          {w ? <WatchControls w={w} /> : comp && m && vm.canWatch(comp, m) ? <Muted size={12} text="Klepnutím na ☆ utkání sledujete – přijdou upozornění." /> : null}
           {!path && <Muted size={13} maxLines={3} text={dt != null && dt > nowLdt() ? "Zápis se objeví po začátku utkání." : "Hledám online zápis… (objevuje se pár minut po začátku)"} />}
         </AppCard>
         {games.length > 0 && (
@@ -237,7 +328,7 @@ export function WatchScreen({ k }: { k: string }) {
             {games.map((g, i) => {
               const h = g.home[0], a = g.away[0];
               const onOpen = !g.doubles && h && a ? () => vm.go({ t: "Duel", aId: h.id ?? "", aName: h.name, bId: a.id ?? "", bName: a.name, pA: st.gameProb[i] }) : null;
-              return <GameRow key={g.no} g={g} pHome={st.gameProb[i]} myHome={myHome} mine={null} onOpen={onOpen} onResult={null} neutral={neutral} />;
+              return <GameRow key={g.no} g={g} pHome={strs.ready ? st.gameProb[i] : 0.5} myHome={myHome} mine={null} onOpen={onOpen} onResult={null} neutral={neutral || !strs.ready} />;
             })}
           </ListCard>
         )}

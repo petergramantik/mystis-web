@@ -119,7 +119,7 @@ export class AppVm {
     const z = path ? this.zapisy.get(path) : undefined;
     const idx = d.key != null ? this.next.findIndex((c) => this.teamKey(c) === d.key) : d.live ?? -1;
     const ctx = idx >= 0 ? this.next[idx] : undefined;
-    const running = !!ctx && ctx.liveNow && this.liveLinks.get(this.teamKey(ctx)) === path && !(z && Live.isZapisFinished(z, this.format));
+    const running = !!ctx && ctx.liveNow && this.liveLinks.get(this.teamKey(ctx)) === path && !(z && this.finished(z));
     if (path && !running) this.go({ t: "ZapisDetail", path, myTeam: d.team ?? ctx?.myTeam.name ?? "" });
     else if (idx >= 0) this.go({ t: "Live", team: idx });
   }
@@ -357,7 +357,7 @@ export class AppVm {
           this.liveUpdated.set(key, Date.now());
           this.notifyLive(link, z);
           const ctx = this.next.find((c) => this.teamKey(c) === key);
-          if (ctx && ctx.liveNow && this.zapisBelongs(z, ctx) && Live.isZapisFinished(z, this.format)) this.loadNext(false);
+          if (ctx && ctx.liveNow && this.zapisBelongs(z, ctx) && this.finished(z)) this.loadNext(false);
           const svaz = Stis.svaz(link);
           const ids = distinct(z.games.flatMap((g) => [...g.homeIds, ...g.awayIds])).filter((id) => id && this.strOf(id, "") == null);
           for (const id of ids.slice(0, 12)) {
@@ -428,19 +428,56 @@ export class AppVm {
   }
 
   // ---------- formát utkání
-  format: MatchFormat = MatchFormats.of(prefs.matchFormat);
-  changeFormat(f: MatchFormat) { prefs.matchFormat = f.key; this.format = f; this.emit(); }
+  /** Automaticky podle soutěže (výchozí), nebo ruční volba v Nastavení. */
+  get formatAuto(): boolean { const k = prefs.matchFormat; return !k || k === "auto"; }
+  /** Formát pro moje družstvo (ruční volba, jinak rozpoznaný ze zápisů soutěže vybraného družstva). */
+  get format(): MatchFormat {
+    if (!this.formatAuto) return MatchFormats.of(prefs.matchFormat);
+    const r = this.next[this.nextSelected]?.myTeam.ref ?? this.next[0]?.myTeam.ref;
+    return (r && this.compFormat(r)) ?? MatchFormats.DEFAULT;
+  }
+  changeFormat(f: MatchFormat | null) { prefs.matchFormat = f ? f.key : "auto"; this.emit(); }
+  compOfPath(path: string): { svaz: string; rocnik: number; soutez: string } | null {
+    const m = /svaz-([^/]+)\/rocnik-(\d+)\/soutez-(\d+)/.exec(path);
+    return m ? { svaz: m[1], rocnik: +m[2], soutez: m[3] } : null;
+  }
+  /** Formát soutěže rozpoznaný z načtených zápisů této soutěže (null = zatím neznámý). */
+  compFormat(c: { svaz: string; soutez: string }): MatchFormat | null {
+    const zs = Array.from(this.zapisy.values()).filter((z) => z.path.includes(`/svaz-${c.svaz}/`) && z.path.includes(`/soutez-${c.soutez}/`));
+    return MatchFormats.detect(zs);
+  }
+  /** Formát pro soutěž: ruční volba, jinak rozpoznaný, jinak výchozí. */
+  formatForComp(c: { svaz: string; soutez: string } | null): MatchFormat {
+    if (!this.formatAuto) return MatchFormats.of(prefs.matchFormat);
+    return (c && this.compFormat(c)) ?? MatchFormats.DEFAULT;
+  }
+  fmtOf(z: Zapis): MatchFormat { return this.formatForComp(this.compOfPath(z.path)); }
+  finished(z: Zapis): boolean { return Live.isZapisFinished(z, this.fmtOf(z)); }
+  private fmtRequested = new Set<string>();
+  /** Pro rozpoznání formátu načte 1–2 dohrané zápisy soutěže. */
+  ensureCompFormat(c: { svaz: string; rocnik: number; soutez: string }, los: LosMatch[]) {
+    if (!this.formatAuto || this.compFormat(c)) return;
+    const k = `${c.svaz}|${c.soutez}`;
+    if (this.fmtRequested.has(k)) return;
+    this.fmtRequested.add(k);
+    for (const m of los.filter((x) => x.played && x.zapisPath && this.scoreFinalAny(x.score)).slice(-2)) this.loadZapis(m.zapisPath);
+  }
+  /** Výsledek vypadá konečně v jakémkoli formátu (pro výběr vzorových zápisů). */
+  private scoreFinalAny(score: string): boolean {
+    const p = /^(\d+):(\d+)$/.exec(score.trim());
+    return !!p && +p[1] + +p[2] >= 5;
+  }
 
   liveFinished(ctx: NextMatchContext): boolean {
     const z = this.liveZapisFor(this.teamKey(ctx));
-    return !!z && this.zapisBelongs(z, ctx) && Live.isZapisFinished(z, this.format);
+    return !!z && this.zapisBelongs(z, ctx) && this.finished(z);
   }
 
   /** Výsledek z rozpisu je konečný (ne průběžný stav): dosažený cíl nebo odehrané všechny hry. */
-  scoreFinal(score: string): boolean {
+  scoreFinal(score: string, fmt: MatchFormat | null = null): boolean {
     const p = /^(\d+):(\d+)$/.exec(score.trim());
     if (!p) return false;
-    const h = +p[1], a = +p[2], f = this.format;
+    const h = +p[1], a = +p[2], f = fmt ?? this.format;
     return (f.target != null && (h >= f.target || a >= f.target)) || h + a >= f.games;
   }
 
@@ -585,7 +622,7 @@ export class AppVm {
   awaitingConfirmation(m: LosMatch): boolean {
     if ((m.played && this.scoreFinal(m.score)) || !m.zapisPath) return false;
     const z = this.zapisy.get(m.zapisPath);
-    return !!z && z.games.length > 0 && Live.isZapisFinished(z, this.format);
+    return !!z && z.games.length > 0 && this.finished(z);
   }
 
   meWithLive(): PlayerPage | null {
@@ -607,7 +644,7 @@ export class AppVm {
       if (x.played) { items.push([x, x.zapisPath]); continue; }
       // dohrané, ale STIS ho ještě nepotvrdil
       const z = x.zapisPath ? this.zapisy.get(x.zapisPath) : undefined;
-      if (z && z.games.length && this.zapisBelongs(z, ctx) && Live.isZapisFinished(z, this.format)) items.push([x, x.zapisPath]);
+      if (z && z.games.length && this.zapisBelongs(z, ctx) && this.finished(z)) items.push([x, x.zapisPath]);
     }
     return items.sort((a, b) => (b[0].dateTime ?? -LDT_MAX) - (a[0].dateTime ?? -LDT_MAX));
   }
@@ -618,7 +655,7 @@ export class AppVm {
     const pending = this.latestPendingZapis(team);
     if (pending) {
       const live = this.myLiveGames(team);
-      const running = !Live.isZapisFinished(pending, this.format);
+      const running = !this.finished(pending);
       const myTeam = this.next.find((c) => this.zapisBelongs(pending, c))?.myTeam.name ?? (live[0]?.home === true ? pending.home : pending.away);
       return { title: running ? "Probíhající utkání" : "Poslední utkání", unofficial: true, live, official: [], zapisPath: pending.path, myTeam, running };
     }
@@ -702,7 +739,7 @@ export class AppVm {
             const ref = refs.find((x) => Stats.fold(x.name) === Stats.fold(r.name));
             if (ref) { try { players = (await this.repo.teamRoster(ref)).players; } catch { /* bez soupisky */ } }
           }
-          const lineup = Stats.suggestLineup(this.fresh(players), this.format.players).map((p) => p.str ?? 0).filter((x) => x > 0);
+          const lineup = Stats.suggestLineup(this.fresh(players), this.formatForComp({ svaz, soutez }).players).map((p) => p.str ?? 0).filter((x) => x > 0);
           const [a, b] = r.score.split(":").map((x) => parseInt(x, 10));
           teams.push({ name: r.name, points: r.points, played: r.played, wins: r.wins, draws: r.draws, losses: r.losses, diff: (a || 0) - (b || 0), lineup });
         }
@@ -712,7 +749,7 @@ export class AppVm {
         for (const t of teams) if (!t.lineup.length) t.lineup = [avgStr];
         this.predProgress = `Simuluji ${future.size} zbývajících utkání…`; this.emit();
         await new Promise((r) => setTimeout(r, 30));
-        this.predictions.set(key, predictSeason(teams, Array.from(future.values()), pointsRule(rows), this.format));
+        this.predictions.set(key, predictSeason(teams, Array.from(future.values()), pointsRule(rows), this.formatForComp({ svaz, soutez })));
       } catch (e) {
         this.predErrors.set(key, err(e));
       } finally {
@@ -790,6 +827,8 @@ export class AppVm {
   }
   /** Název soutěže z nadpisu žebříčku STR („POŘADÍ STR - KSST … - K2C - 2026-2027“). */
   compLabel(c: { svaz: string; rocnik: number; soutez: string }): string | null {
+    // celý název soutěže z hlavičky libovolného zápisu této soutěže
+    for (const z of this.zapisy.values()) if (z.competition.trim() && z.path.includes(`/svaz-${c.svaz}/`) && z.path.includes(`/soutez-${c.soutez}/`)) return z.competition.trim();
     const t = this.strLadders.get(Stis.zebricek(c.svaz, c.rocnik, c.soutez))?.title ?? "";
     const parts = t.split(" - ").map((x) => x.trim()).filter((x) => x);
     return parts.length >= 3 ? parts[parts.length - 2] : null;
@@ -799,6 +838,7 @@ export class AppVm {
     try { extra = JSON.parse(prefs.liveCompsJson); } catch { extra = []; }
     const c: LiveComp = { svaz: ref.svaz, rocnik: ref.rocnik, soutez: ref.soutez, label };
     if (!this.liveComps().some((x) => this.compKey(x) === this.compKey(c))) { extra.push(c); prefs.liveCompsJson = JSON.stringify(extra); }
+    this.liveCompSel = this.compKey(c);
     this.loadStrLadder(c.svaz, c.rocnik, c.soutez);
     this.loadCompLos(c, true);
     this.emit();
@@ -816,6 +856,7 @@ export class AppVm {
     this.compLosLoading.add(k); this.emit();
     this.repo.competitionLos(c, force ? 60_000 : 5 * 60_000).then((l) => {
       this.compLos.set(k, l); this.compLosAt.set(k, Date.now());
+      this.ensureCompFormat(c, l);
       // u sledovaných doplnit odkaz na zápis a čas
       let changed = false;
       const ws = this.watched();
@@ -838,7 +879,24 @@ export class AppVm {
     }
     return null;
   }
-  watched(): Watched[] { try { return JSON.parse(prefs.watchedJson); } catch { return []; } }
+  /** Sledovaná utkání; utkání z minulých dnů se samy vyřadí (uvolní limit). */
+  watched(): Watched[] {
+    let ws: Watched[] = [];
+    try { ws = JSON.parse(prefs.watchedJson); } catch { ws = []; }
+    const td = today();
+    const keep = ws.filter((w) => w.dateTime == null || ldtDate(w.dateTime) >= td);
+    if (keep.length !== ws.length) prefs.watchedJson = JSON.stringify(keep);
+    return keep;
+  }
+  /** Lze utkání ještě sledovat (dnes/zítra a neskončilo)? */
+  canWatch(c: { svaz: string; soutez: string }, m: LosMatch): boolean {
+    if (m.dateTime == null || ldtDate(m.dateTime) < today()) return false;
+    const z = m.zapisPath ? this.zapisy.get(m.zapisPath) : undefined;
+    if (z && z.games.length && this.finished(z)) return false;
+    return !(m.played && this.scoreFinal(m.score, this.formatForComp(c)));
+  }
+  get liveCompSel(): string { return prefs.liveCompSel ?? "all"; }
+  set liveCompSel(v: string) { prefs.liveCompSel = v; }
   private saveWatched(ws: Watched[]) { prefs.watchedJson = JSON.stringify(ws); this.emit(); }
   watchOf(key: string): Watched | null { return this.watched().find((w) => w.key === key) ?? null; }
   /** Přidá / odebere sledování; vrací chybu při překročení limitu. */
@@ -866,7 +924,7 @@ export class AppVm {
     return this.watched().filter((w) => {
       if (w.dateTime == null || w.dateTime < now - 5 * 60 || w.dateTime > now + 30) return false;
       const z = w.zapisPath ? this.zapisy.get(w.zapisPath) : undefined;
-      return !(z && z.games.length && Live.isZapisFinished(z, this.format));
+      return !(z && z.games.length && this.finished(z));
     });
   }
   private watchSearched = new Map<string, number>();
@@ -1061,11 +1119,12 @@ export class AppVm {
         for (const f of finished) this.finishedTeams.add(f);
         const ctx = await this.repo.nextMatches(m, nowLdt(), finished, (s) => this.scoreFinal(s));
         this.next = ctx;
+        for (const c of ctx) if (c.myTeam.ref) this.ensureCompFormat(c.myTeam.ref, c.los);
         for (const c of ctx) {
           const key = this.teamKey(c);
           const z = this.liveZapisFor(key);
           if (!z) continue;
-          if (!c.liveNow && this.zapisBelongs(z, c) && Live.isZapisFinished(z, this.format)) this.liveLinks.delete(key);
+          if (!c.liveNow && this.zapisBelongs(z, c) && this.finished(z)) this.liveLinks.delete(key);
         }
         this.mainTeamIndex = this.defaultTeamIndex(ctx, m);
         if (!this.nextSelectedByUser || this.nextSelected >= ctx.length) this.nextSelected = this.mainTeamIndex;
@@ -1109,7 +1168,7 @@ export class AppVm {
   /** Zápis je načtený, ale utkání ještě není dohrané. */
   zapisRunning(path: string): boolean {
     const z = this.zapisy.get(path);
-    return !!z && !Live.isZapisFinished(z, this.format);
+    return !!z && !this.finished(z);
   }
   /**
    * Načte zápis. Dohraný zápis se bere z mezipaměti (30 dní); rozehraný se stahuje znovu,
@@ -1118,18 +1177,18 @@ export class AppVm {
   loadZapis(path: string, track = false, force = false) {
     if (!path || this.zapisLoading.has(path)) return;
     const have = this.zapisy.get(path);
-    if (have && !force && (Live.isZapisFinished(have, this.format) || Date.now() - (this.zapisFetched.get(path) ?? 0) < 60_000)) return;
+    if (have && !force && (this.finished(have) || Date.now() - (this.zapisFetched.get(path) ?? 0) < 60_000)) return;
     this.zapisLoading.add(path);
     if (track) this.stepsAdd(1, "Načítám zápisy utkání…");
     (async () => {
       try {
         let z = have || force ? null : await this.repo.zapis(path);
-        if (!z || !Live.isZapisFinished(z, this.format)) z = await this.repo.zapis(path, force ? 0 : 60_000) ?? z;
+        if (!z || !this.finished(z)) z = await this.repo.zapis(path, force ? 0 : 60_000) ?? z;
         if (z) {
-          const wasRunning = !!have && !Live.isZapisFinished(have, this.format);
+          const wasRunning = !!have && !this.finished(have);
           this.zapisy.set(path, z); this.zapisFetched.set(path, Date.now());
           this.notifyLive(path, z);
-          if (wasRunning && Live.isZapisFinished(z, this.format) && this.next.some((c) => c.liveNow && this.zapisBelongs(z!, c))) this.loadNext(false);
+          if (wasRunning && this.finished(z) && this.next.some((c) => c.liveNow && this.zapisBelongs(z!, c))) this.loadNext(false);
         }
       } catch { /* detail setů je jen doplněk */ }
       finally {
@@ -1321,7 +1380,7 @@ export class AppVm {
     const myHome = myHomeOrNull ?? true;
     const done = z.games.filter((g) => g.result != null);
     const seen = this.liveSeen.get(path);
-    const finished = Live.isZapisFinished(z, this.format);
+    const finished = this.finished(z);
     const setCount = (g: ZapisGame) => g.sets.length;
     if (!seen) { // první načtení: už dohrané hry a sety neoznamujeme
       this.liveSeen.set(path, new Set(done.map((g) => g.no)));

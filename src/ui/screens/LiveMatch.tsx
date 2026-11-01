@@ -9,7 +9,7 @@ import { nowLdt } from "../../core/dates";
 import {
   AppCard, BigNumber, C, Divider, Empty, ListCard, Loading, Muted, NavyHeader, OButton, PrimaryButton, ProbBar, SectionTitle, Segmented,
   StatTile, T, TextField, TileRow, dec1,
-  SetsLine, CountdownRing, PredictionText,
+  SetsLine, CountdownRing, PredictionText, TeamName,
 } from "../components";
 import { hhmm, hhmmLdt } from "../fmt";
 
@@ -31,7 +31,7 @@ export function LiveScreen({ team }: { team: number }) {
   const followed = useRef<{ path: string; team: string } | null>(null);
   if (found && ctx && (!followed.current || followed.current.path !== found)) followed.current = { path: found, team: ctx.myTeam.name };
   const fz = followed.current ? vm.zapisy.get(followed.current.path) : undefined;
-  const followedDone = !!fz && fz.games.length > 0 && Live.isZapisFinished(fz, vm.format);
+  const followedDone = !!fz && fz.games.length > 0 && vm.finished(fz);
   // dohráno -> místo živého utkání celý zápis (zpět vede na předchozí obrazovku)
   useEffect(() => {
     if (followedDone && followed.current && mode === "zapis") vm.replace({ t: "ZapisDetail", path: followed.current.path, myTeam: followed.current.team });
@@ -58,7 +58,7 @@ export function LiveScreen({ team }: { team: number }) {
     // každou sekundu kontrola, zda od poslední aktualizace uplynula minuta (sedí s odpočtem v kolečku)
     const id = setInterval(() => {
       const zz = vm.liveZapisFor(tk);
-      if (zz && Live.isZapisFinished(zz, vm.format)) { clearInterval(id); return; }
+      if (zz && vm.finished(zz)) { clearInterval(id); return; }
       if (!vm.liveLoadingKeys.get(tk) && Date.now() - (vm.liveUpdated.get(tk) ?? 0) >= LIVE_PERIOD) vm.loadLive(tk, path, true);
     }, 1000);
     return () => clearInterval(id);
@@ -115,7 +115,7 @@ export function LiveScreen({ team }: { team: number }) {
       dbl(pH, homeRoster, 1), dbl(pH, homeRoster, 2), dbl(pA, awayRoster, 1), dbl(pA, awayRoster, 2),
       vm.manualResultsFor(tk), vm.format.players, vm.format.doubles);
   }
-  const st = Live.evaluate(games, vm.format);
+  const st = Live.evaluate(games, z ? vm.fmtOf(z) : vm.format);
   const mine = new Map<number, MyLiveGame>();
   if (me.currentStr != null) for (const g of LiveTimeline.timeline(games, me.id, me.name, me.currentStr)) mine.set(g.game.no, g);
   const loading = vm.liveLoadingKeys.get(tk) === true;
@@ -137,13 +137,13 @@ export function LiveScreen({ team }: { team: number }) {
             {found && (!showField || manualLink) && (
               <div className="row g12">
                 <div className="col w1">
-                  <T semi size={14}>{z && Live.isZapisFinished(z, vm.format) ? "Utkání dohráno" : loading ? "Aktualizuji…" : "Sleduji online zápis"}</T>
+                  <T semi size={14}>{z && vm.finished(z) ? "Utkání dohráno" : loading ? "Aktualizuji…" : "Sleduji online zápis"}</T>
                   <Muted size={13} text={updated > 0 ? `${loaded?.online ? "online · " : ""}aktualizováno ${hhmm(updated)}` : "načítám zápis…"} />
                 </div>
                 <span className="clickable" onClick={() => setManualLink((x) => !x)} style={{ flex: "none", fontSize: 13, fontWeight: 600, color: C.Blue }}>{manualLink ? "Skrýt odkaz" : "Odkaz"}</span>
               </div>
             )}
-            {found && !(z && Live.isZapisFinished(z, vm.format)) && (
+            {found && !(z && vm.finished(z)) && (
               <div className="col g4">
                 <Muted text="Upozornění" size={12} />
                 <LiveModeSwitch onError={(e) => vm.liveErrors.set(tk, e)} />
@@ -195,7 +195,7 @@ export function LiveScreen({ team }: { team: number }) {
   );
 }
 
-export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = false }: { st: LiveState; myHome: boolean; homeName: string; awayName: string; empty: boolean; neutral?: boolean }) {
+export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = false, emptyText }: { st: LiveState; myHome: boolean; homeName: string; awayName: string; empty: boolean; neutral?: boolean; emptyText?: string }) {
   const my = myHome ? st.home : st.away, opp = myHome ? st.away : st.home;
   const pWin = myHome ? st.pHomeWin : st.pAwayWin, pLoss = myHome ? st.pAwayWin : st.pHomeWin;
   // nejpravděpodobnější konečný výsledek, pořadí domácí : hosté jako velké skóre
@@ -203,11 +203,11 @@ export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = f
   return (
     <NavyHeader>
       <div className="row">
-        <T bold color="#fff" lines={2} style={{ flex: 1 }}>{homeName}</T>
+        <TeamName name={homeName} />
         <BigNumber text={`${st.home} : ${st.away}`} color="#fff" size={48} style={{ padding: "0 10px", whiteSpace: "nowrap" }} />
-        <T bold color="#fff" lines={2} end style={{ flex: 1 }}>{awayName}</T>
+        <TeamName name={awayName} end />
       </div>
-      {empty ? <Muted color={C.MutedOnNavy} size={13} text="Zatím nejsou známé sestavy – šance se ukáže, až bude zápis nebo ruční sestavy." maxLines={3} /> : <>
+      {empty ? <Muted color={C.MutedOnNavy} size={13} text={emptyText ?? "Zatím nejsou známé sestavy – šance se ukáže, až bude zápis nebo ruční sestavy."} maxLines={3} /> : <>
       {/* dlaždice pod družstvem, kterého se týkají: moje šance na výhru na mé straně */}
       {neutral ? <TileRow>
         <StatTile label="Domácí" value={Stats.pct(st.pHomeWin)} dark />
@@ -357,7 +357,7 @@ export function LiveTopRing({ team, fallback }: { team: number; fallback: ReactN
   const tk = ctx ? vm.teamKey(ctx) : "";
   const link = ctx ? vm.liveLinks.get(tk) : undefined;
   const z = ctx ? vm.liveZapisFor(tk) : null;
-  if (!ctx || !link || (z && Live.isZapisFinished(z, vm.format))) return <>{fallback}</>;
+  if (!ctx || !link || (z && vm.finished(z))) return <>{fallback}</>;
   return (
     <div style={{ width: 44, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
       <CountdownRing dark next={(vm.liveUpdated.get(tk) ?? 0) + LIVE_PERIOD} period={LIVE_PERIOD} busy={vm.liveLoadingKeys.get(tk) === true} onClick={() => vm.loadLive(tk, link, true)} />

@@ -196,9 +196,13 @@ export function SettingsScreen() {
       <AppCard>
         <T bold>Formát utkání</T>
         <Muted size={13} maxLines={3} text="Podle formátu se sestavují ruční sestavy, počítá šance na výhru a pozná konec utkání." />
+        <div className="radio" onClick={() => vm.changeFormat(null)}>
+          <div className={"c" + (vm.formatAuto ? " on" : "")} />
+          <span>{`Automaticky podle soutěže${vm.formatAuto ? ` (teď: ${MatchFormats.short(vm.format)})` : ""}`}</span>
+        </div>
         {MatchFormats.ALL.map((f) => (
           <div key={f.key} className="radio" onClick={() => vm.changeFormat(f)}>
-            <div className={"c" + (vm.format.key === f.key ? " on" : "")} />
+            <div className={"c" + (!vm.formatAuto && vm.format.key === f.key ? " on" : "")} />
             <span>{f.label}</span>
           </div>
         ))}

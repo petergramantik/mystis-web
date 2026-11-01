@@ -14,6 +14,30 @@ export const MatchFormats = {
   ] as MatchFormat[],
   get DEFAULT() { return MatchFormats.ALL[0]; },
   of(key: string | null | undefined): MatchFormat { return MatchFormats.ALL.find((f) => f.key === key) ?? MatchFormats.ALL[0]; },
+  /** Krátký popis formátu („18 her · do 10“). */
+  short(f: MatchFormat): string { return `${f.games} her · ${f.target != null ? `do ${f.target}` : "hrají se všechny"}`; },
+  /**
+   * Rozpozná formát soutěže z dohraných zápisů: počet her (řádky zápisu), čtyřhry, hráči (dvouhry = hráči²)
+   * a cíl – zápis skončený dřív než po všech hrách dává cíl, skóre nad polovinu+1 znamená „hrají se všechny“.
+   */
+  detect(zs: Zapis[]): MatchFormat | null {
+    const done = zs.filter((z) => z.games.length >= 4 && z.games.some((g) => g.result != null));
+    if (!done.length) return null;
+    const games = Math.max(...done.map((z) => z.games.length));
+    const doubles = Math.max(...done.map((z) => z.games.filter((g) => g.doubles).length));
+    const players = Math.max(1, Math.round(Math.sqrt(games - doubles)));
+    let target: number | null | undefined = undefined;
+    for (const z of done) {
+      const h = z.games.filter((g) => g.result === 1).length, a = z.games.filter((g) => g.result === -1).length;
+      const unplayed = z.games.filter((g) => g.result == null).length;
+      if (unplayed > 0 && h + a > 0 && z.games.filter((g) => g.result == null && g.sets.length === 0).length === unplayed && Math.max(h, a) * 2 > games) { target = Math.max(h, a); break; }
+      if (unplayed === 0 && Math.max(h, a) > Math.floor(games / 2) + 1) target = null;
+    }
+    if (target === undefined) target = games === 18 ? 10 : games === 10 ? 6 : games === 5 ? 3 : Math.floor(games / 2) + 1;
+    const known = MatchFormats.ALL.find((f) => f.games === games && f.target === target);
+    if (known) return known;
+    return { key: `auto_${games}_${target ?? "all"}`, label: `${players} hráči · ${games} her · ${target != null ? `do ${target} bodů` : "hrají se všechny"}`, players, games, doubles, target };
+  },
 };
 
 export interface ZapisPlayerStat { id: string | null; name: string; home: boolean; singlesWon: number; singlesLost: number; doublesWon: number; doublesLost: number }

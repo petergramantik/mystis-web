@@ -565,7 +565,7 @@ function CardForecast({ ctx, oppName, oppRef, oppRoster, home }: {
 function LiveMini({ ctx }: { ctx: NextMatchContext }) {
   const z = vm.liveZapisFor(vm.teamKey(ctx));
   if (!z || !z.games.length || !vm.zapisBelongs(z, ctx)) return <ForecastBox><Muted text="Čekám na online zápis…" color="#D6E1FA" size={13} /></ForecastBox>;
-  const st = Live.evaluate(Live.fromZapis(z, (id, n) => vm.strOf(id, n), (id, n) => vm.rangeOf(id, n)), vm.format);
+  const st = Live.evaluate(Live.fromZapis(z, (id, n) => vm.strOf(id, n), (id, n) => vm.rangeOf(id, n)), vm.fmtOf(z));
   const mh = vm.zapisMyHome(z, ctx);
   const my = mh ? st.home : st.away, op = mh ? st.away : st.home;
   const win = mh ? st.pHomeWin : st.pAwayWin, loss = mh ? st.pAwayWin : st.pHomeWin;

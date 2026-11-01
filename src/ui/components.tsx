@@ -514,3 +514,17 @@ export function PredictionText({ hs, as_, myHome, size = 13, dark = false, cente
     </T>
   );
 }
+
+/** Zkrácený název družstva: běžné zkratky (TJ, SK, KST, …) místo dlouhých tvarů. */
+export function shortTeam(name: string): string {
+  return name
+    .replace(/Tělovýchovná jednota/gi, "TJ").replace(/Tělocvičná jednota/gi, "TJ")
+    .replace(/Sportovní klub/gi, "SK").replace(/Klub stolního tenisu/gi, "KST")
+    .replace(/Tělocvičná jednota Sokol/gi, "TJ Sokol").replace(/\s{2,}/g, " ").trim();
+}
+/** Název družstva v hlavičce: zkratky, až 3 řádky, u dlouhých menší písmo (bez ořezání). */
+export function TeamName({ name, end = false, bold = true }: { name: string; end?: boolean; bold?: boolean }) {
+  const n = shortTeam(name);
+  const size = n.length > 26 ? 13 : n.length > 18 ? 14 : 16;
+  return <T bold={bold} color="#fff" size={size} lines={3} end={end} style={{ flex: 1, wordBreak: "break-word" }}>{n}</T>;
+}

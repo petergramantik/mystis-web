@@ -195,7 +195,7 @@ function TeamStats({ results, ctxName, zMyHome }: {
   let surprise: { p: number; text: string; path: string } | null = null;
   for (const { z, mh } of zs) {
     const games = Live.fromZapis(z, (id, n) => vm.strOf(id, n), (id, n) => vm.rangeOf(id, n));
-    const st = Live.evaluate(games, vm.format);
+    const st = Live.evaluate(games, vm.fmtOf(z));
     games.forEach((g, i) => {
       if (g.result == null) return;
       const won = (g.result === 1) === mh;

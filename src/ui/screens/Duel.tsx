@@ -10,7 +10,7 @@ import { roundScore } from "../../core/search";
 import { HallCard } from "../hall";
 import {
   AppCard, BigNumber, C, DMY, Divider, Empty, HeaderPlayer, KeyValue, ListCard, Loading, Muted, NavyHeader, ProbBar, ResultBadge, SectionTitle, T, dec1, signedInt,
-  SetsLine,
+  SetsLine, TeamName,
 } from "../components";
 
 /** [pA0] = šance hráče A převzatá z živého utkání (stejný výpočet jako v seznamu her). */
@@ -136,11 +136,11 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
       <NavyHeader>
         <Muted text={[z.competition, z.round.trim() ? `${z.round}. kolo` : null].filter((x) => x && x.trim()).join(" · ")} color={C.MutedOnNavy} size={13} />
         <div className="row">
-          <T color="#fff" bold={myHome} lines={2} style={{ flex: 1 }}>{z.home}</T>
+          <TeamName name={z.home} bold={myHome} />
           <BigNumber text={`${hPts} : ${aPts}`} color="#fff" size={44} style={{ padding: "0 10px", whiteSpace: "nowrap" }} />
-          <T color="#fff" bold={!myHome} lines={2} end style={{ flex: 1 }}>{z.away}</T>
+          <TeamName name={z.away} bold={!myHome} end />
         </div>
-        {Live.isZapisFinished(z, vm.format)
+        {vm.finished(z)
           ? <T bold color={my > op ? C.WinLight : my < op ? C.Peach : "#fff"}>{(my > op ? "Výhra" : my < op ? "Prohra" : "Remíza") + (z.online ? " · online zápis" : "")}</T>
           : <T bold color="#C4B5FD">{`Probíhá · stav ${hPts} : ${aPts}` + (z.online ? " · online zápis" : "")}</T>}
       </NavyHeader>
@@ -277,7 +277,7 @@ function PredictionCard({ path, myHome, isMe }: { path: string; myHome: boolean;
   if (!strs.ready) return <>{title}<AppCard><Loading text={`Načítám STR hráčů… (${strs.done}/${strs.total})`} /></AppCard></>;
 
   const games = Live.fromZapis(z, strs.strOf, (id, n) => vm.rangeOf(id, n));
-  const st = Live.evaluate(games, vm.format);
+  const st = Live.evaluate(games, vm.fmtOf(z));
   const played = games.map((g, i) => [g, st.gameProb[i]] as const).filter(([g]) => g.result != null);
   const hExp = sum(played.map(([, p]) => p));
   const [hTotal, aTotal] = roundScore(hExp, played.length - hExp);
