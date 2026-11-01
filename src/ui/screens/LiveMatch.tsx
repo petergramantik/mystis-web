@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { SupportStrip } from "../support";
 import { SoundUnlockBar } from "../soundbar";
 import { vm } from "../../app/vm";
 import { LiveModeSwitch } from "./Records";
@@ -196,6 +197,7 @@ export function LiveScreen({ team }: { team: number }) {
             {z == null && <div><OButton text="Vymazat zadané výsledky" onClick={() => vm.clearManualResults(tk)} /></div>}
           </>
         )}
+        <SupportStrip />
         <div style={{ height: 8 }} />
       </div>
     </div>

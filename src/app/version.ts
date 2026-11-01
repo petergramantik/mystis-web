@@ -1,10 +1,17 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.2";
+export const APP_VERSION = "2.3";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.3", date: "1. 11. 2026", title: "Podpora vývoje",
+    items: [
+      "Nenápadná karta „Podpořit vývoj“ dole na Přehledu, u živého utkání a zápisu (50 Kč, 200 Kč, vlastní částka)",
+      "QR Platba pro bankovní aplikaci a číslo účtu ke zkopírování; karta jde na rok skrýt",
+    ],
+  },
   {
     version: "2.2", date: "1. 11. 2026", title: "Sdílení",
     items: [

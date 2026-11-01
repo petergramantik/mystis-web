@@ -1,5 +1,6 @@
 // Živě: utkání vybraného dne ve sledovaných soutěžích, sledování utkání (max. 5) s vlastním upozorněním,
 // a obrazovka sledovaného (cizího) utkání.
+import { SupportStrip } from "../support";
 import { useEffect, useState } from "react";
 import { vm, MAX_WATCHED, type LiveComp, type Watched } from "../../app/vm";
 import { Stis, type LosMatch, type TeamRef } from "../../core/models";
@@ -395,6 +396,7 @@ export function WatchScreen({ k, shared }: { k: string; shared?: string }) {
             })}
           </ListCard>
         )}
+        <SupportStrip />
         <div style={{ height: 8 }} />
       </div>
     </div>

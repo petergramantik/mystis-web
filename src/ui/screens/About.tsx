@@ -1,4 +1,5 @@
 // O aplikaci: verze, autor, novinky po verzích, zdroj dat, soukromí, zvuky, kontrola aktualizace.
+import { SupportStrip } from "../support";
 import { useState } from "react";
 import { APP_VERSION, AUTHOR, RELEASES } from "../../app/version";
 import { AppCard, C, Muted, OButton, SectionTitle, T } from "../components";
@@ -44,6 +45,8 @@ export function AboutScreen() {
         </div>
         {msg && <Muted text={msg} size={13} color={C.Ink} />}
       </AppCard>
+
+      <SupportStrip always />
 
       <AppCard>
         <T bold>Sdílet aplikaci</T>

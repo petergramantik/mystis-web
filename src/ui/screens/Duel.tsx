@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { SupportStrip } from "../support";
 import { useZapisRefresh } from "../zapis";
 import { vm } from "../../app/vm";
 import { Stis, type Match, type PlayerPage, type ZapisGame } from "../../core/models";
@@ -214,6 +215,7 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
           })}
         </ListCard>
         <Muted size={12} text={`Klepnutím na dvouhru otevřete vzájemné zápasy hráčů. ${single.length} dvouher, ${z.games.length - single.length} čtyřhry.`} />
+        <SupportStrip />
         <div style={{ height: 8 }} />
       </div>
     </div>

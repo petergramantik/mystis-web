@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { SupportStrip } from "../support";
 import { vm, S } from "../../app/vm";
 import { Clubs, Stis, type LosMatch } from "../../core/models";
 import { Stats, StrModel, sum } from "../../core/stats";
@@ -223,7 +224,8 @@ export function OverviewScreen() {
           {recent.map((m, i) => <MatchRow key={i + m.opponentKey + m.seq} m={m} onClick={() => vm.go({ t: "H2H", key: m.opponentKey })} />)}
         </ListCard>
       </div>
-      <Muted text={`Data: stis.ping-pong.cz${vm.loadingMe || vm.loadingClub ? " · aktualizuji…" : ""}${vm.clubProgress ? " · " + vm.clubProgress : ""}`} size={12} style={{ paddingLeft: 20, paddingBottom: 20 }} />
+      <Muted text={`Data: stis.ping-pong.cz${vm.loadingMe || vm.loadingClub ? " · aktualizuji…" : ""}${vm.clubProgress ? " · " + vm.clubProgress : ""}`} size={12} style={{ paddingLeft: 20, paddingBottom: 12 }} />
+      <div className="px16" style={{ paddingBottom: 20 }}><SupportStrip /></div>
     </div>
   );
 }

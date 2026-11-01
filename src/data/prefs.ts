@@ -65,6 +65,9 @@ export const prefs = {
   get watchedJson() { return get("watched") ?? "[]"; },
   set watchedJson(v: string) { set("watched", v); },
   /** Karta Výkon proti predikci v zápisu sbalená. */
+  /** Karta podpory skrytá do (ms). */
+  get supportHiddenUntil() { return Number(get("support_hidden_until") ?? 0) || 0; },
+  set supportHiddenUntil(v: number) { set("support_hidden_until", String(v)); },
   get predCollapsed() { return get("pred_collapsed") === "true"; },
   set predCollapsed(v: boolean) { set("pred_collapsed", String(v)); },
   set matchFormat(v: string | null) { set("match_format", v); },
