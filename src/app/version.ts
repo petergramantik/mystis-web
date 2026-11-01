@@ -1,10 +1,14 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.3";
+export const APP_VERSION = "2.3.1";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.3.1", date: "1. 11. 2026", title: "Oprava horní lišty",
+    items: ["Na obrazovkách se sdílením je nadpis zarovnaný doleva, aby se nezkracoval"],
+  },
   {
     version: "2.3", date: "1. 11. 2026", title: "Podpora vývoje",
     items: [

@@ -122,9 +122,8 @@ function Root() {
     <>
       <div className={"topbar" + (dark ? " dark" : "")}>
         {canBack() ? <button className="iconbtn" onClick={goBack} aria-label="Zpět"><Icon name="back" /></button> : <div className="spacer44" />}
-        <div className="spacer44" />
-        {opts.length > 0 && <div className="spacer44" />}
-        <div className="title">{title(screen)}</div>
+        {opts.length === 0 && <div className="spacer44" />}
+        <div className="title" style={opts.length ? { textAlign: "left", paddingLeft: 8 } : undefined}>{title(screen)}</div>
         {opts.length > 0 ? <button className="iconbtn" onClick={() => { if (opts.length === 1) void opts[0].run(); else setSheet("share"); }} aria-label="Sdílet"><Icon name="share" /></button> : null}
         {(() => {
           const refresh = guest ? <div className="spacer44" /> : <button className="iconbtn" onClick={() => vm.refreshAll()} aria-label="Obnovit data"><Icon name="refresh" /></button>;
