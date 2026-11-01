@@ -1,10 +1,17 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.8.3";
+export const APP_VERSION = "2.8.4";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.8.4", date: "2. 11. 2026", title: "Kontumace (WO)",
+    items: [
+      "Kontumované hry (WO) v zápisu i živém utkání: „nenastoupil(a)“, nepočítají se do predikcí, výkonu ani odhadu STR; v bilanci hráčů řádek WO jako na STIS",
+      "Průběžný stav u her v zápisu podle sloupce Body ze STIS (nezapočtená hra = „čeká na započtení“)",
+    ],
+  },
   {
     version: "2.8.3", date: "2. 11. 2026", title: "Poslední utkání a tlačítko Zpět",
     items: [

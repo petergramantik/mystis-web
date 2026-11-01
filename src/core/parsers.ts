@@ -525,6 +525,8 @@ export const Parsers = {
           hp.map((x) => x[1]), ap.map((x) => x[1]),
           tds.slice(5, 10).map((x) => toIntOrNull(t(x))).filter((x): x is number => x != null),
           toIntOrNull(t(tds[10])), toIntOrNull(t(tds[11])),
+          tds.slice(5, 10).some((x) => /^\s*w\.?\s*o\.?\s*$/i.test(t(x))),
+          tds.length > 13 ? toIntOrNull(t(tds[12])) : null, tds.length > 13 ? toIntOrNull(t(tds[13])) : null,
         ));
       }
     }

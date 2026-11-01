@@ -277,6 +277,11 @@ export class ZapisGame extends Data {
     public sets: number[],
     public homeSets: number | null,
     public awaySets: number | null,
+    /** kontumace (WO) – soupeř nenastoupil */
+    public wo = false,
+    /** průběžné skóre utkání po této hře podle STIS (sloupec Body), null = nevyplněno */
+    public bodyHome: number | null = null,
+    public bodyAway: number | null = null,
   ) { super(); }
   get doubles() { return this.homeIds.length > 1 || this.awayIds.length > 1 || this.homeNames.length > 1 || this.awayNames.length > 1; }
   /** 1 = vyhráli domácí, -1 = hosté, null = ještě se nehrálo / hraje se */

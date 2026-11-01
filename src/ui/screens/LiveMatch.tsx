@@ -355,9 +355,9 @@ export function GameRow({ g, pHome, myHome, mine, onOpen, onResult, neutral = fa
         <div className="row g10">
           <T bold color={C.Muted} style={{ width: 28, flex: "none" }}>{g.no}.</T>
           <div className="col w1">
-            <T size={14} bold={neutral ? g.result === 1 : myHome} lines={1}>{g.home.length ? g.home.map((p) => p.name).join(" + ") : <span style={{ color: C.Muted }}>{slot?.[0] ?? "?"}</span>}</T>
-            <T size={14} bold={neutral ? g.result === -1 : !myHome} lines={1}>{g.away.length ? g.away.map((p) => p.name).join(" + ") : <span style={{ color: C.Muted }}>{slot?.[1] ?? "?"}</span>}</T>
-            {g.sets.length > 0 && <SetsLine sets={g.sets} myHome={myHome} neutral={neutral} />}
+            <T size={14} bold={neutral ? g.result === 1 : myHome} lines={1}>{g.home.length ? g.home.map((p) => p.name).join(" + ") : <span style={{ color: C.Muted, fontStyle: g.wo ? "italic" : undefined }}>{g.wo ? "nenastoupil(a)" : slot?.[0] ?? "?"}</span>}</T>
+            <T size={14} bold={neutral ? g.result === -1 : !myHome} lines={1}>{g.away.length ? g.away.map((p) => p.name).join(" + ") : <span style={{ color: C.Muted, fontStyle: g.wo ? "italic" : undefined }}>{g.wo ? "nenastoupil(a)" : slot?.[1] ?? "?"}</span>}</T>
+            {g.wo ? <Muted text="WO – kontumace" size={11} maxLines={1} /> : g.sets.length > 0 && <SetsLine sets={g.sets} myHome={myHome} neutral={neutral} />}
           </div>
           <div className={"col" + (onResult ? " clickable" : "")} style={{ alignItems: "flex-end", padding: onResult ? 4 : 0 }}
             onClick={onResult ? (e) => { e.stopPropagation(); onResult(); } : undefined}>{right}</div>

@@ -293,7 +293,7 @@ function TeamStats({ results, ctxName, zMyHome, noZapisy, zCount = 0 }: {
     const games = Live.fromZapis(z, (id, n) => vm.strOf(id, n), (id, n) => vm.rangeOf(id, n));
     const st = Live.evaluate(games, vm.fmtOf(z));
     games.forEach((g, i) => {
-      if (g.result == null) return;
+      if (g.result == null || g.wo) return;
       const won = (g.result === 1) === mh;
       const p = mh ? st.gameProb[i] : 1 - st.gameProb[i];
       predSum += p; actSum += won ? 1 : 0;

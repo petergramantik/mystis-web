@@ -153,7 +153,7 @@ export async function matchImage(z: Zapis): Promise<Blob> {
   for (const gm of games) {
     const r = gm.result;
     txt(g, `${gm.no}.`, 60, y + 40, { size: 26, color: C.Muted });
-    const hn = gm.homeNames.map(short).join(" + ") || "—", an = gm.awayNames.map(short).join(" + ") || "—";
+    const hn = gm.homeNames.map(short).join(" + ") || (gm.wo ? "nenastoupil(a) · WO" : "—"), an = gm.awayNames.map(short).join(" + ") || (gm.wo ? "nenastoupil(a) · WO" : "—");
     txt(g, hn, 120, y + 40, { size: 27, weight: r === 1 ? 700 : 400, color: C.Ink, max: 360 });
     txt(g, "–", 500, y + 40, { size: 27, color: C.Muted, align: "center" });
     txt(g, an, 530, y + 40, { size: 27, weight: r === -1 ? 700 : 400, color: C.Ink, max: 360 });

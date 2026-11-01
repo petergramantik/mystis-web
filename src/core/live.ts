@@ -108,6 +108,8 @@ export class LiveGame extends Data {
     public sets: number[] = [],
     public homeSets: number | null = null,
     public awaySets: number | null = null,
+    /** kontumace (WO): do skóre se počítá, do predikcí, výkonu a STR ne */
+    public wo = false,
   ) { super(); }
   get doubles() { return this.home.length > 1 || this.away.length > 1; }
   get inProgress() { return this.result == null && ((this.homeSets ?? 0) + (this.awaySets ?? 0) > 0 || this.sets.length > 0); }
@@ -154,7 +156,7 @@ export const Live = {
         const r = rangeOf(id, n);
         return { ...lp(id, n, strOf(id, n)), strMin: r?.[0] ?? null, strMax: r?.[1] ?? null };
       });
-      return new LiveGame(gm.no, side(gm.homeIds, gm.homeNames), side(gm.awayIds, gm.awayNames), gm.result, gm.sets, gm.homeSets, gm.awaySets);
+      return new LiveGame(gm.no, side(gm.homeIds, gm.homeNames), side(gm.awayIds, gm.awayNames), gm.result, gm.sets, gm.homeSets, gm.awaySets, gm.wo);
     });
   },
 
@@ -225,6 +227,17 @@ export const Live = {
     for (const gm of z.games) {
       const r = gm.result;
       if (r == null) continue;
+      // kontumace: jako na STIS řádek „WO“ za každou stranu
+      if (gm.wo) {
+        for (const home of [true, false]) {
+          const key = (home ? "H:" : "A:") + "WO";
+          const p = map.get(key) ?? { id: null, name: "WO", home, singlesWon: 0, singlesLost: 0, doublesWon: 0, doublesLost: 0 };
+          const q = { ...p };
+          if ((r === 1) === home) q.singlesWon++; else q.singlesLost++;
+          map.set(key, q);
+        }
+        continue;
+      }
       for (const home of [true, false]) {
         const ids = home ? gm.homeIds : gm.awayIds;
         const names = home ? gm.homeNames : gm.awayNames;
@@ -334,7 +347,7 @@ export const Live = {
 
     const keys = new Map<string, PlayerLive>();
     games.forEach((gm, i) => {
-      if (gm.doubles) return;
+      if (gm.doubles || gm.wo) return;
       for (const isHome of [true, false]) {
         const me = (isHome ? gm.home : gm.away)[0];
         if (!me) continue;
@@ -382,7 +395,7 @@ export const LiveTimeline = {
     let cur = startStr;
     const out: MyLiveGame[] = [];
     for (const gm of games) {
-      if (gm.doubles) continue;
+      if (gm.doubles || gm.wo) continue;
       const h = gm.home[0], a = gm.away[0];
       if (!h || !a) continue;
       let home: boolean;

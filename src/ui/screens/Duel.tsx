@@ -132,6 +132,7 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
   }
   const my = myHome ? hPts : aPts, op = myHome ? aPts : hPts;
   const stats = Live.playerStats(z);
+  const anyBody = z.games.some((g) => g.bodyHome != null);
   const zc = vm.compOfPath(path);
   const openZTeam = (id: string | null, name: string) => { if (zc && id) vm.openTeam({ id, name, ...zc }, z.competition); };
   let h = 0, a = 0;
@@ -186,6 +187,9 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
           {z.games.map((g) => {
             if (g.result === 1) h++; else if (g.result === -1) a++;
             const runH = h, runA = a;
+            // průběžný stav: sloupec Body ze STIS (pokud ho zápis má), jinak dopočet z výsledků her
+            const stav = anyBody ? (g.bodyHome != null && g.bodyAway != null ? `stav ${g.bodyHome}:${g.bodyAway}` : "čeká na započtení") : `stav ${runH}:${runA}`;
+            const noShow = <span style={{ color: C.Muted, fontStyle: "italic" }}>nenastoupil(a)</span>;
             const singleGame = !g.doubles && g.homeNames.length > 0 && g.awayNames.length > 0;
             const iWon = g.result != null && (g.result === 1) === myHome;
             const mine = g.homeNames.some((n, i) => isMe(g.homeIds[i], n)) || g.awayNames.some((n, i) => isMe(g.awayIds[i], n));
@@ -196,15 +200,15 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
                   <div className="row g10">
                     <T bold color={C.Muted} style={{ width: 28, flex: "none" }}>{g.no}.</T>
                     <div className="col w1">
-                      <T size={14} lines={1}>{names(g.homeNames, g.homeIds, g.result === 1)}</T>
-                      <T size={14} lines={1}>{names(g.awayNames, g.awayIds, g.result === -1)}</T>
-                      {g.sets.length > 0 && <SetsLine sets={g.sets} myHome={myHome} />}
+                      <T size={14} lines={1}>{g.wo && !g.homeNames.length ? noShow : names(g.homeNames, g.homeIds, g.result === 1)}</T>
+                      <T size={14} lines={1}>{g.wo && !g.awayNames.length ? noShow : names(g.awayNames, g.awayIds, g.result === -1)}</T>
+                      {g.wo ? <Muted text="WO – kontumace (do STR ani predikcí se nepočítá)" size={11} maxLines={1} /> : g.sets.length > 0 && <SetsLine sets={g.sets} myHome={myHome} />}
                     </div>
                     <div className="col" style={{ alignItems: "flex-end" }}>
                       {g.result != null ? (
                         <>
                           <T bold color="#fff" style={{ background: C.result(iWon), borderRadius: 8, padding: "3px 8px" }}>{`${g.homeSets ?? "-"}:${g.awaySets ?? "-"}`}</T>
-                          <Muted text={`stav ${runH}:${runA}`} size={11} />
+                          <Muted text={stav} size={11} />
                         </>
                       ) : <Muted text="nehráno" size={12} />}
                     </div>
@@ -290,7 +294,7 @@ function PredictionCard({ path, myHome, isMe }: { path: string; myHome: boolean;
 
   const games = Live.fromZapis(z, strs.strOf, (id, n) => vm.rangeOf(id, n));
   const st = Live.evaluate(games, vm.fmtOf(z));
-  const played = games.map((g, i) => [g, st.gameProb[i]] as const).filter(([g]) => g.result != null);
+  const played = games.map((g, i) => [g, st.gameProb[i]] as const).filter(([g]) => g.result != null && !g.wo);
   const hExp = sum(played.map(([, p]) => p));
   const [hTotal, aTotal] = roundScore(hExp, played.length - hExp);
 

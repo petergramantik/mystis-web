@@ -283,6 +283,17 @@ async function main() {
   check("zapis online flag", zl.online);
   const zn = Parsers.zapis('<table class="zapis_H"><tr><td>x</td></tr></table><table class="zapis"><tr><td>6.</td><td>Novák Jan</td><td>-</td><td>Dvořák Petr</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>', "/z")!;
   check("zapis no links", zn.games.length === 1 && J(zn.games[0].homeNames) === J(["Novák Jan"]) && zn.games[0].result == null, () => J(zn.games));
+  // kontumace (WO) a sloupec Body
+  const zw = Parsers.zapis('<table class="zapis_H"><tr><td>x</td></tr></table><table class="zapis">'
+    + '<tr><td>1.</td><td><a data-id="1">Zalewska Julia</a></td><td></td><td></td><td></td><td>WO</td><td></td><td></td><td></td><td></td><td>3</td><td>0</td><td>1</td><td>0</td></tr>'
+    + '<tr><td>2.</td><td><a data-id="2">Vašendová Jana</a></td><td></td><td><a data-id="3">Li Pei-Rong</a></td><td></td><td>9</td><td>13</td><td>-9</td><td>9</td><td></td><td>3</td><td>1</td><td>2</td><td>0</td></tr>'
+    + '<tr><td>9.</td><td><a data-id="4">Vožická Eliška</a></td><td></td><td><a data-id="3">Li Pei-Rong</a></td><td></td><td>-3</td><td>-6</td><td>-8</td><td></td><td></td><td>0</td><td>3</td><td></td><td></td></tr></table>', "/z")!;
+  check("zapis WO", zw.games[0].wo && zw.games[0].result === 1 && !zw.games[1].wo && zw.games[0].awayNames.length === 0, () => J(zw.games));
+  check("zapis body", zw.games[1].bodyHome === 2 && zw.games[1].bodyAway === 0 && zw.games[2].bodyHome == null, () => J(zw.games));
+  const wst = Live.playerStats(zw);
+  check("WO stats", wst.some((x) => x.name === "WO" && x.home && x.singlesWon === 1) && !wst.some((x) => x.name === "Zalewska Julia"), () => J(wst));
+  const wev = Live.evaluate(Live.fromZapis(zw, () => 1500));
+  check("WO no STR", !wev.players.some((x) => x.name === "Zalewska Julia") && wev.home === 2 && wev.away === 1, () => J(wev.players));
   const lg = Live.fromZapis(z, (id) => (id === "43944" ? 1445 : 1434));
   check("fromZapis", lg.length === 1 && lg[0].result === 1 && lg[0].away[0].str === 1445, () => J(lg));
 
