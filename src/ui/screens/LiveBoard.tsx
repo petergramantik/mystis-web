@@ -2,7 +2,7 @@
 // a obrazovka sledovaného (cizího) utkání.
 import { SupportStrip } from "../support";
 import { useEffect, useState } from "react";
-import { vm, MAX_WATCHED, type LiveComp, type Watched } from "../../app/vm";
+import { vm, type BoardStatus, MAX_WATCHED, type LiveComp, type Watched } from "../../app/vm";
 import { Stis, type LosMatch, type TeamRef } from "../../core/models";
 import { Stats } from "../../core/stats";
 import { Live, MatchFormats } from "../../core/live";
@@ -15,28 +15,8 @@ import { useZapisStr } from "./Duel";
 import { useZapisRefresh } from "../zapis";
 import { SoundUnlockBar } from "../soundbar";
 
-type Status = { kind: "future" | "live" | "done"; text: string; h: number | null; a: number | null; sub?: string };
-
-/** Stav utkání: konečný výsledek, průběžný stav (z rozpisu nebo zápisu), nebo čas začátku. */
-function statusOf(c: LiveComp, m: LosMatch): Status {
-  const z = m.zapisPath ? vm.zapisy.get(m.zapisPath) : undefined;
-  const fmt = vm.formatForComp(c);
-  const now = nowLdt();
-  const sm = /^(\d+)\s*:\s*(\d+)$/.exec(m.score);
-  if (z && z.games.length) {
-    const [h, a] = vm.scoreOf(z);
-    if (vm.finished(z)) return { kind: "done", text: `${h} : ${a}`, h, a };
-    return { kind: "live", text: `${h} : ${a}`, h, a, sub: `${z.games.filter((g) => g.result != null).length}/${Math.max(z.games.length, fmt.games)} her` };
-  }
-  if (sm) {
-    const h = +sm[1], a = +sm[2];
-    if (vm.scoreFinal(m.score, fmt)) return { kind: "done", text: `${h} : ${a}`, h, a };
-    if (m.dateTime != null && m.dateTime > now - 5 * 60) return { kind: "live", text: `${h} : ${a}`, h, a };
-    return { kind: "done", text: `${h} : ${a}`, h, a };
-  }
-  if (m.dateTime != null && m.dateTime <= now && m.dateTime > now - 5 * 60) return { kind: "live", text: "začalo", h: null, a: null };
-  return { kind: "future", text: m.dateTime != null ? hhmmLdt(m.dateTime) : m.dateText, h: null, a: null };
-}
+type Status = BoardStatus;
+const statusOf = (c: LiveComp, m: LosMatch): Status => vm.boardStatus(c, m);
 
 /** Barva výsledku z pohledu fandění (domácí výchozí); null = neutrálně. */
 function scoreColor(st: Status, fan: Watched["fan"] | "home"): string {

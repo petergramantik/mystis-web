@@ -21,12 +21,11 @@ export function MatchesScreen() {
   );
 }
 
-/** Tlačítko Živě: červená tečka a počet dnešních utkání ve sledovaných soutěžích. */
+/** Tlačítko Živě: červená tečka a počet právě probíhajících utkání ve sledovaných soutěžích. */
 function LiveButton({ on, onClick }: { on: boolean; onClick: () => void }) {
   const comps = vm.liveComps();
   useEffect(() => { for (const c of comps) vm.loadCompLos(c); }, [comps.length]);
-  const td = today();
-  const n = comps.reduce((s, c) => s + (vm.compLos.get(vm.compKey(c)) ?? []).filter((m) => m.dateTime != null && ldtDate(m.dateTime) === td).length, 0);
+  const n = vm.boardTodayCounts().live;
   return (
     <button className={"chip" + (on ? " on" : "")} onClick={onClick} style={{ height: 40, borderRadius: 12, display: "flex", alignItems: "center", gap: 6 }}>
       <span style={{ width: 8, height: 8, borderRadius: 4, background: n > 0 ? "#E5484D" : C.Grey, display: "inline-block" }} />

@@ -168,9 +168,10 @@ export function OverviewScreen() {
           const first = pick ?? ups[0];
           const mins = first.dateTime - nowLdt();
           const when = mins <= 60 ? `Za ${Math.max(1, mins)} min` : `Dnes živě ve ${hhmmLdt(first.dateTime)}`;
-          const text = pick ? `○ ${when}: ${shortTeam(pick.home)} – ${shortTeam(pick.away)}`
+          const text = (pick ? `○ ${when}: ${shortTeam(pick.home)} – ${shortTeam(pick.away)}`
             : mins <= 60 ? `○ ${when}: ${shortTeam(first.home)} – ${shortTeam(first.away)}${ups.length > 1 ? ` (+${ups.length - 1})` : ""}`
-              : `○ Dnes živě: ${ups.length} utkání, první ve ${hhmmLdt(first.dateTime)}`;
+              : `○ Dnes živě: ${ups.length} utkání, první ve ${hhmmLdt(first.dateTime)}`)
+            + (vm.boardTodayCounts().done > 0 ? ` · dohráno ${vm.boardTodayCounts().done}` : "");
           return (
             <div className="row clickable" style={{ background: C.Blue, color: "#fff", borderRadius: 12, padding: "8px 12px" }}
               onClick={() => { vm.matchesTab = "zive"; vm.liveOnlyWatched = false; vm.liveDay = 0; vm.tab(S.Matches); }}>
@@ -182,11 +183,24 @@ export function OverviewScreen() {
         {(vm.watchedRunning().length > 0 || vm.boardLiveCount() > 0) && (() => {
           const w = vm.watchedRunning().length, all = vm.boardLiveCount();
           const utk = (n: number) => (n === 1 ? "utkání" : "utkání");
-          const text = w > 0 ? `● Živě: ${w} ${w === 1 ? "sledované" : w < 5 ? "sledovaná" : "sledovaných"}${all > 0 ? ` · ${all} ${utk(all)} celkem` : ""}` : `● Živě: ${all} ${utk(all)} ve vašich soutěžích`;
+          const done = vm.boardTodayCounts().done;
+          const text = (w > 0 ? `● Živě: ${w} ${w === 1 ? "sledované" : w < 5 ? "sledovaná" : "sledovaných"}${all > 0 ? ` · ${all} ${utk(all)} celkem` : ""}` : `● Živě: ${all} ${utk(all)} ve vašich soutěžích`)
+            + (done > 0 ? ` · dohráno ${done}` : "");
           return (
             <div className="row clickable" style={{ background: C.Live, color: "#fff", borderRadius: 12, padding: "8px 12px" }}
               onClick={() => { vm.matchesTab = "zive"; vm.liveOnlyWatched = w > 0; vm.liveDay = 0; vm.tab(S.Matches); }}>
               <T bold size={14} color="#fff" style={{ flex: 1 }}>{text}</T>
+              <T bold color="#fff">›</T>
+            </div>
+          );
+        })()}
+        {vm.watchedRunning().length === 0 && vm.boardLiveCount() === 0 && vm.boardUpcomingToday().length === 0 && vm.boardTodayCounts().done > 0 && (() => {
+          // dnes už se dohrálo: výsledky zůstanou do půlnoci
+          const n = vm.boardTodayCounts().done;
+          return (
+            <div className="row clickable" style={{ background: C.Navy2, color: "#fff", borderRadius: 12, padding: "8px 12px" }}
+              onClick={() => { vm.matchesTab = "zive"; vm.liveOnlyWatched = false; vm.liveDay = 0; vm.tab(S.Matches); }}>
+              <T bold size={14} color="#fff" style={{ flex: 1 }}>{`✓ Dnes dohráno ${n} ${n === 1 ? "utkání" : "utkání"} · výsledky`}</T>
               <T bold color="#fff">›</T>
             </div>
           );

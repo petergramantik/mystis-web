@@ -23,6 +23,8 @@ export interface Watched {
 export const MAX_WATCHED = 5;
 
 /** Obrazovky aplikace (vlastní navigace se zásobníkem). */
+export type BoardStatus = { kind: "future" | "live" | "done"; text: string; h: number | null; a: number | null; sub?: string };
+
 export type Screen =
   | { t: "Overview" } | { t: "Ladder" } | { t: "Str" } | { t: "Matches" } | { t: "Opponents" }
   | { t: "Club"; name: string } | { t: "H2H"; key: string } | { t: "NextMatch" } | { t: "Captain" }
@@ -1063,20 +1065,42 @@ export class AppVm {
   }
   private deltaPageAsked = new Map<string, number>();
   /** Počet právě probíhajících utkání ve všech soutěžích na obrazovce Živě. */
-  boardLiveCount(): number {
+  /** Stav utkání na přehledu Živě: konečný výsledek, průběžný stav (z rozpisu nebo zápisu), nebo čas začátku. */
+  boardStatus(c: { svaz: string; soutez: string }, m: LosMatch): BoardStatus {
+    const z = m.zapisPath ? this.zapisy.get(m.zapisPath) : undefined;
+    const fmt = this.formatForComp(c);
     const now = nowLdt();
-    let n = 0;
-    for (const c of this.liveComps()) {
-      const f = this.formatForComp(c);
-      for (const m of this.compLos.get(this.compKey(c)) ?? []) {
-        if (m.dateTime == null || m.dateTime > now || m.dateTime < now - 5 * 60) continue;
-        const z = m.zapisPath ? this.zapisy.get(m.zapisPath) : undefined;
-        if (z && z.games.length ? Live.isZapisFinished(z, f) : m.played && this.scoreFinal(m.score, f)) continue;
-        n++;
-      }
+    const sm = /^(\d+)\s*:\s*(\d+)$/.exec(m.score);
+    if (z && z.games.length) {
+      const [h, a] = this.scoreOf(z);
+      if (this.finished(z)) return { kind: "done", text: `${h} : ${a}`, h, a };
+      return { kind: "live", text: `${h} : ${a}`, h, a, sub: `${z.games.filter((g) => g.result != null).length}/${Math.max(z.games.length, fmt.games)} her` };
     }
-    return n;
+    if (sm) {
+      const h = +sm[1], a = +sm[2];
+      if (this.scoreFinal(m.score, fmt)) return { kind: "done", text: `${h} : ${a}`, h, a };
+      if (m.dateTime != null && m.dateTime > now - 5 * 60) return { kind: "live", text: `${h} : ${a}`, h, a };
+      return { kind: "done", text: `${h} : ${a}`, h, a };
+    }
+    const hm = (t: number) => `${String(ldtHour(t)).padStart(2, "0")}:${String(ldtMinute(t)).padStart(2, "0")}`;
+    if (m.dateTime != null && m.dateTime <= now && m.dateTime > now - 5 * 60) return { kind: "live", text: "začalo", h: null, a: null };
+    return { kind: "future", text: m.dateTime != null ? hm(m.dateTime) : m.dateText, h: null, a: null };
   }
+  /** Počty dnešních utkání ve sledovaných soutěžích podle stavu (stejně jako na přehledu Živě). */
+  boardTodayCounts(): { live: number; done: number; future: number; total: number } {
+    const td = today();
+    const out = { live: 0, done: 0, future: 0, total: 0 };
+    const seen = new Set<string>();
+    for (const c of this.liveComps()) for (const m of this.compLos.get(this.compKey(c)) ?? []) {
+      if (m.dateTime == null || ldtDate(m.dateTime) !== td) continue;
+      const k = this.boardKey(c, m);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out[this.boardStatus(c, m).kind]++; out.total++;
+    }
+    return out;
+  }
+  boardLiveCount(): number { return this.boardTodayCounts().live; }
   /** Sledovaná utkání, která právě probíhají (−5 h … +30 min od začátku, zápis ještě neskončil). */
   watchedRunning(): Watched[] {
     const now = nowLdt();
