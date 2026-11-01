@@ -1195,7 +1195,10 @@ export class AppVm {
     return this.watched().filter((w) => {
       if (w.dateTime == null || w.dateTime < now - 5 * 60 || w.dateTime > now + 30) return false;
       const z = w.zapisPath ? this.zapisy.get(w.zapisPath) : undefined;
-      return !(z && z.games.length && this.finished(z));
+      if (z && z.games.length) return !this.finished(z);
+      // zápis není načtený: rozhodne stav z rozpisu soutěže (stejně jako přehled Živě)
+      const f = this.boardMatch(w.key);
+      return !f || this.boardStatus(f.comp, f.m).kind !== "done";
     });
   }
   private watchSearched = new Map<string, number>();
