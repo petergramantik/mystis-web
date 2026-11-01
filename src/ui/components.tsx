@@ -183,8 +183,17 @@ export function TileRow({ children }: { children: ReactNode }) { return <div cla
 export function ResultBadge({ won, text, wide }: { won: boolean; text: string; wide?: boolean }) {
   return <div className={"badge" + (wide ? " wide" : "")} style={{ background: C.result(won) }}>{text}</div>;
 }
+/** Forma V/P: ikonky se rovnoměrně rozdělí do šířky (vždy jeden řádek), čtvercové, max. 40 px. */
 export function FormDots({ results }: { results: boolean[] }) {
-  return <div className="row g6" style={{ flexWrap: "wrap" }}>{results.map((w, i) => <ResultBadge key={i} won={w} text={w ? "V" : "P"} />)}</div>;
+  const n = Math.max(results.length, 8);
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${n}, minmax(0, 40px))`, gap: 6 }}>
+      {results.map((w, i) => (
+        <div key={i} style={{ aspectRatio: "1", background: C.result(w), borderRadius: "28%", color: "#fff", fontWeight: 700,
+          display: "flex", alignItems: "center", justifyContent: "center", fontSize: "clamp(11px, 3.4vw, 14px)" }}>{w ? "V" : "P"}</div>
+      ))}
+    </div>
+  );
 }
 
 export function Chips({ options, selected, onSelect, style }: { options: [string, string][]; selected: string; onSelect: (k: string) => void; style?: CSSProperties }) {
@@ -326,15 +335,13 @@ export function MatchRow({ m, onClick, showDate = true }: { m: Match; onClick: (
           </div>
         ) : <ResultBadge won={m.won} text={m.won ? "V" : "P"} />}
         <div className="col w1">
-          <T semi size={16} lines={1}>
-            {m.opponent}
-            {m.oppStrBefore != null && (() => {
-              // STR soupeře v době zápasu a rozdíl proti mému tehdejšímu STR (+ = soupeř silnější)
-              const d = m.strBefore != null ? m.oppStrBefore - m.strBefore : null;
-              const col = d == null ? C.Muted : m.won && d >= 50 ? C.Win : !m.won && d <= -50 ? C.OrangeText : C.Muted;
-              return <span style={{ fontWeight: 500, fontSize: 13, color: C.Muted }}>{` · ${m.oppStrBefore}`}{d != null && <span style={{ color: col, fontWeight: 600 }}>{` (${signedInt(d)})`}</span>}</span>;
-            })()}
-          </T>
+          <T semi size={16} lines={1}>{m.opponent}</T>
+          {m.oppStrBefore != null && (() => {
+            // STR soupeře v době zápasu a rozdíl proti mému tehdejšímu STR (+ = soupeř silnější), vždy celé
+            const d = m.strBefore != null ? m.oppStrBefore - m.strBefore : null;
+            const col = d == null ? C.Muted : m.won && d >= 50 ? C.Win : !m.won && d <= -50 ? C.OrangeText : C.Muted;
+            return <div style={{ fontSize: 13, color: C.Muted, whiteSpace: "nowrap" }}>{`STR ${m.oppStrBefore}`}{d != null && <span style={{ color: col, fontWeight: 600 }}>{` (${signedInt(d)})`}</span>}</div>;
+          })()}
           <Muted text={m.opponentTeam} maxLines={1} />
           {m.unofficial && <T size={11} bold color={C.Live}>neoficiální · odhad STR</T>}
         </div>

@@ -1282,6 +1282,12 @@ export class AppVm {
         if (z) {
           const wasRunning = !!have && !this.finished(have);
           this.zapisy.set(path, z); this.zapisFetched.set(path, Date.now());
+          // nepotvrzený zápis mého družstva: dočíst stránky hráčů bez známého STR (STR soupeře u neoficiálních zápasů)
+          if (this.next.some((c) => this.zapisBelongs(z!, c)) && !this.me?.matches.some((m) => m.zapisPath === path)) {
+            const svaz = Stis.svaz(path);
+            const ids = distinct(z.games.flatMap((g) => [...g.homeIds, ...g.awayIds])).filter((id) => id && this.strOf(id, "") == null);
+            for (const id of ids.slice(0, 12)) this.loadPlayer(svaz != null ? `/hrac-${id}/svaz-${svaz}/rocnik-${Stis.currentRocnik()}` : `/hrac-${id}`);
+          }
           const zc = this.compOfPath(path);
           if (zc) { const l = this.losForComp(zc); if (l) queueMicrotask(() => this.ensureCompFormat(zc, l)); }
           this.notifyLive(path, z);
