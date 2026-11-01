@@ -4,13 +4,13 @@ import { vm } from "../../app/vm";
 import { LiveModeSwitch } from "./Records";
 import type { RosterPlayer } from "../../core/models";
 import { Stats, maxBy } from "../../core/stats";
-import { Live, LiveTimeline, lp, type LiveGame, type LivePlayer, type LiveState, type MyLiveGame, type PlayerLive } from "../../core/live";
+import { Live, MatchFormats, LiveTimeline, lp, type LiveGame, type LivePlayer, type LiveState, type MyLiveGame, type PlayerLive } from "../../core/live";
 import { roundScore } from "../../core/search";
 import { nowLdt } from "../../core/dates";
 import {
   AppCard, BigNumber, C, Divider, Empty, ListCard, Loading, Muted, NavyHeader, OButton, PrimaryButton, ProbBar, SectionTitle, Segmented,
   StatTile, T, TextField, TileRow, dec1,
-  SetsLine, CountdownRing, PredictionText, TeamName,
+  SetsLine, CountdownRing, PredictionText, TeamName, shortTeam,
 } from "../components";
 import { hhmm, hhmmLdt } from "../fmt";
 
@@ -117,6 +117,8 @@ export function LiveScreen({ team }: { team: number }) {
       vm.manualResultsFor(tk), vm.format.players, vm.format.doubles);
   }
   const st = Live.evaluate(games, z ? vm.fmtOf(z) : vm.format);
+  const pending = !!z && lineupsPending(games);
+  const slots = z ? vm.singlesKeyFor(z) : null;
   const mine = new Map<number, MyLiveGame>();
   if (me.currentStr != null) for (const g of LiveTimeline.timeline(games, me.id, me.name, me.currentStr)) mine.set(g.game.no, g);
   const loading = vm.liveLoadingKeys.get(tk) === true;
@@ -128,7 +130,10 @@ export function LiveScreen({ team }: { team: number }) {
 
   return (
     <div className="col g12">
-      <ScoreHeader st={st} myHome={myHome} homeName={homeName} awayName={awayName} empty={!games.length} />
+      <ScoreHeader st={st} myHome={myHome} homeName={homeName} awayName={awayName} empty={!games.length || pending}
+        emptyText={pending ? "Sestavy dvouher zatím nejsou zapsané – predikce se ukáže po jejich doplnění." : undefined}
+        comp={{ text: [ctx.myTeam.competition, ctx.next?.round ? `${ctx.next.round}. kolo` : null, MatchFormats.short(z ? vm.fmtOf(z) : vm.format)].filter((x) => x).join(" · "),
+          onClick: ctx.myTeam.ref ? () => vm.openCompetition(ctx.myTeam.ref!, ctx.myTeam.competition || ctx.myTeam.name, ctx.myTeam.name, "tabulka") : undefined }} />
       <div className="col g12 px16">
         <SoundUnlockBar />
         <Muted text={`Utkání družstva ${ctx.myTeam.name}`} size={13} />
@@ -183,7 +188,7 @@ export function LiveScreen({ team }: { team: number }) {
                 const h = g.home[0], a = g.away[0];
                 const onOpen = !g.doubles && h && a ? () => vm.go({ t: "Duel", aId: h.id ?? "", aName: h.name, bId: a.id ?? "", bName: a.name, pA: st.gameProb[i] }) : null;
                 const onResult = z == null ? () => vm.toggleManualResult(tk, g.no) : null;
-                return <GameRow key={g.no} g={g} pHome={st.gameProb[i]} myHome={myHome} mine={mine.get(g.no) ?? null} onOpen={onOpen} onResult={onResult} />;
+                return <GameRow key={g.no} g={g} pHome={st.gameProb[i]} myHome={myHome} mine={mine.get(g.no) ?? null} onOpen={onOpen} onResult={onResult} slot={slots?.get(g.no) ?? null} />;
               })}
             </ListCard>
             <PlayersCard title="Vaši hráči" list={st.players.filter((p) => p.home === myHome)} finished={st.finished} />
@@ -197,13 +202,36 @@ export function LiveScreen({ team }: { team: number }) {
   );
 }
 
-export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = false, emptyText }: { st: LiveState; myHome: boolean; homeName: string; awayName: string; empty: boolean; neutral?: boolean; emptyText?: string }) {
+export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = false, emptyText, comp }: {
+  st: LiveState; myHome: boolean; homeName: string; awayName: string; empty: boolean; neutral?: boolean; emptyText?: string;
+  /** soutěž · kolo · formát nad družstvy; klepnutí = tabulka */
+  comp?: { text: string; onClick?: () => void } | null;
+}) {
   const my = myHome ? st.home : st.away, opp = myHome ? st.away : st.home;
   const pWin = myHome ? st.pHomeWin : st.pAwayWin, pLoss = myHome ? st.pAwayWin : st.pHomeWin;
   // nejpravděpodobnější konečný výsledek, pořadí domácí : hosté jako velké skóre
   const [a, b] = st.likely;
+  // při posunu dolů zmenšená hlavička přichycená pod horní lištou
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    const on = () => setCompact(window.scrollY > 230);
+    on(); window.addEventListener("scroll", on, { passive: true });
+    return () => window.removeEventListener("scroll", on);
+  }, []);
+  const pct = empty ? null : neutral ? Stats.pct(st.pHomeWin) : Stats.pct(pWin);
   return (
+    <>
+    {compact && (
+      <div className="row g8 clickable" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        style={{ position: "fixed", top: 56, left: 0, right: 0, zIndex: 19, background: C.Navy, color: "#fff", padding: "8px 16px", boxShadow: "0 4px 12px rgba(0,0,0,0.25)" }}>
+        <T bold size={13} color="#fff" lines={1} style={{ flex: 1, textAlign: "right" }}>{shortTeam(homeName)}</T>
+        <T bold size={20} color="#fff" style={{ whiteSpace: "nowrap", flex: "none" }}>{`${st.home} : ${st.away}`}</T>
+        <T bold size={13} color="#fff" lines={1} style={{ flex: 1 }}>{shortTeam(awayName)}</T>
+        {pct && <T bold size={13} color={neutral ? "#fff" : pWin >= 0.5 ? C.WinLight : C.Peach} style={{ flex: "none" }}>{pct}</T>}
+      </div>
+    )}
     <NavyHeader>
+      {comp && <span className={comp.onClick ? "clickable" : undefined} onClick={comp.onClick} style={{ color: C.MutedOnNavy, fontSize: 13 }}>{comp.text}{comp.onClick ? " ›" : ""}</span>}
       <div className="row">
         <TeamName name={homeName} />
         <BigNumber text={`${st.home} : ${st.away}`} color="#fff" size={48} style={{ padding: "0 10px", whiteSpace: "nowrap" }} />
@@ -225,12 +253,25 @@ export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = f
         : <div className="row g8" style={{ flexWrap: "wrap" }}><PredictionText hs={a} as_={b} myHome={neutral ? null : myHome} dark /><Muted color={C.MutedOnNavy} size={13} text={`· odehráno ${st.played} z ${st.games.length}`} /></div>}
       </>}
     </NavyHeader>
+    </>
   );
 }
 
-export function GameRow({ g, pHome, myHome, mine, onOpen, onResult, neutral = false }: { g: LiveGame; pHome: number; myHome: boolean; mine: MyLiveGame | null; onOpen: (() => void) | null; onResult: (() => void) | null; neutral?: boolean }) {
+/** Hraje se dvouhra, u které ještě nejsou zapsaní hráči (sestavy dvouher se doplňují až po čtyřhrách)? */
+export function lineupsPending(games: LiveGame[]): boolean {
+  return games.some((g) => g.result == null && (g.home.length === 0 || g.away.length === 0));
+}
+
+export function GameRow({ g, pHome, myHome, mine, onOpen, onResult, neutral = false, slot = null }: {
+  g: LiveGame; pHome: number; myHome: boolean; mine: MyLiveGame | null; onOpen: (() => void) | null; onResult: (() => void) | null; neutral?: boolean;
+  /** klíč dvouhry [A–D, X–W] pro hru bez zapsaných hráčů */
+  slot?: [string, string] | null;
+}) {
   let right;
-  if (g.result == null) {
+  const unknown = g.result == null && (g.home.length === 0 || g.away.length === 0);
+  if (unknown) {
+    right = <Muted text="čeká na sestavu" size={11} maxLines={1} />;
+  } else if (g.result == null) {
     const myP = myHome ? pHome : 1 - pHome;
     // favorit: jméno a jeho šance; zeleně můj hráč, oranžově soupeř
     const favHome = pHome >= 0.5;
@@ -264,8 +305,8 @@ export function GameRow({ g, pHome, myHome, mine, onOpen, onResult, neutral = fa
         <div className="row g10">
           <T bold color={C.Muted} style={{ width: 28, flex: "none" }}>{g.no}.</T>
           <div className="col w1">
-            <T size={14} bold={neutral ? g.result === 1 : myHome} lines={1}>{g.home.map((p) => p.name).join(" + ")}</T>
-            <T size={14} bold={neutral ? g.result === -1 : !myHome} lines={1}>{g.away.map((p) => p.name).join(" + ")}</T>
+            <T size={14} bold={neutral ? g.result === 1 : myHome} lines={1}>{g.home.length ? g.home.map((p) => p.name).join(" + ") : <span style={{ color: C.Muted }}>{slot?.[0] ?? "?"}</span>}</T>
+            <T size={14} bold={neutral ? g.result === -1 : !myHome} lines={1}>{g.away.length ? g.away.map((p) => p.name).join(" + ") : <span style={{ color: C.Muted }}>{slot?.[1] ?? "?"}</span>}</T>
             {g.sets.length > 0 && <SetsLine sets={g.sets} myHome={myHome} neutral={neutral} />}
           </div>
           <div className={"col" + (onResult ? " clickable" : "")} style={{ alignItems: "flex-end", padding: onResult ? 4 : 0 }}

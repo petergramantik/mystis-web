@@ -446,12 +446,18 @@ export class AppVm {
   /** Formát soutěže rozpoznaný z načtených zápisů této soutěže (null = zatím neznámý). */
   compFormat(c: { svaz: string; soutez: string }): MatchFormat | null { return this.compFormatInfo(c).fmt; }
   /** Rozpoznání ze zápisů soutěže z minulých dnů (dnešní mohou být rozehrané). */
-  compFormatInfo(c: { svaz: string; soutez: string; rocnik?: number }) {
+  compFormatInfo(c: { svaz: string; soutez: string; rocnik?: number }) { return MatchFormats.detectInfo(this.compPastZapisy(c)); }
+  /** Načtené zápisy soutěže z minulých dnů (dnešní mohou být rozehrané). */
+  compPastZapisy(c: { svaz: string; soutez: string; rocnik?: number }): Zapis[] {
     const td = today();
-    const zs = Array.from(this.zapisy.values()).filter((z) => z.path.includes(`/svaz-${c.svaz}/`) && z.path.includes(`/soutez-${c.soutez}/`)
+    return Array.from(this.zapisy.values()).filter((z) => z.path.includes(`/svaz-${c.svaz}/`) && z.path.includes(`/soutez-${c.soutez}/`)
       && (c.rocnik == null || z.path.includes(`/rocnik-${c.rocnik}/`)))
       .filter((z) => { const d = Parsers.date(z.dateText); return d == null || d < td; });
-    return MatchFormats.detectInfo(zs);
+  }
+  /** Klíč pořadí dvouher pro zápis (z dohraných zápisů soutěže, jinak standardní). */
+  singlesKeyFor(z: Zapis): Map<number, [string, string]> {
+    const c = this.compOfPath(z.path);
+    return MatchFormats.singlesKey(c ? this.compPastZapisy(c) : [], this.fmtOf(z));
   }
   /** Formát pro soutěž: ruční volba, jinak rozpoznaný, jinak výchozí. */
   formatForComp(c: { svaz: string; soutez: string } | null): MatchFormat {

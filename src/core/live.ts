@@ -59,6 +59,34 @@ export const MatchFormats = {
     return { fmt, certain, votes: all + weakAll + upTo };
   },
   detect(zs: Zapis[]): MatchFormat | null { return MatchFormats.detectInfo(zs).fmt; },
+  /**
+   * Klíč pořadí dvouher: číslo hry -> [písmeno domácího, písmeno hosta] (A–D proti X–W).
+   * Z dohraného zápisu soutěže (pořadí, v jakém hráči nastupují), jinak standardní klíč.
+   */
+  singlesKey(zs: Zapis[], fmt: MatchFormat): Map<number, [string, string]> {
+    const HL = "ABCDEF", AL = "XYZWUV";
+    for (const z of zs) {
+      const singles = [...z.games].filter((g) => !g.doubles && g.homeNames.length === 1 && g.awayNames.length === 1).sort((a, b) => a.no - b.no);
+      if (singles.length < fmt.players * fmt.players) continue;
+      const hs: string[] = [], as: string[] = [];
+      const out = new Map<number, [string, string]>();
+      for (const g of singles) {
+        const h = Stats.fold(g.homeNames[0]), a = Stats.fold(g.awayNames[0]);
+        if (!hs.includes(h)) hs.push(h);
+        if (!as.includes(a)) as.push(a);
+        out.set(g.no, [HL[hs.indexOf(h)] ?? "?", AL[as.indexOf(a)] ?? "?"]);
+      }
+      if (hs.length === fmt.players && as.length === fmt.players) return out;
+    }
+    // standardní klíč (4 hráči: AX BY CZ DW AY BX CW DZ AZ BW CX DY AW BZ CY DX), jinak kolový
+    const p = fmt.players;
+    const pairs: [number, number][] = p === 4
+      ? [[0, 0], [1, 1], [2, 2], [3, 3], [0, 1], [1, 0], [2, 3], [3, 2], [0, 2], [1, 3], [2, 0], [3, 1], [0, 3], [1, 2], [2, 1], [3, 0]]
+      : Array.from({ length: p }, (_, r) => Array.from({ length: p }, (_, i) => [i, (i + r) % p] as [number, number])).flat();
+    const out = new Map<number, [string, string]>();
+    pairs.forEach(([i, j], k) => out.set(fmt.doubles + k + 1, [HL[i], AL[j]]));
+    return out;
+  },
 };
 
 export interface ZapisPlayerStat { id: string | null; name: string; home: boolean; singlesWon: number; singlesLost: number; doublesWon: number; doublesLost: number }

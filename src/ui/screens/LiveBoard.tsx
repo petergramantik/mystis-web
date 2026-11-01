@@ -9,7 +9,7 @@ import { ldtDate, nowLdt, today } from "../../core/dates";
 import type { SearchClub } from "../../core/search";
 import { AppCard, Avatar, C, Chips, Divider, Empty, ListCard, Loading, Muted, OButton, Segmented, Spinner, T, shortTeam } from "../components";
 import { hhmmLdt } from "../fmt";
-import { GameRow, ScoreHeader } from "./LiveMatch";
+import { GameRow, ScoreHeader, lineupsPending } from "./LiveMatch";
 import { useZapisStr } from "./Duel";
 import { useZapisRefresh } from "../zapis";
 import { SoundUnlockBar } from "../soundbar";
@@ -356,18 +356,22 @@ export function WatchScreen({ k }: { k: string }) {
   const st = Live.evaluate(games, z ? vm.fmtOf(z) : vm.format);
   const comp = found?.comp ?? (w ? { svaz: w.svaz, rocnik: w.rocnik, soutez: w.soutez, label: w.compLabel } as LiveComp : null);
   const dt = m?.dateTime ?? w?.dateTime ?? null;
+  const pending = !!z && lineupsPending(games);
+  const slots = z ? vm.singlesKeyFor(z) : null;
+  const compName = comp ? vm.compLabel(comp) ?? comp.label : "";
   return (
     <div className="col g12">
-      <ScoreHeader st={st} myHome={myHome} homeName={home} awayName={away} empty={!games.length || !strs.ready} neutral={neutral}
-        emptyText={games.length && !strs.ready ? `Načítám STR hráčů… (${strs.done}/${strs.total})` : undefined} />
+      <ScoreHeader st={st} myHome={myHome} homeName={home} awayName={away} empty={!games.length || !strs.ready || pending} neutral={neutral}
+        emptyText={pending ? "Sestavy dvouher zatím nejsou zapsané – predikce se ukáže po jejich doplnění." : games.length && !strs.ready ? `Načítám STR hráčů… (${strs.done}/${strs.total})` : undefined}
+        comp={comp ? { text: [compName, m?.round ? `${m.round}. kolo` : null].filter((x) => x).join(" · "),
+          onClick: () => vm.openCompetition({ id: "", name: "", svaz: comp.svaz, rocnik: comp.rocnik, soutez: comp.soutez }, compName, "", "tabulka") } : null} />
       <div className="col g12 px16">
         <SoundUnlockBar />
         <AppCard>
           <div className="row">
             <div className="col w1">
-              <T semi size={14}>{comp ? vm.compLabel(comp) ?? comp.label : ""}</T>
               {comp && <FormatBadge c={comp} />}
-              <Muted size={12} text={[m?.round ? `${m.round}. kolo` : null, dt != null ? `začátek ${hhmmLdt(dt)}` : null, z?.online ? "online zápis" : null].filter((x) => x).join(" · ")} />
+              <Muted size={12} text={[dt != null ? `začátek ${hhmmLdt(dt)}` : null, z?.online ? "online zápis" : null].filter((x) => x).join(" · ")} />
             </div>
             {comp && m && (w || vm.canWatch(comp, m)) && <span className="clickable" style={{ fontSize: 26, color: w ? "#F5A524" : C.Muted }} onClick={() => { const e = vm.toggleWatch(comp, m); if (e) alertless(e); }}>{w ? "★" : "☆"}</span>}
           </div>
@@ -379,7 +383,7 @@ export function WatchScreen({ k }: { k: string }) {
             {games.map((g, i) => {
               const h = g.home[0], a = g.away[0];
               const onOpen = !g.doubles && h && a ? () => vm.go({ t: "Duel", aId: h.id ?? "", aName: h.name, bId: a.id ?? "", bName: a.name, pA: st.gameProb[i] }) : null;
-              return <GameRow key={g.no} g={g} pHome={strs.ready ? st.gameProb[i] : 0.5} myHome={myHome} mine={null} onOpen={onOpen} onResult={null} neutral={neutral || !strs.ready} />;
+              return <GameRow key={g.no} g={g} pHome={strs.ready ? st.gameProb[i] : 0.5} myHome={myHome} mine={null} onOpen={onOpen} onResult={null} neutral={neutral || !strs.ready} slot={slots?.get(g.no) ?? null} />;
             })}
           </ListCard>
         )}
