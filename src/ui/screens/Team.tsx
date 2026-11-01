@@ -107,9 +107,9 @@ export function TeamScreen({ team }: { team: number }) {
         <ListCard>
           {!roster.length && <Empty text="Soupiska není k dispozici." />}
           {[...roster].sort((a, b) => (b.str ?? 0) - (a.str ?? 0)).map((p, i) => {
-            const page = p.path ? vm.players.get(p.path) : undefined;
-            const sez = page ? strPoints(page, "sez") : [];
-            const change = sez.length >= 2 ? sez[sez.length - 1][1] - sez[0][1] : p.strChange;
+            const mine0 = !!me && (p.id === me.id || Stats.fold(p.name) === Stats.fold(me.name));
+            const page = mine0 ? me! : p.path ? vm.players.get(p.path) : undefined;
+            const change = (page ? vm.seasonStrChange(page) : null) ?? p.strChange;
             const w = p.wins, l = p.losses;
             const pct = w != null && l != null && w + l > 0 ? Math.round((100 * w) / (w + l)) : null;
             const utk = page ? Stability.utkani(page, ctx.myTeam.name, vm.season()) : null;

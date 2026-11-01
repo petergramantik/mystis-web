@@ -331,14 +331,23 @@ export class AppVm {
     return null;
   }
 
+  /** Změna STR za sezónu: aktuální STR − STR před prvním zápasem nejnovější sezóny (stejně jako na Přehledu). */
+  seasonStrChange(page: PlayerPage): number | null {
+    const ch = page.chronological;
+    if (!ch.length || page.currentStr == null) return null;
+    const season = Math.max(...ch.map((m) => m.season));
+    const first = ch.find((m) => m.season === season && m.strBefore != null);
+    return first ? page.currentStr - first.strBefore! : null;
+  }
   /** Soupiska s aktuálním STR. */
   fresh(list: RosterPlayer[]): RosterPlayer[] {
     return list.map((p) => {
+      // já: vždy aktuální vlastní stránka (stránka v this.players může být starší kopie)
+      if (this.me && (p.id === this.me.id || (p.id == null && Stats.fold(p.name) === Stats.fold(this.me.name)))) return p.copy({ str: this.me.currentStr ?? p.str });
       const page = (p.path ? this.players.get(p.path) : undefined) ?? Array.from(this.players.values()).find((x) => p.id != null && x.id === p.id);
       const live = this.club.ladder.find((e) => e.live && p.id != null && e.id === p.id);
       if (page?.currentStr != null) return p.copy({ str: page.currentStr });
       if (live?.str != null) return p.copy({ str: live.str });
-      if (p.id != null && p.id === this.me?.id) return p.copy({ str: this.me?.currentStr ?? p.str });
       return p;
     });
   }
