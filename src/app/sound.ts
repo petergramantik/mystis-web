@@ -26,6 +26,16 @@ export function unlockSound() {
 if (typeof window !== "undefined") {
   window.addEventListener("pointerdown", unlockSound, { passive: true });
   window.addEventListener("keydown", unlockSound);
+  // pokus o povolení bez klepnutí (např. nainstalovaná aplikace v Chromu na Androidu); jinak čeká na první klepnutí
+  try {
+    const c = ac();
+    if (c) {
+      const done = () => { if (c.state === "running") listeners.forEach((l) => l()); };
+      c.addEventListener?.("statechange", done);
+      if (c.state === "running") setTimeout(done, 0);
+      else c.resume().then(done, () => {});
+    }
+  } catch { /* prohlížeč bez Web Audio */ }
 }
 
 let noiseBuf: AudioBuffer | null = null;

@@ -155,3 +155,5 @@ button { font-family: inherit; }
 .darkcard .chip.on { background: #fff; color: var(--navy); border-color: #fff; }
 .darkcard .textbtn { color: #AFC3EE; }
 .toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 70; background: var(--navy); color: #fff; padding: 10px 18px; border-radius: 20px; font-size: 14px; font-weight: 600; box-shadow: 0 6px 24px rgba(0,0,0,.25); white-space: nowrap; }
+.flash { position: absolute; inset: 0; pointer-events: none; opacity: 0; animation: flashfade 2.2s ease-out forwards; border-radius: inherit; }
+@keyframes flashfade { 0% { opacity: 0; } 8% { opacity: .4; } 24% { opacity: .12; } 40% { opacity: .4; } 100% { opacity: 0; } }

@@ -1,10 +1,18 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.4.3";
+export const APP_VERSION = "2.5";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.5", date: "1. 11. 2026", title: "Bliknutí změn",
+    items: [
+      "V živém utkání krátce blikne hra, ve které se něco změnilo (set, konec hry, doplněná sestava) – zeleně / oranžově podle fandění",
+      "Konec utkání blikne v hlavičce; změna mimo obrazovku blikne v horní liště se skóre",
+      "Zvuk se zkusí povolit hned při spuštění (kde to telefon dovolí, lišta „Povolit zvuk“ se neukáže)",
+    ],
+  },
   {
     version: "2.4.3", date: "1. 11. 2026", title: "Drobnosti",
     items: ["Šipka › za skóre živých a dohraných utkání na přehledu Živě", "Podpořit vývoj vždy i v menu ⋮"],

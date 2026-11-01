@@ -204,6 +204,22 @@ export function LiveScreen({ team }: { team: number }) {
   );
 }
 
+/** Krátké bliknutí při změně podpisu [sig] (ne při prvním zobrazení). */
+function useChangeFlash(sig: string, color: () => string | null): { n: number; color: string } | null {
+  const prev = useRef<string | null>(null);
+  const [f, setF] = useState<{ n: number; color: string } | null>(null);
+  useEffect(() => {
+    if (prev.current != null && prev.current !== sig) {
+      const c = color();
+      if (c) setF((x) => ({ n: (x?.n ?? 0) + 1, color: c }));
+    }
+    prev.current = sig;
+  }, [sig]);
+  return f;
+}
+const FlashOverlay = ({ f }: { f: { n: number; color: string } | null }) => (f ? <div key={f.n} className="flash" style={{ background: f.color }} /> : null);
+const FLASH_EVENT = "mystis-flash";
+
 export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = false, emptyText, comp }: {
   st: LiveState; myHome: boolean; homeName: string; awayName: string; empty: boolean; neutral?: boolean; emptyText?: string;
   /** soutěž · kolo · formát nad družstvy; klepnutí = tabulka */
@@ -221,18 +237,36 @@ export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = f
     return () => window.removeEventListener("scroll", on);
   }, []);
   const pct = empty ? null : neutral ? Stats.pct(st.pHomeWin) : Stats.pct(pWin);
+  // konec utkání: blikne hlavička (a kompaktní lišta)
+  const endColor = () => (neutral ? C.Live : my > opp ? C.Win : my < opp ? C.OrangeText : C.Live);
+  const endFlash = useChangeFlash(st.finished ? "end" : "run", () => {
+    if (!st.finished) return null;
+    const c = endColor();
+    window.dispatchEvent(new CustomEvent(FLASH_EVENT, { detail: c }));
+    return c;
+  });
+  // změna hry mimo obrazovku: blikne kompaktní lišta
+  const [barFlash, setBarFlash] = useState<{ n: number; color: string } | null>(null);
+  useEffect(() => {
+    const on = (e: Event) => setBarFlash((x) => ({ n: (x?.n ?? 0) + 1, color: (e as CustomEvent<string>).detail }));
+    window.addEventListener(FLASH_EVENT, on);
+    return () => window.removeEventListener(FLASH_EVENT, on);
+  }, []);
   return (
     <>
     {compact && (
       <div className="row g8 clickable" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        style={{ position: "fixed", top: 56, left: 0, right: 0, zIndex: 19, background: C.Navy, color: "#fff", padding: "8px 16px", boxShadow: "0 4px 12px rgba(0,0,0,0.25)" }}>
+        style={{ position: "fixed", top: 56, left: 0, right: 0, zIndex: 19, background: C.Navy, color: "#fff", padding: "8px 16px", boxShadow: "0 4px 12px rgba(0,0,0,0.25)", overflow: "hidden" }}>
+        <FlashOverlay f={barFlash} />
         <T bold size={13} color="#fff" lines={1} style={{ flex: 1, textAlign: "right" }}>{shortTeam(homeName)}</T>
         <T bold size={20} color="#fff" style={{ whiteSpace: "nowrap", flex: "none" }}>{`${st.home} : ${st.away}`}</T>
         <T bold size={13} color="#fff" lines={1} style={{ flex: 1 }}>{shortTeam(awayName)}</T>
         {pct && <T bold size={13} color={neutral ? "#fff" : pWin >= 0.5 ? C.WinLight : C.Peach} style={{ flex: "none" }}>{pct}</T>}
       </div>
     )}
+    <div style={{ position: "relative" }}>
     <NavyHeader>
+      <FlashOverlay f={endFlash} />
       {comp && <span className={comp.onClick ? "clickable" : undefined} onClick={comp.onClick} style={{ color: C.MutedOnNavy, fontSize: 13 }}>{comp.text}{comp.onClick ? " ›" : ""}</span>}
       <div className="row">
         <TeamName name={homeName} />
@@ -255,6 +289,7 @@ export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = f
         : <div className="row g8" style={{ flexWrap: "wrap" }}><PredictionText hs={a} as_={b} myHome={neutral ? null : myHome} dark /><Muted color={C.MutedOnNavy} size={13} text={`· odehráno ${st.played} z ${st.games.length}`} /></div>}
       </>}
     </NavyHeader>
+    </div>
     </>
   );
 }
@@ -301,9 +336,22 @@ export function GameRow({ g, pHome, myHome, mine, onOpen, onResult, neutral = fa
     else if (mine.won) mineText = `Vaše STR ${b} → ${Math.round(mine.strAfter!)} (+${Math.round(mine.strAfter! - mine.strBefore)}) · odhad`;
     else mineText = `Vaše STR ${b} → ${Math.round(mine.strAfter!)} (−${Math.round(mine.strBefore - mine.strAfter!)}) · odhad`;
   }
+  // bliknutí při změně (dohraný set, konec hry, doplněná sestava)
+  const rowRef = useRef<HTMLDivElement>(null);
+  const sig = `${g.sets.join(",")}|${g.result}|${g.homeSets}:${g.awaySets}|${g.home.map((p) => p.name).join("+")}|${g.away.map((p) => p.name).join("+")}`;
+  const flash = useChangeFlash(sig, () => {
+    const lastSet = g.sets.length ? g.sets[g.sets.length - 1] : 0;
+    const hs = g.homeSets ?? g.sets.filter((v) => v > 0).length, as_ = g.awaySets ?? g.sets.filter((v) => v < 0).length;
+    const winHome = g.result != null ? g.result === 1 : g.sets.length ? lastSet > 0 : hs + as_ > 0 ? hs >= as_ : null;
+    const c = winHome == null ? C.BlueLight : neutral ? C.Live : winHome === myHome ? C.Win : C.OrangeText;
+    const r = rowRef.current?.getBoundingClientRect();
+    if (r && (r.bottom < 110 || r.top > window.innerHeight)) window.dispatchEvent(new CustomEvent(FLASH_EVENT, { detail: c }));
+    return c;
+  });
   return (
     <>
-      <div className={"col" + (onOpen ? " clickable" : "")} style={{ background: mine ? C.Tint : "#fff", padding: "9px 14px" }} onClick={onOpen ?? undefined}>
+      <div ref={rowRef} className={"col" + (onOpen ? " clickable" : "")} style={{ background: mine ? C.Tint : "#fff", padding: "9px 14px", position: "relative" }} onClick={onOpen ?? undefined}>
+        <FlashOverlay f={flash} />
         <div className="row g10">
           <T bold color={C.Muted} style={{ width: 28, flex: "none" }}>{g.no}.</T>
           <div className="col w1">
