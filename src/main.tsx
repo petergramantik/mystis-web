@@ -88,17 +88,25 @@ function Body({ s }: { s: Screen }) {
 const canBack = () => vm.stack.length > 1 || vm.current.t !== "Overview";
 const goBack = () => { if (!vm.back()) { if (vm.guest) vm.leaveGuest(); else vm.resetTo(S.Overview); } };
 
-/** Tlačítko Zpět prohlížeče / telefonu se chová jako šipka zpět (jako BackHandler v Android verzi). */
+/**
+ * Tlačítko Zpět prohlížeče / telefonu se chová jako šipka zpět. Každý krok zpět v aplikaci má vlastní záznam
+ * v historii, zapsaný hned při otevření obrazovky (klepnutím) – Chrome na Androidu záznamy vložené až po stisku
+ * Zpět (bez klepnutí) přeskakuje, proto se nesmí doplňovat dodatečně.
+ */
 function useBackHandler() {
   useEffect(() => {
-    let guard = false;
+    // kolik kroků zpět aplikace umí: obrazovky v zásobníku + návrat na Přehled
+    const wanted = () => (canBack() ? vm.stack.length - 1 + (vm.stack[0].t !== "Overview" || vm.guest ? 1 : 0) : 0);
+    let depth = 0, ignore = 0;
     const sync = () => {
-      if (canBack() && !guard) { history.pushState({ mystis: 1 }, ""); guard = true; }
+      const w = wanted();
+      if (w > depth) { for (; depth < w; depth++) history.pushState({ mystis: depth + 1 }, ""); }
+      else if (w < depth) { ignore++; history.go(w - depth); depth = w; }
     };
     const onPop = () => {
-      guard = false;
+      if (ignore > 0) { ignore--; return; }
+      depth = Math.max(0, depth - 1);
       if (canBack()) goBack();
-      setTimeout(sync, 0);
     };
     window.addEventListener("popstate", onPop);
     const unsub = vm.subscribe(sync);

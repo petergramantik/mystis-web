@@ -1,10 +1,17 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.8.2";
+export const APP_VERSION = "2.8.3";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.8.3", date: "2. 11. 2026", title: "Poslední utkání a tlačítko Zpět",
+    items: [
+      "Karta Poslední utkání: vaše družstvo – výsledek – soupeř se soutěží, dole celková změna STR za utkání; při více soutěžích posouvání prstem",
+      "Tlačítko Zpět na mobilu prochází všechny otevřené obrazovky (dřív se aplikace na druhý stisk zavřela)",
+    ],
+  },
   {
     version: "2.8.2", date: "1. 11. 2026", title: "Drobnosti",
     items: [

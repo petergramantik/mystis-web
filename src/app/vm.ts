@@ -1246,6 +1246,8 @@ export class AppVm {
   strLadderSort = "str";
   predOn = false;
   utkaniTeam: number | null = null;
+  /** stránka karty Poslední utkání (null = nejnovější) */
+  lastIdx: number | null = null;
   /** filtr na kartě Utkání: all / next / played */
   utkaniFilter = prefs.utkaniFilter;
   set<K extends "lastByTeam" | "matchesTeam" | "matchesSeason" | "recentTeam" | "oppMode" | "oppComp" | "rankByTeam" | "ladderTab" | "matchesTab" | "compSeason" | "compId" | "strLadderMine" | "strLadderSort" | "utkaniTeam" | "predOn">(k: K, v: AppVm[K]) {

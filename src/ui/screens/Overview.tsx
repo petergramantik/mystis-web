@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { SupportStrip } from "../support";
-import { vm, S } from "../../app/vm";
+import { vm, S, type LastUtkani } from "../../app/vm";
 import { Clubs, Stis, type LosMatch } from "../../core/models";
 import { Stats, StrModel, sum } from "../../core/stats";
 import { matchForecast } from "../../core/season";
@@ -466,66 +466,115 @@ function PreviousCard({ ctx, prev, back, total, onHome }: { ctx: NextMatchContex
   );
 }
 
+/** Karta Poslední utkání: mé družstvo – výsledek – soupeř, mé zápasy a celková změna STR; více soutěží = posouvání. */
 function LastUtkaniCard() {
-  const team = vm.next[vm.nextSelected]?.myTeam.name ?? null;
-  const byTeam = vm.lastByTeam && team != null;
-  const last = vm.lastUtkani(byTeam ? team : null);
-  if (!last) {
-    if (byTeam) return (
-      <AppCard bg={C.Navy} className="darkcard">
-        <T bold size={16} color="#fff">Poslední utkání</T>
-        <Muted text={`Za družstvo ${team} jste v této sezóně zatím nehrál.`} size={13} color={C.MutedOnNavy} />
-        <div><button className="textbtn" onClick={() => vm.set("lastByTeam", false)}>Ukázat všechna družstva</button></div>
-      </AppCard>
-    );
-    return null;
-  }
+  // stránky = poslední utkání každého mého družstva; výchozí nejnovější utkání ze všech
+  const teams = distinctTeams();
+  const all = vm.lastUtkani(null);
+  const pages = (teams.length > 1 ? teams.map((t) => vm.lastUtkani(t)).filter((x): x is LastUtkani => !!x) : all ? [all] : [])
+    .filter((x, i, arr) => arr.findIndex((y) => y.zapisPath === x.zapisPath && y.myTeam === x.myTeam) === i);
+  if (!pages.length) return null;
+  const defIdx = Math.max(0, all ? pages.findIndex((x) => x.zapisPath === all.zapisPath && Stats.fold(x.myTeam) === Stats.fold(all.myTeam)) : 0);
+  const idx = vm.lastIdx != null && vm.lastIdx < pages.length ? vm.lastIdx : defIdx;
+  const last = pages[idx];
+  const swipe = (dir: number) => { vm.lastIdx = (idx + dir + pages.length) % pages.length; vm.emit(); };
+  const info = lastInfo(last);
   const liveTeam = Math.max(0, vm.next.findIndex((c) => c.myTeam.name === last.myTeam));
+  // celková změna STR za utkání
+  const deltas = last.unofficial ? last.live.filter((g) => g.strAfter != null).map((g) => g.strAfter! - g.strBefore) : last.official.map((m) => m.delta).filter((d): d is number => d != null);
+  const total = Math.round(sum(deltas));
+  const pending = last.unofficial && vm.unofficialPending();
+  const totalText = pending ? "počítám…" : !deltas.length ? "–" : `${last.running ? "zatím " : last.unofficial ? "≈ " : ""}${total > 0 ? "+" : total < 0 ? "−" : "±"}${Math.abs(total)}`;
+  const totalColor = pending || !deltas.length ? C.MutedOnNavy : total > 0 ? C.WinLight : total < 0 ? C.Peach : C.MutedOnNavy;
+  const scoreColor = !info.score ? "#fff" : last.running ? "#C4B5FD" : info.score[0] > info.score[1] ? C.WinLight : info.score[0] < info.score[1] ? C.Peach : "#fff";
   return (
-    <AppCard bg={C.Navy} className="darkcard" onClick={() => {
-      if (last.running) vm.go({ t: "Live", team: liveTeam });
-      else if (last.zapisPath) vm.go({ t: "ZapisDetail", path: last.zapisPath, myTeam: last.myTeam });
-    }}>
-      <div className="row">
-        <T bold size={16} color="#fff" style={{ flex: 1 }}>{last.title}</T>
-        <T bold color="#fff">{last.running ? "Živě ›" : "Zápis ›"}</T>
-      </div>
-      {team != null && (
-        <div onClick={(e) => e.stopPropagation()}>
-          <Chips options={[["team", "Aktuální družstvo"], ["all", "Všechna"]]} selected={vm.lastByTeam ? "team" : "all"} onSelect={(k) => vm.set("lastByTeam", k === "team")} />
-          {!vm.lastByTeam && <Muted text={last.myTeam} size={12} color={C.MutedOnNavy} style={{ paddingTop: 8 }} />}
+    <div className="col g6">
+      <SwipeRow onSwipe={swipe} enabled={pages.length > 1}>
+        <AppCard bg={C.Navy} className="darkcard" onClick={() => {
+          if (last.running) vm.go({ t: "Live", team: liveTeam });
+          else if (last.zapisPath) vm.go({ t: "ZapisDetail", path: last.zapisPath, myTeam: last.myTeam });
+        }}>
+          <div className="row">
+            <T bold size={16} color="#fff" style={{ flex: 1 }}>{last.title}</T>
+            <T bold color="#fff">{last.running ? "Živě ›" : "Zápis ›"}</T>
+          </div>
+          <div className="row g8" style={{ alignItems: "center" }}>
+            <T bold size={14} color="#fff" lines={2} style={{ flex: 1 }}>{shortTeam(last.myTeam)}</T>
+            <div className="col" style={{ alignItems: "center", flex: "none" }}>
+              <BigNumber text={info.score ? `${info.score[0]} : ${info.score[1]}` : "–"} color={scoreColor} size={26} style={{ whiteSpace: "nowrap" }} />
+              <Muted text={(last.running ? "probíhá · " : "") + info.comp} size={11} color={C.MutedOnNavy} maxLines={1} />
+            </div>
+            <T bold size={14} color="#fff" lines={2} end style={{ flex: 1 }}>{info.opp ? shortTeam(info.opp) : ""}</T>
+          </div>
+          {last.unofficial && <Muted text="Výsledky a STR jsou odhad podle online zápisu – oficiálně je přepočítá STIS." color={C.Peach} size={12} maxLines={3} />}
+          {last.unofficial ? last.live.map((g, i) => (
+            <div className="row g10" key={i}>
+              {g.won != null ? <ResultBadge won={g.won} text={g.won ? "V" : "P"} /> : <div style={{ width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Muted text={`${g.game.no}.`} size={13} color={C.MutedOnNavy} /></div>}
+              <div className="col w1">
+                <T semi lines={1} color="#fff">{g.opponent.name}</T>
+                <div style={{ fontSize: 12, color: C.MutedOnNavy, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {g.won != null && g.game.homeSets != null ? `sety ${g.home ? `${g.game.homeSets}:${g.game.awaySets}` : `${g.game.awaySets}:${g.game.homeSets}`}`
+                    : g.game.inProgress ? "hraje se"
+                      : g.won == null ? `výhra ${Math.round(g.ifWin)} · prohra ${Math.round(g.ifLoss)}` : ""}
+                  <OppStr opp={g.opponent.str} mine={g.strBefore} won={g.won} />
+                </div>
+              </div>
+              {g.strAfter != null && <T bold color={g.strAfter - g.strBefore >= 0 ? C.WinLight : C.Peach}>{signedInt(Math.round(g.strAfter - g.strBefore))}</T>}
+            </div>
+          )) : [...last.official].reverse().map((m, i) => (
+            <div className="row g10" key={i}>
+              <ResultBadge won={m.won} text={m.won ? "V" : "P"} />
+              <div className="col w1">
+                <T semi lines={1} color="#fff">{m.opponent}</T>
+                <div style={{ fontSize: 12, color: C.MutedOnNavy, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {`sety ${m.score}`}
+                  <OppStr opp={m.oppStrBefore} mine={m.strBefore} won={m.won} />
+                </div>
+              </div>
+              {m.delta != null && <T bold color={m.delta >= 0 ? C.WinLight : C.Peach}>{signedInt(m.delta)}</T>}
+            </div>
+          ))}
+          <div className="row" style={{ borderTop: "1px solid rgba(255,255,255,0.15)", paddingTop: 8 }}>
+            <T semi size={14} color={C.MutedOnNavy} style={{ flex: 1 }}>Celkem za utkání</T>
+            <T bold size={16} color={totalColor}>{`STR ${totalText}`}</T>
+          </div>
+        </AppCard>
+      </SwipeRow>
+      {pages.length > 1 && (
+        <div className="row" style={{ justifyContent: "center", gap: 6 }}>
+          {pages.map((_, i) => <div key={i} className="clickable" onClick={() => { vm.lastIdx = i; vm.emit(); }}
+            style={{ width: i === idx ? 8 : 6, height: i === idx ? 8 : 6, borderRadius: 4, background: i === idx ? C.Navy : "rgba(14,26,51,0.3)" }} />)}
         </div>
       )}
-      {last.unofficial && <Muted text="Výsledky a STR jsou odhad podle online zápisu – oficiálně je přepočítá STIS." color={C.Peach} size={12} maxLines={3} />}
-      {last.unofficial ? last.live.map((g, i) => (
-        <div className="row g10" key={i}>
-          {g.won != null ? <ResultBadge won={g.won} text={g.won ? "V" : "P"} /> : <div style={{ width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Muted text={`${g.game.no}.`} size={13} color={C.MutedOnNavy} /></div>}
-          <div className="col w1">
-            <T semi lines={1} color="#fff">{g.opponent.name}</T>
-            <div style={{ fontSize: 12, color: C.MutedOnNavy, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {g.won != null && g.game.homeSets != null ? `sety ${g.home ? `${g.game.homeSets}:${g.game.awaySets}` : `${g.game.awaySets}:${g.game.homeSets}`}`
-                : g.game.inProgress ? "hraje se"
-                  : g.won == null ? `výhra ${Math.round(g.ifWin)} · prohra ${Math.round(g.ifLoss)}` : ""}
-              <OppStr opp={g.opponent.str} mine={g.strBefore} won={g.won} />
-            </div>
-          </div>
-          {g.strAfter != null && <T bold color={g.strAfter - g.strBefore >= 0 ? C.WinLight : C.Peach}>{signedInt(Math.round(g.strAfter - g.strBefore))}</T>}
-        </div>
-      )) : [...last.official].reverse().map((m, i) => (
-        <div className="row g10" key={i}>
-          <ResultBadge won={m.won} text={m.won ? "V" : "P"} />
-          <div className="col w1">
-            <T semi lines={1} color="#fff">{m.opponent}</T>
-            <div style={{ fontSize: 12, color: C.MutedOnNavy, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {`sety ${m.score}`}
-              <OppStr opp={m.oppStrBefore} mine={m.strBefore} won={m.won} />
-            </div>
-          </div>
-          {m.delta != null && <T bold color={m.delta >= 0 ? C.WinLight : C.Peach}>{signedInt(m.delta)}</T>}
-        </div>
-      ))}
-    </AppCard>
+    </div>
   );
+}
+
+/** Moje družstva v aktuální sezóně (pro stránky karty Poslední utkání). */
+function distinctTeams(): string[] {
+  return Array.from(new Set(vm.next.map((c) => c.myTeam.name)));
+}
+
+/** Soupeř, výsledek (z mého pohledu) a soutěž posledního utkání. */
+function lastInfo(last: LastUtkani): { opp: string | null; score: [number, number] | null; comp: string } {
+  const ctx = vm.next.find((c) => Stats.fold(c.myTeam.name) === Stats.fold(last.myTeam));
+  const z = last.zapisPath ? vm.zapisy.get(last.zapisPath) : undefined;
+  const lm = ctx && last.zapisPath ? ctx.los.find((m) => m.zapisPath === last.zapisPath) : undefined;
+  const comp = ctx?.myTeam.competition || last.official[0]?.competition || z?.competition || "";
+  let opp: string | null = last.official[0]?.opponentTeam ?? null;
+  let score: [number, number] | null = null;
+  if (z && z.games.length && (last.unofficial || !lm?.played)) {
+    const mh = ctx ? vm.zapisMyHome(z, ctx) : Stats.fold(z.home) === Stats.fold(last.myTeam);
+    const [h, a] = vm.scoreOf(z);
+    score = mh ? [h, a] : [a, h];
+    opp = mh ? z.away : z.home;
+  } else if (lm) {
+    const home = Stats.isHome(lm, ctx!.myTeam.ref, ctx!.myTeam.name);
+    const sm = /^(\d+)\s*:\s*(\d+)$/.exec(lm.score);
+    if (sm) score = home ? [+sm[1], +sm[2]] : [+sm[2], +sm[1]];
+    opp = home ? lm.away : lm.home;
+  } else if (last.zapisPath) queueMicrotask(() => vm.loadZapis(last.zapisPath));
+  return { opp, score, comp };
 }
 
 /**
