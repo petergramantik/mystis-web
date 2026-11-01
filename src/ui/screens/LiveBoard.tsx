@@ -165,7 +165,7 @@ export function FormatBadge({ c }: { c: { svaz: string; rocnik: number; soutez: 
       ) : (
         <span className="clickable" onClick={(e) => { e.stopPropagation(); setPick(true); }}
           style={{ fontSize: 11, fontWeight: state === "unknown" ? 700 : 500, color: state === "unknown" ? C.OrangeText : C.Muted }}>
-          {state === "unknown" ? "Formát neznámý – zvolit ›" : `${MatchFormats.short(f)}${state === "manual" ? " · ručně" : ""} ›`}
+          {state === "unknown" ? "Formát neznámý – zvolit ›" : `${MatchFormats.short(f)}${state === "manual" ? " · ručně" : state === "estimate" ? " (odhad)" : ""} ›`}
         </span>
       )}
       {pick && (

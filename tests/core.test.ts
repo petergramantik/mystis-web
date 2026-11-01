@@ -362,11 +362,16 @@ async function main() {
     const gm = (no: number, home: boolean | null, dbl = false) => new ZapisGame(no, dbl ? ["1", "2"] : ["1"], dbl ? ["3", "4"] : ["3"], dbl ? ["A", "B"] : ["A"], dbl ? ["C", "D"] : ["C"],
       home == null ? [] : [5, 5, 5], home == null ? null : home ? 3 : 0, home == null ? null : home ? 0 : 3);
     const mk = (res: (boolean | null)[]) => new Zapis("/zapis/svaz-1/rocnik-2026/soutez-9/utkani-1", "", "", "H", "A", null, null, "", "", [null, null], res.map((r, i) => gm(i + 1, r, i < 2)));
-    const early = mk([...Array(10).fill(true), ...Array(6).fill(false), null, null]); // 10:6, dvě hry nehrány
+    const early = mk([...Array(6).fill(false), ...Array(10).fill(true), null, null]); // 10:6, 10. bod 16. hrou, zbytek nehrán
     check("detect do 10", MatchFormats.detect([early])?.key === "18_10", () => J(MatchFormats.detect([early])));
     const all = mk([...Array(12).fill(true), ...Array(6).fill(false)]); // 12:6 – hrají se všechny
     check("detect všechny", MatchFormats.detect([all])?.key === "18_all", () => J(MatchFormats.detect([all])));
     const ten = new Zapis("/z", "", "", "H", "A", null, null, "", "", [null, null], [true, false, true, true, true, true, false, true, null, null].map((r, i) => gm(i + 1, r as boolean | null, i < 1)));
+    const late = mk([...Array(8).fill(false), ...Array(10).fill(true)]); // 10:8 až poslední hrou – nerozhoduje
+    const allFmt = mk([...Array(10).fill(true), ...Array(4).fill(false), true, false, true, false]); // po 10. bodu se hrálo dál
+    const iLate = MatchFormats.detectInfo([late]), iAll = MatchFormats.detectInfo([late, allFmt]);
+    check("detect nerozhodné / všechny", !iLate.certain && iAll.certain && iAll.fmt?.key === "18_all", () => J([iLate, iAll]));
+    check("detect rozpor", !MatchFormats.detectInfo([early, allFmt]).certain);
     check("detect 10 her", MatchFormats.detect([ten])?.key === "10_6", () => J(MatchFormats.detect([ten])));
   }
   // ---------- šance rozehrané hry podle setů

@@ -17,27 +17,38 @@ export const MatchFormats = {
   /** Krátký popis formátu („18 her · do 10“). */
   short(f: MatchFormat): string { return `${f.games} her · ${f.target != null ? `do ${f.target}` : "hrají se všechny"}`; },
   /**
-   * Rozpozná formát soutěže z dohraných zápisů: počet her (řádky zápisu), čtyřhry, hráči (dvouhry = hráči²)
-   * a cíl – zápis skončený dřív než po všech hrách dává cíl, skóre nad polovinu+1 znamená „hrají se všechny“.
+   * Rozpozná formát soutěže z dohraných zápisů podle průběhu: hry se projdou v pořadí; když po dosažení vítězné
+   * hranice (u 18 her 10) následovala odehraná hra, jde o „hrají se všechny“, když zbyly jen nehrané hry, o „do hranice“.
+   * Utkání, kde hranici nikdo nedosáhl nebo ji dosáhl až poslední hrou, nerozhoduje.
+   * certain = aspoň jeden rozhodující zápis a žádný neodporuje.
    */
-  detect(zs: Zapis[]): MatchFormat | null {
+  detectInfo(zs: Zapis[]): { fmt: MatchFormat | null; certain: boolean; votes: number } {
     const done = zs.filter((z) => z.games.length >= 4 && z.games.some((g) => g.result != null));
-    if (!done.length) return null;
+    if (!done.length) return { fmt: null, certain: false, votes: 0 };
     const games = Math.max(...done.map((z) => z.games.length));
     const doubles = Math.max(...done.map((z) => z.games.filter((g) => g.doubles).length));
     const players = Math.max(1, Math.round(Math.sqrt(games - doubles)));
-    let target: number | null | undefined = undefined;
+    const t0 = games === 18 ? 10 : games === 10 ? 6 : games === 5 ? 3 : Math.floor(games / 2) + 1;
+    let all = 0, upTo = 0;
     for (const z of done) {
-      const h = z.games.filter((g) => g.result === 1).length, a = z.games.filter((g) => g.result === -1).length;
-      const unplayed = z.games.filter((g) => g.result == null).length;
-      if (unplayed > 0 && h + a > 0 && z.games.filter((g) => g.result == null && g.sets.length === 0).length === unplayed && Math.max(h, a) * 2 > games) { target = Math.max(h, a); break; }
-      if (unplayed === 0 && Math.max(h, a) > Math.floor(games / 2) + 1) target = null;
+      const gs = [...z.games].sort((a, b) => a.no - b.no);
+      let h = 0, a = 0, reached = -1;
+      gs.forEach((g, i) => {
+        if (g.result === 1) h++; else if (g.result === -1) a++;
+        if (reached < 0 && Math.max(h, a) >= t0) reached = i;
+      });
+      if (reached < 0 || reached >= gs.length - 1) continue;
+      const after = gs.slice(reached + 1);
+      if (after.some((g) => g.result != null)) all++;
+      else upTo++;
     }
-    if (target === undefined) target = games === 18 ? 10 : games === 10 ? 6 : games === 5 ? 3 : Math.floor(games / 2) + 1;
+    const target: number | null = all > upTo ? null : upTo > 0 ? t0 : t0;
+    const certain = (all > 0) !== (upTo > 0);
     const known = MatchFormats.ALL.find((f) => f.games === games && f.target === target);
-    if (known) return known;
-    return { key: `auto_${games}_${target ?? "all"}`, label: `${players} hráči · ${games} her · ${target != null ? `do ${target} bodů` : "hrají se všechny"}`, players, games, doubles, target };
+    const fmt = known ?? { key: `auto_${games}_${target ?? "all"}`, label: `${players} hráči · ${games} her · ${target != null ? `do ${target} bodů` : "hrají se všechny"}`, players, games, doubles, target };
+    return { fmt, certain, votes: all + upTo };
   },
+  detect(zs: Zapis[]): MatchFormat | null { return MatchFormats.detectInfo(zs).fmt; },
 };
 
 export interface ZapisPlayerStat { id: string | null; name: string; home: boolean; singlesWon: number; singlesLost: number; doublesWon: number; doublesLost: number }

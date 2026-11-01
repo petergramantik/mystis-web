@@ -442,9 +442,13 @@ export class AppVm {
     return m ? { svaz: m[1], rocnik: +m[2], soutez: m[3] } : null;
   }
   /** Formát soutěže rozpoznaný z načtených zápisů této soutěže (null = zatím neznámý). */
-  compFormat(c: { svaz: string; soutez: string }): MatchFormat | null {
-    const zs = Array.from(this.zapisy.values()).filter((z) => z.path.includes(`/svaz-${c.svaz}/`) && z.path.includes(`/soutez-${c.soutez}/`));
-    return MatchFormats.detect(zs);
+  compFormat(c: { svaz: string; soutez: string }): MatchFormat | null { return this.compFormatInfo(c).fmt; }
+  /** Rozpoznání ze zápisů soutěže z minulých dnů (dnešní mohou být rozehrané). */
+  compFormatInfo(c: { svaz: string; soutez: string }) {
+    const td = today();
+    const zs = Array.from(this.zapisy.values()).filter((z) => z.path.includes(`/svaz-${c.svaz}/`) && z.path.includes(`/soutez-${c.soutez}/`))
+      .filter((z) => { const d = Parsers.date(z.dateText); return d == null || d < td; });
+    return MatchFormats.detectInfo(zs);
   }
   /** Formát pro soutěž: ruční volba, jinak rozpoznaný, jinak výchozí. */
   formatForComp(c: { svaz: string; soutez: string } | null): MatchFormat {
@@ -466,10 +470,18 @@ export class AppVm {
     this.emit();
   }
   /** Stav formátu soutěže: ručně zvolený / rozpoznaný / zjišťuje se / neznámý. */
-  compFormatState(c: { svaz: string; rocnik: number; soutez: string }): "manual" | "detected" | "loading" | "unknown" {
+  compFormatState(c: { svaz: string; rocnik: number; soutez: string }): "manual" | "detected" | "loading" | "estimate" | "unknown" {
     if (this.compFormatOverride(c)) return "manual";
-    if (this.compFormat(c)) return "detected";
+    const info = this.compFormatInfo(c);
+    if (info.certain) return "detected";
     const k = this.compKey(c);
+    // ještě jsou další vzorky k načtení
+    const los = this.losForComp(c);
+    if (los && this.fmtSamples(c, los).some((p) => !this.zapisy.has(p))) {
+      this.ensureCompFormat(c, los);
+      if (Array.from(this.zapisLoading).some((p) => p.includes(`/svaz-${c.svaz}/`) && p.includes(`/soutez-${c.soutez}/`))) return "loading";
+    }
+    if (info.fmt) return this.compLosLoading.has(k) || Array.from(this.zapisLoading).some((p) => p.includes(`/soutez-${c.soutez}/`)) ? "loading" : "estimate";
     const own = this.next.some((x) => x.myTeam.ref && this.compKey(x.myTeam.ref) === k);
     if (this.compLosLoading.has(k) || (!own && !this.compLos.has(k)) || (own && this.loadingNext)) return "loading";
     if (Array.from(this.zapisLoading).some((p) => p.includes(`/svaz-${c.svaz}/`) && p.includes(`/soutez-${c.soutez}/`))) return "loading";
@@ -477,14 +489,25 @@ export class AppVm {
   }
   fmtOf(z: Zapis): MatchFormat { return this.formatForComp(this.compOfPath(z.path)); }
   finished(z: Zapis): boolean { return Live.isZapisFinished(z, this.fmtOf(z)); }
-  private fmtRequested = new Set<string>();
-  /** Pro rozpoznání formátu načte 1–2 dohrané zápisy soutěže. */
+  /** Rozpis soutěže (moje družstvo nebo načtený rozpis soutěže). */
+  private losForComp(c: { svaz: string; rocnik: number; soutez: string }): LosMatch[] | null {
+    const k = this.compKey(c);
+    const own = this.next.find((x) => x.myTeam.ref && this.compKey(x.myTeam.ref) === k);
+    return this.compLos.get(k) ?? own?.los ?? null;
+  }
+  /** Až 6 nejnovějších dohraných utkání soutěže jako vzorky pro rozpoznání formátu. */
+  private fmtSamples(c: { svaz: string; soutez: string }, los: LosMatch[]): string[] {
+    const td = today();
+    return los.filter((x) => x.played && x.zapisPath && this.scoreFinalAny(x.score) && x.dateTime != null && ldtDate(x.dateTime) < td)
+      .sort((a, b) => (b.dateTime ?? 0) - (a.dateTime ?? 0)).slice(0, 6).map((x) => x.zapisPath);
+  }
+  /** Postupně (po dvou) načítá vzorové zápisy, dokud formát není jistý nebo není prohlédnuto 6 zápisů. */
   ensureCompFormat(c: { svaz: string; rocnik: number; soutez: string }, los: LosMatch[]) {
-    if (!this.formatAuto || this.compFormat(c)) return;
-    const k = `${c.svaz}|${c.soutez}`;
-    if (this.fmtRequested.has(k)) return;
-    this.fmtRequested.add(k);
-    for (const m of los.filter((x) => x.played && x.zapisPath && this.scoreFinalAny(x.score)).slice(-2)) this.loadZapis(m.zapisPath);
+    if (!this.formatAuto || this.compFormatOverride(c) || this.compFormatInfo(c).certain) return;
+    const samples = this.fmtSamples(c, los);
+    if (samples.some((p) => this.zapisLoading.has(p))) return;
+    const next = samples.filter((p) => !this.zapisy.has(p)).slice(0, 2);
+    for (const p of next) this.loadZapis(p);
   }
   /** Výsledek vypadá konečně v jakémkoli formátu (pro výběr vzorových zápisů). */
   private scoreFinalAny(score: string): boolean {
@@ -1211,6 +1234,8 @@ export class AppVm {
         if (z) {
           const wasRunning = !!have && !this.finished(have);
           this.zapisy.set(path, z); this.zapisFetched.set(path, Date.now());
+          const zc = this.compOfPath(path);
+          if (zc) { const l = this.losForComp(zc); if (l) queueMicrotask(() => this.ensureCompFormat(zc, l)); }
           this.notifyLive(path, z);
           if (wasRunning && this.finished(z) && this.next.some((c) => c.liveNow && this.zapisBelongs(z!, c))) this.loadNext(false);
         }
