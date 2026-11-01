@@ -188,13 +188,16 @@ export function ResultBadge({ won, text, wide }: { won: boolean; text: string; w
   return <div className={"badge" + (wide ? " wide" : "")} style={{ background: C.result(won) }}>{text}</div>;
 }
 /** Forma V/P: ikonky se rovnoměrně rozdělí do šířky (vždy jeden řádek), čtvercové, max. 40 px. */
+/** Forma: [results] od nejnovějšího; zobrazí se zleva nejstarší, vpravo nejnovější (zvýrazněný rámečkem). */
 export function FormDots({ results }: { results: boolean[] }) {
   const n = Math.max(results.length, 8);
+  const list = [...results].reverse();
   return (
-    <div style={{ display: "grid", gridTemplateColumns: `repeat(${n}, minmax(0, 40px))`, gap: 6 }}>
-      {results.map((w, i) => (
-        <div key={i} style={{ aspectRatio: "1", background: C.result(w), borderRadius: "28%", color: "#fff", fontWeight: 700,
-          display: "flex", alignItems: "center", justifyContent: "center", fontSize: "clamp(11px, 3.4vw, 14px)" }}>{w ? "V" : "P"}</div>
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${n}, minmax(0, 40px))`, gap: 6, padding: 3 }}>
+      {list.map((w, i) => (
+        <div key={i} title={i === list.length - 1 ? "nejnovější zápas" : undefined} style={{ aspectRatio: "1", background: C.result(w), borderRadius: "28%", color: "#fff", fontWeight: 700,
+          display: "flex", alignItems: "center", justifyContent: "center", fontSize: "clamp(11px, 3.4vw, 14px)",
+          boxShadow: i === list.length - 1 ? `0 0 0 2px #fff, 0 0 0 3.5px ${C.result(w)}` : undefined }}>{w ? "V" : "P"}</div>
       ))}
     </div>
   );
