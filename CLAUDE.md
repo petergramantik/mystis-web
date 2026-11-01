@@ -8,3 +8,4 @@
 
 ## Verze aplikace
 - Při každé implementaci zvýšit `APP_VERSION` v `src/app/version.ts` a přidat nahoru novou položku do `RELEASES` (stručné body „Co je nového“).
+- Drobné úpravy a opravy zvyšují jen setinu (2.7 → 2.7.1 → 2.7.2), desetina (2.7 → 2.8) jen u významných změn (nová funkce, větší přepracování).
