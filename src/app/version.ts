@@ -1,10 +1,21 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.1";
+export const APP_VERSION = "2.2";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.2", date: "1. 11. 2026", title: "Sdílení",
+    items: [
+      "Tlačítko Sdílet v horní liště: utkání (odkaz – během hry živý stav, po konci zápis), profil hráče, vzájemné zápasy, tabulka a žebříček soutěže",
+      "Odkaz otevře i člověk bez nastavené aplikace – uvidí jen sdílené utkání nebo hráče",
+      "Obrázek výsledku utkání (skóre, hry, bilance a změny STR) a shrnutí sezóny hráče",
+      "Sdílení predikce příštího utkání (sestavy a odhad výsledku)",
+      "Sdílet aplikaci s QR kódem (menu ⋮ i O aplikaci)",
+      "Predikce utkání počítá s formou dne – méně přehnaná jistota; před koncem nikdy 100 %, nejvýš >99 %",
+    ],
+  },
   {
     version: "2.1", date: "1. 11. 2026", title: "Živý zápis",
     items: [

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { APP_VERSION, AUTHOR, RELEASES } from "../../app/version";
 import { AppCard, C, Muted, OButton, SectionTitle, T } from "../components";
+import { AppShareCard } from "../shareActions";
 
 declare const __BUILD__: string;
 const buildText = () => (typeof __BUILD__ !== "undefined" ? __BUILD__.replace(/^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d).*/, "$3. $2. $1 $4:$5 UTC") : "vývojová");
@@ -42,6 +43,11 @@ export function AboutScreen() {
           <OButton text="Zkontrolovat aktualizaci" onClick={() => checkUpdate(setMsg)} style={{ flex: 1 }} />
         </div>
         {msg && <Muted text={msg} size={13} color={C.Ink} />}
+      </AppCard>
+
+      <AppCard>
+        <T bold>Sdílet aplikaci</T>
+        <AppShareCard />
       </AppCard>
 
       <AppCard>

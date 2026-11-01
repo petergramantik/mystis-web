@@ -116,6 +116,8 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
   const meHome = z.games.find((g) => g.homeNames.some((n, i) => isMe(g.homeIds[i], n))) ? true
     : z.games.find((g) => g.awayNames.some((n, i) => isMe(g.awayIds[i], n))) ? false : null;
   const myHome = Stats.fold(z.home) === Stats.fold(myTeam) ? true : Stats.fold(z.away) === Stats.fold(myTeam) ? false : meHome ?? true;
+  /** sdílený zápis bez mého družstva a bez mě: bez výhra/prohra */
+  const neutral = !myTeam && meHome == null;
   const names = (ns: string[], ids: string[], bold: boolean) => ns.map((n, i) => (
     <span key={i} style={isMe(ids[i], n) ? { color: C.Blue, fontWeight: 800 } : bold ? { fontWeight: 700 } : undefined}>{(i ? " + " : "") + n}</span>
   ));
@@ -141,7 +143,8 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
           <TeamName name={z.away} bold={!myHome} end />
         </div>
         {vm.finished(z)
-          ? <T bold color={my > op ? C.WinLight : my < op ? C.Peach : "#fff"}>{(my > op ? "Výhra" : my < op ? "Prohra" : "Remíza") + (z.online ? " · online zápis" : "")}</T>
+          ? neutral ? <T bold color="#fff">{(hPts > aPts ? `Vítězství ${z.home}` : hPts < aPts ? `Vítězství ${z.away}` : "Remíza") + (z.online ? " · online zápis" : "")}</T>
+            : <T bold color={my > op ? C.WinLight : my < op ? C.Peach : "#fff"}>{(my > op ? "Výhra" : my < op ? "Prohra" : "Remíza") + (z.online ? " · online zápis" : "")}</T>
           : <T bold color="#C4B5FD">{`Probíhá · stav ${hPts} : ${aPts}` + (z.online ? " · online zápis" : "")}</T>}
       </NavyHeader>
       <div className="col g12 px16">
@@ -242,6 +245,12 @@ export function useZapisStr(path: string) {
   const z = vm.zapisy.get(path);
   const ids = z ? Array.from(new Set(z.games.flatMap((g) => [...g.homeIds, ...g.awayIds]).filter((x) => !!x))) : [];
   useEffect(() => { for (const id of ids) vm.loadPlayer(zapisPlayerPath(id, path)); }, [path, ids.length]);
+  return zapisStrInfo(path);
+}
+/** STR hráčů zápisu z už načtených dat (bez načítání). */
+export function zapisStrInfo(path: string) {
+  const z = vm.zapisy.get(path);
+  const ids = z ? Array.from(new Set(z.games.flatMap((g) => [...g.homeIds, ...g.awayIds]).filter((x) => !!x))) : [];
   const pre = new Map<string, number>();
   const pages = [vm.me, ...vm.players.values()].filter((p): p is PlayerPage => !!p);
   for (const p of pages) for (const m of p.chronological) {

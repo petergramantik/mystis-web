@@ -331,27 +331,35 @@ function CompOffer({ t, title, added, flat = false }: { t: TeamRef; title: strin
 }
 
 /** Obrazovka sledovaného / cizího utkání: živý stav ze zápisu, po konci celý zápis. */
-export function WatchScreen({ k }: { k: string }) {
-  const found = vm.boardMatch(k);
-  const w = vm.watchOf(k);
+export function WatchScreen({ k, shared }: { k: string; shared?: string }) {
+  // sdílený odkaz: utkání podle zápisu (klíč se dopočítá z hlavičky zápisu)
+  const sz = shared ? vm.zapisy.get(shared) : undefined;
+  const sc = shared ? vm.compOfPath(shared) : null;
+  if (shared && sz && sc) k = vm.boardKey(sc, { round: sz.round.trim(), home: sz.home, away: sz.away });
+  const found = vm.boardMatch(k) ?? (sc ? (() => {
+    const m = vm.compLos.get(vm.compKey(sc))?.find((x) => x.zapisPath === shared);
+    return m ? { comp: { ...sc, label: sz?.competition ?? "" } as LiveComp, m } : null;
+  })() : null);
+  const w = vm.watchOf(found ? vm.boardKey(found.comp, found.m) : k);
   const m = found?.m;
-  const path = m?.zapisPath || w?.zapisPath || "";
+  const path = shared || m?.zapisPath || w?.zapisPath || "";
   useZapisRefresh(path);
   useEffect(() => {
-    if (!found && w) vm.loadCompLos({ svaz: w.svaz, rocnik: w.rocnik, soutez: w.soutez });
+    if (sc) vm.loadCompLos(sc);
+    else if (!found && w) vm.loadCompLos({ svaz: w.svaz, rocnik: w.rocnik, soutez: w.soutez });
   }, [k]);
   const z = path ? vm.zapisy.get(path) : undefined;
-  const fan = w?.fan ?? "home";
+  const fan = w?.fan ?? (shared ? "none" : "home");
   const neutral = fan === "none";
   const myHome = fan !== "away";
-  const home = m?.home ?? w?.home ?? "", away = m?.away ?? w?.away ?? "";
+  const home = m?.home ?? w?.home ?? z?.home ?? "", away = m?.away ?? w?.away ?? z?.away ?? "";
   // po konci celý zápis (z pohledu toho, komu fandím)
   useEffect(() => {
     if (z && z.games.length && vm.finished(z)) vm.replace({ t: "ZapisDetail", path, myTeam: fan === "away" ? away : home });
   }, [z?.games.length, z && vm.finished(z)]);
-  if (!m && !w) return <div className="px16"><Loading text="Hledám utkání…" /></div>;
   // STR všech hráčů ze zápisu (cizí hráči nejsou v mých soupiskách) – do načtení bez procent
   const strs = useZapisStr(path);
+  if (!m && !w && !z) return <div className="px16"><Loading text={shared ? "Načítám zápis o utkání…" : "Hledám utkání…"} /></div>;
   const games = z ? Live.fromZapis(z, strs.strOf, (id, n) => vm.rangeOf(id, n)) : [];
   const st = Live.evaluate(games, z ? vm.fmtOf(z) : vm.format);
   const comp = found?.comp ?? (w ? { svaz: w.svaz, rocnik: w.rocnik, soutez: w.soutez, label: w.compLabel } as LiveComp : null);

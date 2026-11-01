@@ -33,7 +33,8 @@ export type Screen =
   | { t: "Fixture"; team: number; round: string; home: string; away: string }
   | { t: "Team"; team: number }
   | { t: "Watch"; key: string }
-  | { t: "About" };
+  | { t: "About" }
+  | { t: "Shared"; path: string };
 
 export const S = {
   Overview: { t: "Overview" } as Screen, Ladder: { t: "Ladder" } as Screen, Str: { t: "Str" } as Screen,
@@ -133,6 +134,35 @@ export class AppVm {
   loadingMe = false;
   error: string | null = null;
   onboarding = prefs.playerPath == null;
+  /** Host: otevřel sdílený odkaz a aplikaci nemá nastavenou (vidí jen sdílenou obrazovku). */
+  guest = false;
+  /** Svaz z otevřeného sdíleného odkazu (pro odkazy na hráče u hosta). */
+  svazHint: string | null = null;
+  toastText: string | null = null;
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
+  toast(text: string) {
+    this.toastText = text; this.emit();
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => { this.toastText = null; this.emit(); }, 2500);
+  }
+  /** Otevře sdílený odkaz (?z= zápis, ?h= hráč, ?d= vzájemné zápasy); vrací false, když v něm nic není. */
+  openShared(q: URLSearchParams): boolean {
+    let s: Screen | null = null;
+    const z = q.get("z"), h = q.get("h"), d = q.get("d");
+    const idOf = (p: string) => /hrac-(\d+)/.exec(p)?.[1] ?? "";
+    if (z && z.startsWith("/zapis/")) s = { t: "Shared", path: z };
+    else if (h && h.startsWith("/hrac-")) s = { t: "Player", path: h };
+    else if (d) {
+      const [ap, an, bp, bn] = d.split("~");
+      if (ap && bp) s = { t: "Duel", aId: idOf(ap), aName: an ?? "", bId: idOf(bp), bName: bn ?? "" };
+    }
+    if (!s) return false;
+    this.svazHint = Stis.svaz(z ?? h ?? d ?? "") ?? null;
+    if (this.onboarding) { this.guest = true; this.stack = [s]; this.emit(); } else this.go(s);
+    return true;
+  }
+  /** Host chce vlastní statistiky -> úvodní obrazovka. */
+  leaveGuest() { this.guest = false; this.resetTo(S.Overview); }
 
   // ---------- oddíl, příští zápas, ostatní
   club = new ClubState();
@@ -197,7 +227,7 @@ export class AppVm {
           this.nextSelectedByUser = false; this.nextSelected = 0;
           this.resetTo(S.Overview);
           this.remember(p);
-          this.onboarding = false;
+          this.onboarding = false; this.guest = false;
           this.club = new ClubState(); this.next = []; this.setStats = null;
           onDone(null);
           this.loadClub(false); this.loadNext(false);
@@ -396,7 +426,7 @@ export class AppVm {
   playerPathById(id: string): string {
     let svaz: string | null = null;
     for (const l of this.liveLinks.values()) { svaz = Stis.svaz(l); if (svaz) break; }
-    svaz ??= Stis.svaz(this.me?.path);
+    svaz ??= Stis.svaz(this.me?.path) ?? this.svazHint;
     return svaz != null ? `/hrac-${id}/svaz-${svaz}/rocnik-${Stis.currentRocnik()}` : `/hrac-${id}`;
   }
 

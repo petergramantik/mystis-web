@@ -433,7 +433,12 @@ export const Stats = {
     }).sort((a, b) => (b.player.str ?? 0) - (a.player.str ?? 0));
   },
 
-  pct(x: number): string { return `${Math.round(x * 100)} %`; },
+  /** Procenta; 0 % a 100 % jen pro jistotu (jinak „<1 %“ / „>99 %“). */
+  pct(x: number): string {
+    if (x > 0.995 && x < 1) return ">99 %";
+    if (x < 0.005 && x > 0) return "<1 %";
+    return `${Math.round(x * 100)} %`;
+  },
   signed(x: number, decimals = 1): string {
     const r = decimals === 0 ? String(Math.round(x)) : Math.abs(x).toFixed(decimals).replace(".", ",");
     if (decimals === 0 && Math.round(x) > 0) return "+" + r;

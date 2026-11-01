@@ -46,6 +46,16 @@ function competitions(): Map<number, Comp[]> {
   return out;
 }
 
+/** Soutěž vybraná v Žebříčcích (tabulka / žebříček STIS). */
+export function selectedComp() {
+  const comps = competitions();
+  const seasons = Array.from(comps.keys()).sort((a, b) => b - a);
+  const season = vm.compSeason != null && comps.has(vm.compSeason) ? vm.compSeason : seasons[0] ?? null;
+  const list = season != null ? comps.get(season)! : [];
+  const mainSoutez = vm.next[vm.mainTeamIndex]?.myTeam.ref?.soutez;
+  return list.find((c) => c.soutez === vm.compId) ?? list.find((c) => c.soutez === mainSoutez) ?? list[0] ?? null;
+}
+
 function CompetitionView({ kind }: { kind: "tabulka" | "stis" }) {
   const me = vm.me;
   const comps = competitions();

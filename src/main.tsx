@@ -16,6 +16,7 @@ import { ProfileScreen } from "./ui/screens/Profile";
 import { PairScreen, ZapisDetailScreen } from "./ui/screens/Duel";
 import { CaptainScreen, CompareScreen } from "./ui/screens/Captain";
 import { RecordsScreen, SettingsScreen } from "./ui/screens/Records";
+import { AppShareSheet, GuestBar, ShareSheet, shareOptions } from "./ui/shareActions";
 import "./ui/app.css";
 
 const TABS: [Screen, string, string][] = [
@@ -48,6 +49,7 @@ function title(s: Screen): string {
     case "Duel": return "Vzájemné zápasy";
     case "ZapisDetail": return "Zápis o utkání";
     case "Fixture": return "Další utkání";
+    case "Shared": return "Utkání";
   }
 }
 
@@ -73,11 +75,15 @@ function Body({ s }: { s: Screen }) {
     case "Duel": return <PairScreen aId0={s.aId} aName0={s.aName} bId0={s.bId} bName0={s.bName} pA0={s.pA} />;
     case "ZapisDetail": return <ZapisDetailScreen path={s.path} myTeam={s.myTeam} />;
     case "Fixture": return <FixtureScreen team={s.team} round={s.round} home={s.home} away={s.away} />;
+    case "Shared": {
+      const z = vm.zapisy.get(s.path);
+      return z && vm.finished(z) ? <ZapisDetailScreen path={s.path} myTeam="" /> : <WatchScreen k="" shared={s.path} />;
+    }
   }
 }
 
 const canBack = () => vm.stack.length > 1 || vm.current.t !== "Overview";
-const goBack = () => { if (!vm.back()) vm.resetTo(S.Overview); };
+const goBack = () => { if (!vm.back()) { if (vm.guest) vm.leaveGuest(); else vm.resetTo(S.Overview); } };
 
 /** Tlačítko Zpět prohlížeče / telefonu se chová jako šipka zpět (jako BackHandler v Android verzi). */
 function useBackHandler() {
@@ -102,9 +108,13 @@ function Root() {
   useSyncExternalStore(vm.subscribe, vm.getVersion);
   useBackHandler();
   const [menu, setMenu] = useState(false);
-  if (vm.onboarding) return <OnboardingScreen />;
+  const [sheet, setSheet] = useState<"share" | "app" | null>(null);
+  const toast = vm.toastText && <div className="toast">{vm.toastText}</div>;
+  if (vm.onboarding && !vm.guest) return <><OnboardingScreen />{toast}</>;
   const screen = vm.current;
-  const dark = ["Overview", "Club", "H2H", "Player", "Live", "Duel", "ZapisDetail", "Team", "Watch"].includes(screen.t);
+  const guest = vm.guest;
+  const dark = ["Overview", "Club", "H2H", "Player", "Live", "Duel", "ZapisDetail", "Team", "Watch", "Shared"].includes(screen.t);
+  const opts = shareOptions(screen);
   const item = (text: string, icon: string, s: Screen) => (
     <button onClick={() => { setMenu(false); vm.go(s); }}><Icon name={icon} />{text}</button>
   );
@@ -113,12 +123,14 @@ function Root() {
       <div className={"topbar" + (dark ? " dark" : "")}>
         {canBack() ? <button className="iconbtn" onClick={goBack} aria-label="Zpět"><Icon name="back" /></button> : <div className="spacer44" />}
         <div className="spacer44" />
+        {opts.length > 0 && <div className="spacer44" />}
         <div className="title">{title(screen)}</div>
+        {opts.length > 0 ? <button className="iconbtn" onClick={() => { if (opts.length === 1) void opts[0].run(); else setSheet("share"); }} aria-label="Sdílet"><Icon name="share" /></button> : null}
         {(() => {
-          const refresh = <button className="iconbtn" onClick={() => vm.refreshAll()} aria-label="Obnovit data"><Icon name="refresh" /></button>;
+          const refresh = guest ? <div className="spacer44" /> : <button className="iconbtn" onClick={() => vm.refreshAll()} aria-label="Obnovit data"><Icon name="refresh" /></button>;
           return screen.t === "Live" ? <LiveTopRing team={screen.team} fallback={refresh} /> : refresh;
         })()}
-        <button className="iconbtn" onClick={() => setMenu(true)} aria-label="Další funkce"><Icon name="more" /></button>
+        {guest ? <div className="spacer44" /> : <button className="iconbtn" onClick={() => setMenu(true)} aria-label="Další funkce"><Icon name="more" /></button>}
         {menu && (
           <>
             <div className="scrim" onClick={() => setMenu(false)} />
@@ -128,15 +140,19 @@ function Root() {
               {item("Porovnání hráčů", "compare", { t: "Compare", a: null, b: null })}
               {item("Rekordy a statistiky", "trophy", S.Records)}
               {item("Nastavení", "settings", S.Settings)}
+              <button onClick={() => { setMenu(false); setSheet("app"); }}><Icon name="share" />Sdílet aplikaci</button>
               {item("O aplikaci", "info", { t: "About" })}
             </div>
           </>
         )}
       </div>
-      <div className="content" key={JSON.stringify(screen)}>
+      <div className="content" key={JSON.stringify(screen)} style={guest ? { paddingBottom: 96 } : undefined}>
         <Body s={screen} />
       </div>
-      <nav className="bottombar">
+      {sheet === "share" && <ShareSheet opts={opts} onClose={() => setSheet(null)} />}
+      {sheet === "app" && <AppShareSheet onClose={() => setSheet(null)} />}
+      {toast}
+      {guest ? <GuestBar /> : <nav className="bottombar">
         <div className="inner">
           {TABS.map(([s, label, icon]) => (
             <button key={label} className={"navitem" + (screen.t === s.t ? " on" : "")} onClick={() => vm.tab(s)}>
@@ -145,7 +161,7 @@ function Root() {
             </button>
           ))}
         </div>
-      </nav>
+      </nav>}
     </>
   );
 }
@@ -166,6 +182,13 @@ navigator.serviceWorker?.addEventListener("message", (e: MessageEvent) => {
   const d = e.data;
   if (d?.type === "notification" && d.data) vm.openLiveNotification(d.data);
 });
+// sdílený odkaz: ?z= zápis, ?h= hráč, ?d= vzájemné zápasy
+(() => {
+  const q = new URLSearchParams(location.search);
+  if (!q.has("z") && !q.has("h") && !q.has("d")) return;
+  history.replaceState(history.state, "", location.pathname);
+  vm.openShared(q);
+})();
 // aplikace spuštěná klepnutím na notifikaci: ?n={…} -> po načtení utkání otevřít zápis / živé utkání
 (() => {
   try {

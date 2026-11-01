@@ -136,6 +136,15 @@ const avgStr = (ps: LivePlayer[], fallback: number): number => {
   return s.length ? Math.trunc(avg(s)) : fallback;
 };
 
+/** Rozptyl „formy dne“ družstva v bodech STR (viz Live.evaluate). */
+export const FORM_SIGMA = 50;
+/** Uzly a váhy normálního rozdělení (Gauss–Hermite, 7 bodů) pro průměrování přes formu dne. */
+const FORM_NODES: [number, number][] = (() => {
+  const x = [-3.750439717725742, -2.366759410734541, -1.154405394739968, 0, 1.154405394739968, 2.366759410734541, 3.750439717725742];
+  const w = [0.000548268855972, 0.030757123967586, 0.240123178605013, 0.457142857142857, 0.240123178605013, 0.030757123967586, 0.000548268855972];
+  return x.map((v, i) => [v, w[i]] as [number, number]);
+})();
+
 export const Live = {
   fromZapis(z: Zapis, strOf: (id: string | null, name: string) => number | null,
     rangeOf: (id: string | null, name: string) => [number, number] | null = () => null): LiveGame[] {
@@ -275,7 +284,8 @@ export const Live = {
     const allAway = games.flatMap((x) => x.away).map((p) => p.str).filter((x): x is number => x != null);
     const fbHome = allHome.length ? Math.trunc(avg(allHome)) : 1500;
     const fbAway = allAway.length ? Math.trunc(avg(allAway)) : 1500;
-    const prior = games.map((x) => StrModel.winProbability(avgStr(x.home, fbHome), avgStr(x.away, fbAway)));
+    const strH = games.map((x) => avgStr(x.home, fbHome)), strA = games.map((x) => avgStr(x.away, fbAway));
+    const prior = games.map((_, i) => StrModel.winProbability(strH[i], strA[i]));
     // rozehrané hry: šance podle stavu na sety
     const probs = games.map((x, i) => (x.result == null ? Live.inGame(prior[i], x) : prior[i]));
 
@@ -283,21 +293,28 @@ export const Live = {
     const away = games.filter((x) => x.result === -1).length;
     const target = format.target;
     const k = (h: number, a: number) => h * 1000 + a;
-    let states = new Map<number, number>([[k(home, away), 1.0]]);
     const done = target != null && (home >= target || away >= target);
-    if (!done) {
-      games.forEach((gm, i) => {
-        if (gm.result != null) return;
-        const p = probs[i];
-        const next = new Map<number, number>();
-        for (const [key, pr] of states) {
-          const h = Math.floor(key / 1000), a = key % 1000;
-          if (target != null && (h >= target || a >= target)) { next.set(key, (next.get(key) ?? 0) + pr); continue; }
-          next.set(k(h + 1, a), (next.get(k(h + 1, a)) ?? 0) + pr * p);
-          next.set(k(h, a + 1), (next.get(k(h, a + 1)) ?? 0) + pr * (1 - p));
-        }
-        states = next;
-      });
+    // „Forma dne“: hry jednoho utkání nejsou nezávislé – celé družstvo může mít lepší/horší den a STR je jen odhad.
+    // Výsledek utkání se proto průměruje přes posun STR domácích o δ ~ N(0, FORM_SIGMA); šance jednotlivých her zůstávají.
+    let states = new Map<number, number>();
+    for (const [z, wt] of FORM_NODES) {
+      const d = z * FORM_SIGMA;
+      let st = new Map<number, number>([[k(home, away), 1.0]]);
+      if (!done) {
+        games.forEach((gm, i) => {
+          if (gm.result != null) return;
+          const p = d === 0 ? probs[i] : Live.inGame(StrModel.winProbability(strH[i] + d, strA[i]), gm);
+          const next = new Map<number, number>();
+          for (const [key, pr] of st) {
+            const h = Math.floor(key / 1000), a = key % 1000;
+            if (target != null && (h >= target || a >= target)) { next.set(key, (next.get(key) ?? 0) + pr); continue; }
+            next.set(k(h + 1, a), (next.get(k(h + 1, a)) ?? 0) + pr * p);
+            next.set(k(h, a + 1), (next.get(k(h, a + 1)) ?? 0) + pr * (1 - p));
+          }
+          st = next;
+        });
+      }
+      for (const [key, pr] of st) states.set(key, (states.get(key) ?? 0) + pr * wt);
     }
     let pw = 0, pd = 0, pl = 0, eh = 0, ea = 0;
     for (const [key, pr] of states) {

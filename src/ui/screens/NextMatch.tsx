@@ -12,6 +12,7 @@ import {
 } from "../components";
 import { fmtWhenLong } from "../fmt";
 import { HallCard } from "../hall";
+import { appBase, shareLink } from "../share";
 
 /** Rozbor dalšího (ne nejbližšího) budoucího utkání – stejný obsah jako Příští zápas. */
 export function FixtureScreen({ team, round, home, away }: { team: number; round: string; home: string; away: string }) {
@@ -33,7 +34,7 @@ export function FixtureScreen({ team, round, home, away }: { team: number; round
         <>
           <TeamForecast me={me} minePick={vm.lineupFor(ctx.myTeam.name, ctx.myTeam.ref, vm.fresh(ctx.myRoster))}
             theirsPick={vm.lineupFor(ctx.opponentName, ctx.opponentRef, vm.fresh(ctx.opponentRoster))} fmt={vm.format}
-                  theirRoster={ctx.opponentRoster} theirRef={ctx.opponentRef} home={ctx.home} />
+                  theirRoster={ctx.opponentRoster} theirRef={ctx.opponentRef} home={ctx.home} ctx={ctx} />
           <ScoutSection me={me} roster={vm.fresh(ctx.opponentRoster)} title={`Soupeři · ${ctx.opponentName}`} />
         </>
       )}
@@ -68,7 +69,7 @@ export function NextMatchScreen() {
               <>
                 <TeamForecast me={me} minePick={vm.lineupFor(ctx.myTeam.name, ctx.myTeam.ref, vm.fresh(ctx.myRoster))}
                   theirsPick={vm.lineupFor(ctx.opponentName, ctx.opponentRef, vm.fresh(ctx.opponentRoster))} fmt={vm.format}
-                  theirRoster={ctx.opponentRoster} theirRef={ctx.opponentRef} home={ctx.home} />
+                  theirRoster={ctx.opponentRoster} theirRef={ctx.opponentRef} home={ctx.home} ctx={ctx} />
                 <ScoutSection me={me} roster={vm.fresh(ctx.opponentRoster)} title={`Soupeři · ${ctx.opponentName}`} />
               </>
             )}
@@ -118,8 +119,10 @@ function MatchHeader({ ctx }: { ctx: NextMatchContext }) {
 }
 
 /** Očekávaný výsledek utkání: doporučená sestava proti pravděpodobné sestavě soupeře. */
-export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFAULT, theirRoster = [], theirRef = null, home = null }: {
+export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFAULT, theirRoster = [], theirRef = null, home = null, ctx = null }: {
   me: PlayerPage; minePick: [RosterPlayer, boolean][]; theirsPick: [RosterPlayer, boolean][]; fmt?: MatchFormat; theirRoster?: RosterPlayer[]; theirRef?: TeamRef | null;
+  /** příští utkání – umožní sdílet predikci */
+  ctx?: NextMatchContext | null;
   /** hraje moje družstvo doma? (null = neznámé, skóre pak vy : soupeř) */
   home?: boolean | null;
 }) {
@@ -155,6 +158,18 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
           <T semi size={14}>{`${Math.round(w)} z ${theirs.length}`}</T>
         </div>
       ))}
+      {ctx?.next && <button className="textbtn" style={{ alignSelf: "flex-start" }} onClick={() => {
+        const n = ctx.next!;
+        const [hn, an] = ctx.home ? [ctx.myTeam.name, ctx.opponentName] : [ctx.opponentName, ctx.myTeam.name];
+        const when0 = n.dateTime != null ? fmtWhenLong(n.dateTime) : n.dateText;
+        const when = when0 ? when0.charAt(0).toLowerCase() + when0.slice(1) : "";
+        const res = my > op ? "výhra" : my < op ? "prohra" : "remíza";
+        const text = [`Příští utkání: ${hn} – ${an}${n.round ? ` (${n.round}. kolo)` : ""}${when ? `, ${when}` : ""}`,
+          `Predikce MySTIS: ${res} ${hs}:${as_} · výhra ${Stats.pct(fc.pWin)}, remíza ${Stats.pct(fc.pDraw)}, prohra ${Stats.pct(fc.pLoss)}`,
+          `Naše sestava: ${mineP.map(label).join(", ")}`,
+          `Soupeř: ${theirsPick.map(label).join(", ")}`].join("\n");
+        void shareLink(`${hn} – ${an}`, text, appBase());
+      }}>Sdílet predikci ›</button>}
       <Muted size={12} maxLines={4} text={`Sestavy: stabilní hráči (aspoň třetina utkání družstva), doplnění náhradníky s nejvíc utkáními. Každý s každým (${mine.length}×${theirs.length} dvouher) + ${fmt.doubles} ${fmt.doubles === 1 ? "čtyřhra" : "čtyřhry"}, pravděpodobnosti podle STR.`} />
     </AppCard>
   );
