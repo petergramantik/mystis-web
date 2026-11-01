@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { SoundUnlockBar } from "../soundbar";
 import { vm } from "../../app/vm";
 import { LiveModeSwitch } from "./Records";
 import type { RosterPlayer } from "../../core/models";
@@ -129,6 +130,7 @@ export function LiveScreen({ team }: { team: number }) {
     <div className="col g12">
       <ScoreHeader st={st} myHome={myHome} homeName={homeName} awayName={awayName} empty={!games.length} />
       <div className="col g12 px16">
+        <SoundUnlockBar />
         <Muted text={`Utkání družstva ${ctx.myTeam.name}`} size={13} />
         <Segmented options={[["zapis", "Zápis ze STIS"], ["manual", "Ruční sestavy"]]} selected={mode} onSelect={setMode} />
         {mode === "zapis" ? (

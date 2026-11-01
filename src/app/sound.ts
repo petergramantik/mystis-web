@@ -11,10 +11,21 @@ function ac(): AudioContext | null {
   return ctx;
 }
 
+const listeners = new Set<() => void>();
+/** Zavolá se, když se zvuk odemkne (první klepnutí na stránku). */
+export function onSoundUnlock(cb: () => void) { listeners.add(cb); }
+/** Smí stránka teď hrát zvuk? (AudioContext běží – po prvním klepnutí od načtení) */
+export function soundUnlocked(): boolean { return !!ctx && ctx.state === "running"; }
+/** Odemkne zvuk (volat z klepnutí uživatele). */
+export function unlockSound() {
+  const c = ac();
+  if (!c) return;
+  const done = () => listeners.forEach((l) => l());
+  if (c.state === "suspended") c.resume().then(done, () => {}); else done();
+}
 if (typeof window !== "undefined") {
-  const unlock = () => { const c = ac(); if (c && c.state === "suspended") void c.resume(); };
-  window.addEventListener("pointerdown", unlock, { passive: true });
-  window.addEventListener("keydown", unlock);
+  window.addEventListener("pointerdown", unlockSound, { passive: true });
+  window.addEventListener("keydown", unlockSound);
 }
 
 let noiseBuf: AudioBuffer | null = null;

@@ -12,6 +12,7 @@ import { hhmmLdt } from "../fmt";
 import { GameRow, ScoreHeader } from "./LiveMatch";
 import { useZapisStr } from "./Duel";
 import { useZapisRefresh } from "../zapis";
+import { SoundUnlockBar } from "../soundbar";
 
 type Status = { kind: "future" | "live" | "done"; text: string; h: number | null; a: number | null };
 
@@ -351,6 +352,7 @@ export function WatchScreen({ k }: { k: string }) {
       <ScoreHeader st={st} myHome={myHome} homeName={home} awayName={away} empty={!games.length || !strs.ready} neutral={neutral}
         emptyText={games.length && !strs.ready ? `Načítám STR hráčů… (${strs.done}/${strs.total})` : undefined} />
       <div className="col g12 px16">
+        <SoundUnlockBar />
         <AppCard>
           <div className="row">
             <div className="col w1">

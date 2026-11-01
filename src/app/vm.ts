@@ -3,7 +3,7 @@ import { Match, Stis, type TeamInfo, type StandingRow, type StrLadder, type Club
 import { Parsers } from "../core/parsers";
 import { shortTeam, surname } from "../core/names";
 import { StisRepository, HOUR, type NextMatchContext } from "../core/repository";
-import { playSound } from "./sound";
+import { playSound, soundUnlocked, onSoundUnlock } from "./sound";
 import { Stats, LadderEntry, maxBy, minBy, distinct, distinctBy, type SetStats } from "../core/stats";
 import { Live, LiveTimeline, MatchFormats, type MatchFormat, type MyLiveGame } from "../core/live";
 import { Stability, type SearchClub, type SearchPlayer } from "../core/search";
@@ -1501,6 +1501,9 @@ export class AppVm {
     const my = myHome ? h : a, op = myHome ? a : h;
     const endNow = finished && !this.liveEndSent.has(path);
     const withSets = mode === "sets" && freshSets.length > 0;
+    // aplikace na obrazovce s odemčeným zvukem: notifikace potichu, ozve se jen MP3
+    const mp3 = prefs.liveSounds && !neutral && mode !== "off";
+    this.notifySilent = mp3 && typeof document !== "undefined" && document.visibilityState === "visible" && soundUnlocked();
     if (prefs.liveSounds && !neutral && mode !== "off" && (fresh.length || endNow || withSets))
       playSound(endNow ? (my >= op ? "victory" : "loss") : fresh.length ? (lastWon ? "win" : "loss") : lastSetWon ? "win" : "loss");
     if (mode === "off") { if (endNow) this.liveEndSent.add(path); return; }
@@ -1516,15 +1519,18 @@ export class AppVm {
     }
   }
 
+  private soundHook = onSoundUnlock(() => this.emit());
+  /** Další notifikace mají jít potichu (zvuk obstará MP3 v aplikaci). */
+  private notifySilent = false;
   private async post(tag: string, title: string, body: string, live = false, liveTeam = 0, livePath = "") {
     if (live ? !prefs.liveNotify : !prefs.notifications) return;
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     try {
       const data = live ? { live: liveTeam, path: livePath, key: this.next[liveTeam] ? this.teamKey(this.next[liveTeam]) : undefined, team: this.next[liveTeam]?.myTeam.name } : undefined;
       const reg = await navigator.serviceWorker?.getRegistration();
-      if (reg) await reg.showNotification(title, { body, tag, icon: "icon-192.png", badge: "icon-192.png", data });
+      if (reg) await reg.showNotification(title, { body, tag, icon: "icon-192.png", badge: "icon-192.png", data, silent: live && this.notifySilent });
       else {
-        const n = new Notification(title, { body, tag });
+        const n = new Notification(title, { body, tag, silent: live && this.notifySilent });
         if (data) n.onclick = () => { try { window.focus(); } catch { /* */ } this.openLiveNotification(data); };
       }
     } catch { /* nepodstatné */ }
@@ -1536,9 +1542,9 @@ export class AppVm {
     try {
       const data = { watch: w.key, path: w.zapisPath };
       const reg = await navigator.serviceWorker?.getRegistration();
-      if (reg) await reg.showNotification(title, { body, tag, icon: "icon-192.png", badge: "icon-192.png", data });
+      if (reg) await reg.showNotification(title, { body, tag, icon: "icon-192.png", badge: "icon-192.png", data, silent: this.notifySilent });
       else {
-        const n = new Notification(title, { body, tag });
+        const n = new Notification(title, { body, tag, silent: this.notifySilent });
         n.onclick = () => { try { window.focus(); } catch { /* */ } this.openLiveNotification(data); };
       }
     } catch { /* nepodstatné */ }

@@ -14,6 +14,7 @@ import { fmtDMYdt, fmtWhenShort } from "../fmt";
 import { ProxySetup } from "./Records";
 import { InstallBanner, InstallButton } from "../install";
 import { useZapisRefresh } from "../zapis";
+import { SoundUnlockBar } from "../soundbar";
 
 export function OnboardingScreen() {
   return (
@@ -142,6 +143,7 @@ export function OverviewScreen() {
       <InstallBanner />
       {vm.error != null && <div className="px16"><ErrorBox text={vm.error} onRetry={() => vm.loadMe(true)} /></div>}
       <div className="col g12 px16">
+        <SoundUnlockBar />
         {(vm.watchedRunning().length > 0 || vm.boardLiveCount() > 0) && (() => {
           const w = vm.watchedRunning().length, all = vm.boardLiveCount();
           const utk = (n: number) => (n === 1 ? "utkání" : "utkání");
