@@ -1,10 +1,21 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.7";
+export const APP_VERSION = "2.8";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.8", date: "1. 11. 2026", title: "Profil družstva",
+    items: [
+      "Družstva v tabulce soutěže, soupeř v příštím zápase i družstva v zápisu jsou klikatelná – otevřou profil družstva (výsledky, vývoj STR, soupiska, statistiky)",
+      "U cizího družstva: utkání proti vašemu družstvu a vaše bilance proti jeho hráčům; statistiky ze zápisů na klepnutí",
+      "Obrazovka Družstvo ukazuje průběh načítání (kroužek s procenty)",
+      "Přehled: na konci grafu STR šipka podle změny v posledním utkání",
+      "Vývoj STR: predikce zeleně / oranžově podle směru, u konce sezóny rozdíl proti aktuálnímu STR",
+      "Utkání: filtr Vše / Příští / Odehrané; Zápasy: filtry v pořadí sezóna, družstvo, výsledek; žebříček STIS: přepínač STR | %",
+    ],
+  },
   {
     version: "2.7", date: "1. 11. 2026", title: "Klikatelní hráči",
     items: [

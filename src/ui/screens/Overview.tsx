@@ -129,7 +129,16 @@ export function OverviewScreen() {
             </div>
           ) : (
             <div style={{ padding: "6px 0 6px 6px", margin: "-6px 0 -6px -6px" }}>
-              <Sparkline values={me.graph.map((p) => p.str).filter((x): x is number => x != null).slice(-40)} />
+              <Sparkline values={me.graph.map((p) => p.str).filter((x): x is number => x != null).slice(-40)} end={(() => {
+                // konec grafu: změna v posledním utkání (u neoficiálního odhadu obrysově, stejně jako velké STR)
+                if (provisional != null && cur != null) return vm.unofficialPending() ? { delta: null, outline: true } : { delta: provisional - cur, outline: true };
+                const ch = me.chronological;
+                if (!ch.length || cur == null) return { delta: null };
+                const last = ch[ch.length - 1];
+                const key = (x: typeof last) => x.zapisPath || x.dateText + "|" + x.myTeam;
+                const first = ch.find((x) => key(x) === key(last) && x.strBefore != null);
+                return { delta: first ? cur - first.strBefore! : null };
+              })()} />
             </div>
           )}
         </div>

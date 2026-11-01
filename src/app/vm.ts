@@ -36,7 +36,8 @@ export type Screen =
   | { t: "Team"; team: number }
   | { t: "Watch"; key: string }
   | { t: "About" }
-  | { t: "Shared"; path: string };
+  | { t: "Shared"; path: string }
+  | { t: "OtherTeam"; ref: TeamRef; comp: string };
 
 export const S = {
   Overview: { t: "Overview" } as Screen, Ladder: { t: "Ladder" } as Screen, Str: { t: "Str" } as Screen,
@@ -1219,6 +1220,12 @@ export class AppVm {
   compId: string | null = null;
   /** soutěž otevřená z profilu jiného hráče (není mezi mými soutěžemi) */
   extraComp: { svaz: string; rocnik: number; soutez: string; label: string; teams: string[] } | null = null;
+  /** Otevře obrazovku družstva: moje → Družstvo, cizí → profil cizího družstva. */
+  openTeam(ref: TeamRef, comp: string) {
+    const i = this.next.findIndex((c) => c.myTeam.ref?.id === ref.id || (!ref.id && Stats.fold(c.myTeam.name) === Stats.fold(ref.name)));
+    if (i >= 0) this.go({ t: "Team", team: i });
+    else if (ref.id) this.go({ t: "OtherTeam", ref: { id: ref.id, name: ref.name, svaz: ref.svaz, rocnik: ref.rocnik, soutez: ref.soutez }, comp });
+  }
   /** Otevře Žebříčky (tabulku / žebříček STR) na zadané soutěži. */
   openCompetition(ref: TeamRef, label: string, team: string, tab: "tabulka" | "stis") {
     this.extraComp = { svaz: ref.svaz, rocnik: ref.rocnik, soutez: ref.soutez, label, teams: [team] };
@@ -1236,6 +1243,8 @@ export class AppVm {
   strLadderSort = "str";
   predOn = false;
   utkaniTeam: number | null = null;
+  /** filtr na kartě Utkání: all / next / played */
+  utkaniFilter = prefs.utkaniFilter;
   set<K extends "lastByTeam" | "matchesTeam" | "matchesSeason" | "recentTeam" | "oppMode" | "oppComp" | "rankByTeam" | "ladderTab" | "matchesTab" | "compSeason" | "compId" | "strLadderMine" | "strLadderSort" | "utkaniTeam" | "predOn">(k: K, v: AppVm[K]) {
     (this as any)[k] = v; this.emit();
   }

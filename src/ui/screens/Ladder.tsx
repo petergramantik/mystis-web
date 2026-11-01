@@ -145,9 +145,10 @@ function StandingsTable({ comp, rows, loading, current }: { comp: Comp; rows: St
           const m = mine(r);
           return (
             <div key={i}>
-              <div className="row" style={{ background: m ? C.Tint : "#fff", padding: "10px 14px" }}>
+              <div className={"row" + (r.teamId ? " clickable" : "")} style={{ background: m ? C.Tint : "#fff", padding: "10px 14px" }}
+                onClick={r.teamId ? () => vm.openTeam({ id: r.teamId!, name: r.name, svaz: comp.svaz, rocnik: comp.rocnik, soutez: comp.soutez }, comp.label) : undefined}>
                 <BigNumber text={`${r.position}`} size={18} color={r.position <= 3 ? C.Orange : C.Ink} style={{ width: 28, flex: "none" }} />
-                <T semi={!m} bold={m} size={15} lines={2} style={{ flex: 1 }}>{r.name}</T>
+                <T semi={!m} bold={m} size={15} lines={2} style={{ flex: 1 }}>{r.name}{r.teamId && <span style={{ color: C.Muted }}> ›</span>}</T>
                 <T size={14} center style={{ width: 26, flex: "none" }}>{r.played}</T>
                 <T size={13} center color={C.Muted} style={{ width: 62, flex: "none" }}>{`${r.wins}-${r.draws}-${r.losses}`}</T>
                 <T size={13} center color={C.Muted} style={{ width: 58, flex: "none" }}>{r.score}</T>
@@ -194,7 +195,7 @@ function OfficialLadder({ comp, data, loading }: { comp: Comp; data: StrLadder |
   return (
     <>
       <div className="row g8">
-        <div style={{ flex: 1 }}><Segmented options={[["str", "STR"], ["pct", "Úspěšnost"]]} selected={byPct ? "pct" : "str"} onSelect={(k) => vm.set("strLadderSort", k)} /></div>
+        <div style={{ flex: 1 }}><Segmented options={[["str", "STR"], ["pct", "%"]]} selected={byPct ? "pct" : "str"} onSelect={(k) => vm.set("strLadderSort", k)} /></div>
         <div style={{ flex: 1 }}><Segmented options={[["all", "Všichni"], ["mine", "Můj oddíl"]]} selected={onlyMine ? "mine" : "all"} onSelect={(k) => vm.set("strLadderMine", k === "mine")} /></div>
       </div>
       <Muted text={data.title || `${comp.label} · ${comp.rocnik}/${(comp.rocnik + 1) % 100}`} size={14} maxLines={2} />

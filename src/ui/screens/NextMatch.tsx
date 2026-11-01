@@ -100,13 +100,16 @@ function MatchHeader({ ctx }: { ctx: NextMatchContext }) {
     </AppCard>
   );
   const played = ctx.los.filter((m) => m.played);
+  const oppRef = ctx.opponentRef;
+  const openOpp = oppRef ? () => vm.openTeam({ ...oppRef, name: ctx.opponentName }, ctx.myTeam.competition ?? "") : undefined;
+  const oppName = <span className={openOpp ? "clickable" : undefined} onClick={openOpp}>{ctx.opponentName + (openOpp ? " ›" : "")}</span>;
   return (
     <AppCard>
       <Muted text={ctx.myTeam.competition ?? ctx.myTeam.name} size={13} />
       <div className="row">
-        <div className="col w1"><T bold size={17}>{ctx.home ? ctx.myTeam.name : ctx.opponentName}</T><Muted text="domácí" size={12} /></div>
+        <div className="col w1"><T bold size={17}>{ctx.home ? ctx.myTeam.name : oppName}</T><Muted text="domácí" size={12} /></div>
         <T bold color={C.Muted} style={{ padding: "0 8px" }}>vs</T>
-        <div className="col w1" style={{ alignItems: "flex-end" }}><T bold size={17} end>{ctx.home ? ctx.opponentName : ctx.myTeam.name}</T><Muted text="hosté" size={12} /></div>
+        <div className="col w1" style={{ alignItems: "flex-end" }}><T bold size={17} end>{ctx.home ? oppName : ctx.myTeam.name}</T><Muted text="hosté" size={12} /></div>
       </div>
       <div className="row g8">
         <Pill text={ctx.home ? "Hrajete doma" : "Hrajete venku"} />

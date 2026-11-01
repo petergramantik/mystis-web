@@ -112,9 +112,10 @@ function TeamFixtures() {
       {ctxs.length > 1 && <Chips options={ctxs.map((c, i) => [String(i), c.myTeam.name])} selected={String(idx)} onSelect={(k) => vm.set("utkaniTeam", parseInt(k, 10))} />}
       <Muted text={`${ctx.myTeam.competition ?? ctx.myTeam.name} · odehráno ${ctx.los.filter((m) => m.played).length} z ${ctx.los.length}`} size={13} />
       {!ctx.los.length && <Empty text="Rozpis utkání družstva je prázdný." />}
-      {live.length > 0 && <><T size={13} bold color={C.Muted} style={{ paddingLeft: 4 }}>PRÁVĚ SE HRAJE</T><ListCard>{live.map((m) => row(m, "live"))}</ListCard></>}
-      {future.length > 0 && <><T size={13} bold color={C.Muted} style={{ paddingLeft: 4, paddingTop: 6 }}>NADCHÁZEJÍCÍ</T><ListCard>{future.map((m) => row(m, "future"))}</ListCard></>}
-      {played.length > 0 && <><T size={13} bold color={C.Muted} style={{ paddingLeft: 4, paddingTop: 6 }}>ODEHRANÉ</T><ListCard>{played.map((m) => row(m, "played"))}</ListCard></>}
+      <Chips options={[["all", "Vše"], ["next", "Příští"], ["played", "Odehrané"]]} selected={vm.utkaniFilter} onSelect={(k) => { vm.utkaniFilter = k; vm.prefs.utkaniFilter = k; vm.emit(); }} />
+      {live.length > 0 && vm.utkaniFilter !== "played" && <><T size={13} bold color={C.Muted} style={{ paddingLeft: 4 }}>PRÁVĚ SE HRAJE</T><ListCard>{live.map((m) => row(m, "live"))}</ListCard></>}
+      {future.length > 0 && vm.utkaniFilter !== "played" && <><T size={13} bold color={C.Muted} style={{ paddingLeft: 4, paddingTop: 6 }}>PŘÍŠTÍ</T><ListCard>{future.map((m) => row(m, "future"))}</ListCard></>}
+      {played.length > 0 && vm.utkaniFilter !== "next" && <><T size={13} bold color={C.Muted} style={{ paddingLeft: 4, paddingTop: 6 }}>ODEHRANÉ</T><ListCard>{played.map((m) => row(m, "played"))}</ListCard></>}
       <Muted size={12} maxLines={3} text="Klepnutím na odehrané nebo probíhající utkání otevřete zápis, na budoucí utkání rozbor soupeřů. Místo je herna domácího družstva podle STIS." />
       <div style={{ height: 8 }} />
     </div>
@@ -147,9 +148,9 @@ function PlayerMatches() {
   return (
     <div className="col g8 px16">
       <TextField value={query} onChange={setQuery} label="Hledat soupeře, klub nebo soutěž" icon="search" />
-      <Chips options={[["all", "Vše"], ["w", "Výhry"], ["l", "Prohry"], ["5", "Pětisetové"]]} selected={filter} onSelect={setFilter} />
-      {teams.length > 1 && <Chips options={[["all", "Všechna družstva"], ...teams.map((t) => [t, t] as [string, string])]} selected={team} onSelect={(k) => vm.set("matchesTeam", k)} />}
       <Chips options={[["all", "Všechny sezóny"], ...seasons.map((s) => [String(s), `${s}/${(s + 1) % 100}`] as [string, string])]} selected={season} onSelect={(k) => vm.set("matchesSeason", k)} />
+      {teams.length > 1 && <Chips options={[["all", "Všechna družstva"], ...teams.map((t) => [t, t] as [string, string])]} selected={team} onSelect={(k) => vm.set("matchesTeam", k)} />}
+      <Chips options={[["all", "Vše"], ["w", "Výhry"], ["l", "Prohry"], ["5", "Pětisetové"]]} selected={filter} onSelect={setFilter} />
       <T size={14} color={C.Muted} style={{ padding: "0 4px" }}>{`${list.length} zápasů · ${w} výher · ${list.length - w} proher · sety ${sf}:${sa}`}</T>
       {!list.length && <Empty text="Žádné zápasy neodpovídají filtru." />}
       {Array.from(groups).map(([title, ms]) => (

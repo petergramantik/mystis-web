@@ -4,7 +4,7 @@ import { vm } from "../../app/vm";
 import { Stis, type PlayerPage } from "../../core/models";
 import { Stats, StrModel, sum } from "../../core/stats";
 import { type LDate, LDATE_MIN, ldDay, ldMinusYears, ldMonth, ldOf, ldYear, today } from "../../core/dates";
-import { AppCard, Avatar, Segmented, BigNumber, C, Chips, DMY, KeyValue, Legend, Loading, Muted, ProbBar, SectionTitle, StatTile, StrChart, StrTimelineChart, T, TextField, TileRow, dec1, f0, signedInt } from "../components";
+import { AppCard, Avatar, Segmented, BigNumber, C, Chips, DMY, KeyValue, Legend, Loading, Muted, ProbBar, SectionTitle, StatTile, StrChart, StrTimelineChart, T, forecastColor, TextField, TileRow, dec1, f0, signedInt } from "../components";
 
 function minusMonths(d: LDate, n: number): LDate {
   let y = ldYear(d), m = ldMonth(d) - n;
@@ -121,13 +121,14 @@ export function StrScreen() {
         </div>
         <Chips options={[["3m", "3 měsíce"], ["sez", "Sezóna"], ["1r", "1 rok"], ["3r", "3 roky"], ["vse", "Vše"]]} selected={period} onSelect={setPeriod} />
         {period === "vse" || period === "3r" ? <StrChart series={[{ color: C.Blue, points: pts }]} /> : <StrTimelineChart history={pts} live={livePts} forecast={fc} />}
-        <Legend items={[[C.Blue, "oficiální STR"], ...(livePts.length ? [[C.Live, "probíhající utkání (odhad)"] as [string, string]] : []), [C.Orange, "predikce a 80% pásmo"]]} />
+        <Legend items={[[C.Blue, "oficiální STR"], ...(livePts.length ? [[C.Live, "probíhající utkání (odhad)"] as [string, string]] : []), [forecastColor(fc), "predikce a 80% pásmo"]]} />
         {livePts.length > 0 && <Muted text="Fialová část je odhad z online zápisu – STIS ji oficiálně přepočítá po skončení utkání." color={C.Live} size={12} />}
       </AppCard>
       {fc && (
         <>
           <TileRow>
-            <StatTile label={`Konec sezóny ${DMY(until)}`} value={f0(fc.center)} sub={`80 %: ${f0(fc.low)} – ${f0(fc.high)}`} />
+            <StatTile label={`Konec sezóny ${DMY(until)}`} value={f0(fc.center)} sub={`80 %: ${f0(fc.low)} – ${f0(fc.high)}`}
+              suffix={(() => { const d = Math.round(fc.center) - Math.round(fc.current); return { text: d > 0 ? `+${d}` : d < 0 ? `−${-d}` : "±0", color: d > 0 ? C.Win : d < 0 ? C.OrangeText : C.Muted }; })()} />
             <StatTile label="Zbývá zápasů" value={`~${fc.remainingMatches}`} sub={`forma ${fc.formPerMatch >= 0 ? "+" : "−"}${dec1(Math.abs(fc.formPerMatch * 100))} % / zápas`} />
           </TileRow>
           <AppCard>

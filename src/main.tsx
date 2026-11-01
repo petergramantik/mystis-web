@@ -9,7 +9,7 @@ import { MatchesScreen } from "./ui/screens/Matches";
 import { ClubScreen, H2HScreen, OpponentsScreen } from "./ui/screens/Opponents";
 import { FixtureScreen, NextMatchScreen } from "./ui/screens/NextMatch";
 import { LiveScreen, LiveTopRing } from "./ui/screens/LiveMatch";
-import { TeamScreen } from "./ui/screens/Team";
+import { OtherTeamScreen, TeamScreen } from "./ui/screens/Team";
 import { WatchScreen } from "./ui/screens/LiveBoard";
 import { AboutScreen } from "./ui/screens/About";
 import { ProfileScreen } from "./ui/screens/Profile";
@@ -51,6 +51,7 @@ function title(s: Screen): string {
     case "ZapisDetail": return "Zápis o utkání";
     case "Fixture": return "Další utkání";
     case "Shared": return "Utkání";
+    case "OtherTeam": return "Družstvo";
   }
 }
 
@@ -76,6 +77,7 @@ function Body({ s }: { s: Screen }) {
     case "Duel": return <PairScreen aId0={s.aId} aName0={s.aName} bId0={s.bId} bName0={s.bName} pA0={s.pA} />;
     case "ZapisDetail": return <ZapisDetailScreen path={s.path} myTeam={s.myTeam} />;
     case "Fixture": return <FixtureScreen team={s.team} round={s.round} home={s.home} away={s.away} />;
+    case "OtherTeam": return <OtherTeamScreen tref={s.ref} comp={s.comp} />;
     case "Shared": {
       const z = vm.zapisy.get(s.path);
       return z && vm.finished(z) ? <ZapisDetailScreen path={s.path} myTeam="" /> : <WatchScreen k="" shared={s.path} />;
@@ -114,7 +116,7 @@ function Root() {
   if (vm.onboarding && !vm.guest) return <><OnboardingScreen />{toast}</>;
   const screen = vm.current;
   const guest = vm.guest;
-  const dark = ["Overview", "Club", "H2H", "Player", "Live", "Duel", "ZapisDetail", "Team", "Watch", "Shared"].includes(screen.t);
+  const dark = ["Overview", "Club", "H2H", "Player", "Live", "Duel", "ZapisDetail", "Team", "Watch", "Shared", "OtherTeam"].includes(screen.t);
   const opts = shareOptions(screen);
   const item = (text: string, icon: string, s: Screen) => (
     <button onClick={() => { setMenu(false); vm.go(s); }}><Icon name={icon} />{text}</button>

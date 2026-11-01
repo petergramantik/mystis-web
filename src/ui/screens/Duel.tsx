@@ -132,15 +132,17 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
   }
   const my = myHome ? hPts : aPts, op = myHome ? aPts : hPts;
   const stats = Live.playerStats(z);
+  const zc = vm.compOfPath(path);
+  const openZTeam = (id: string | null, name: string) => { if (zc && id) vm.openTeam({ id, name, ...zc }, z.competition); };
   let h = 0, a = 0;
   return (
     <div className="col g12">
       <NavyHeader>
         <Muted text={[z.competition, z.round.trim() ? `${z.round}. kolo` : null].filter((x) => x && x.trim()).join(" · ")} color={C.MutedOnNavy} size={13} />
         <div className="row">
-          <TeamName name={z.home} bold={myHome} />
+          <div className="clickable" style={{ flex: 1, minWidth: 0 }} onClick={() => openZTeam(z.homeTeamId, z.home)}><TeamName name={z.home} bold={myHome} /></div>
           <BigNumber text={`${hPts} : ${aPts}`} color="#fff" size={44} style={{ padding: "0 10px", whiteSpace: "nowrap" }} />
-          <TeamName name={z.away} bold={!myHome} end />
+          <div className="clickable" style={{ flex: 1, minWidth: 0 }} onClick={() => openZTeam(z.awayTeamId, z.away)}><TeamName name={z.away} bold={!myHome} end /></div>
         </div>
         {vm.finished(z)
           ? neutral ? <T bold color="#fff">{(hPts > aPts ? `Vítězství ${z.home}` : hPts < aPts ? `Vítězství ${z.away}` : "Remíza") + (z.online ? " · online zápis" : "")}</T>

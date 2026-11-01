@@ -83,8 +83,10 @@ export function AppCard({ children, onClick, padding = 14, bg = "#fff", style, c
 }
 export function ListCard({ children, style }: { children: ReactNode; style?: CSSProperties }) { return <div className="listcard" style={style}>{children}</div>; }
 
-export function StatTile({ label, value, dark, valueColor, sub, onClick, busy }: {
+export function StatTile({ label, value, dark, valueColor, sub, onClick, busy, suffix }: {
   label: string; value: string; dark?: boolean; valueColor?: string; sub?: string | null; onClick?: () => void; subLeftEllipsis?: boolean; busy?: boolean;
+  /** menší text za hodnotou (např. barevný rozdíl) */
+  suffix?: { text: string; color: string } | null;
 }) {
   const mc = dark ? C.MutedOnNavy : C.Muted;
   return (
@@ -92,6 +94,7 @@ export function StatTile({ label, value, dark, valueColor, sub, onClick, busy }:
       <Marquee text={label} color={mc} size={12} />
       <div className="row" style={{ gap: 6 }}>
         <BigNumber text={value} color={valueColor ?? (dark ? "#fff" : C.Ink)} size={22} />
+        {suffix && <span style={{ color: suffix.color, fontSize: 13, fontWeight: 700, alignSelf: "flex-end", paddingBottom: 3, whiteSpace: "nowrap" }}>{suffix.text}</span>}
         {busy && <Spinner size={13} width={2} color={mc} />}
       </div>
       {sub != null && <Marquee text={sub} color={mc} size={11} />}
@@ -425,17 +428,43 @@ export function StrChart({ series, forecast = null, height = 230 }: { series: Se
   );
 }
 
-export function Sparkline({ values, width = 150, height = 70, color = C.BlueLight }: { values: number[]; width?: number; height?: number; color?: string }) {
+/**
+ * Malý graf STR; konec: šipka nahoru (zeleně) / dolů (oranžovočerveně) podle změny v posledním utkání,
+ * šedá tečka beze změny; [outline] = neoficiální odhad (obrysově).
+ */
+export function Sparkline({ values, width = 150, height = 70, color = C.BlueLight, end = null }: {
+  values: number[]; width?: number; height?: number; color?: string;
+  end?: { delta: number | null; outline?: boolean } | null;
+}) {
   if (values.length < 2) return <div style={{ width, height }} />;
   const mn = Math.min(...values), mx = Math.max(...values);
+  const w = width - 9; // místo pro šipku
   const py = (v: number) => (mx === mn ? height / 2 : height - 2 - (height - 4) * ((v - mn) / (mx - mn)));
-  const d = values.map((v, i) => `${i === 0 ? "M" : "L"}${(width * i) / (values.length - 1)},${py(v)}`).join("");
+  const d = values.map((v, i) => `${i === 0 ? "M" : "L"}${(w * i) / (values.length - 1)},${py(v)}`).join("");
+  const ex = w, ey = py(values[values.length - 1]);
+  const dl = end?.delta ?? null;
+  const out = !!end?.outline;
+  let mark;
+  if (dl == null || Math.round(dl) === 0) {
+    mark = <circle cx={ex} cy={ey} r={3.6} fill={out ? "none" : C.Grey} stroke={C.Grey} strokeWidth={out ? 1.6 : 0} />;
+  } else {
+    const up = dl > 0, c = up ? C.WinLight : "#FF7A45", s = 7;
+    const pts = up ? `${ex - s},${ey + s * 0.55} ${ex + s},${ey + s * 0.55} ${ex},${ey - s * 0.85}` : `${ex - s},${ey - s * 0.55} ${ex + s},${ey - s * 0.55} ${ex},${ey + s * 0.85}`;
+    mark = <polygon points={pts} fill={out ? "none" : c} stroke={c} strokeWidth={out ? 1.8 : 1} strokeLinejoin="round" />;
+  }
   return (
     <svg width={width} height={height} style={{ flex: "none", overflow: "visible" }}>
       <path d={d} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={width - 1.5} cy={py(values[values.length - 1])} r={3.3} fill={C.Orange} />
+      {mark}
     </svg>
   );
+}
+
+/** Barva predikce: zeleně stoupá, oranžově klesá, šedě (změna pod 1 bod) beze změny. */
+export function forecastColor(fc: Forecast | null | undefined): string {
+  if (!fc) return C.Orange;
+  const d = fc.center - fc.current;
+  return Math.abs(d) < 1 ? C.Grey : d > 0 ? C.Win : C.Orange;
 }
 
 /**
@@ -450,6 +479,7 @@ export function StrTimelineChart({ history, live, forecast, height = 240, foreca
   const endStr = live.length ? live[live.length - 1] : history[history.length - 1][1];
   const shift = endStr - (forecast?.current ?? Math.trunc(endStr));
   const f = forecast?.path.map((p) => [p[1][0] + shift, p[1][1] + shift, p[1][2] + shift]) ?? [];
+  const fcColor = forecastColor(forecast);
   const ys = [...history.map((p) => p[1]), ...live, ...f.flatMap((t) => [t[1], t[2]])];
   let minY = Math.min(...ys), maxY = Math.max(...ys);
   const pad = Math.max(8, (maxY - minY) * 0.08);
@@ -470,11 +500,11 @@ export function StrTimelineChart({ history, live, forecast, height = 240, foreca
           {labels.map((i) => { const t = DM(history[i][0]); const tw = t.length * 5.6; return <text key={i} x={clampN(x(i) - tw / 2, left - 4, histRight - tw)} y={height - 3} fontSize={11} fill={C.Muted}>{t}</text>; })}
           {f.length >= 2 && (
             <>
-              <path d={"M" + f.map((t, k) => `${fx(k)},${y(t[2])}`).join("L") + "L" + f.map((t, k) => [k, t] as const).reverse().map(([k, t]) => `${fx(k)},${y(t[1])}`).join("L") + "Z"} fill={C.Orange} fillOpacity={0.15} />
-              <path d={"M" + f.map((t, k) => `${fx(k)},${y(t[0])}`).join("L")} fill="none" stroke={C.Orange} strokeWidth={2} strokeDasharray="5 3.6" strokeLinecap="round" />
+              <path d={"M" + f.map((t, k) => `${fx(k)},${y(t[2])}`).join("L") + "L" + f.map((t, k) => [k, t] as const).reverse().map(([k, t]) => `${fx(k)},${y(t[1])}`).join("L") + "Z"} fill={fcColor} fillOpacity={0.15} />
+              <path d={"M" + f.map((t, k) => `${fx(k)},${y(t[0])}`).join("L")} fill="none" stroke={fcColor} strokeWidth={2} strokeDasharray="5 3.6" strokeLinecap="round" />
               <line x1={histRight} x2={histRight} y1={top} y2={bottom} stroke={C.Ink} strokeOpacity={0.4} strokeWidth={0.8} strokeDasharray="2 3" />
               <text x={histRight + 2} y={top + 9} fontSize={10} fontWeight={700} fill={C.Ink}>odhad</text>
-              <circle cx={right - 1} cy={y(f[f.length - 1][0])} r={3} fill={C.Orange} />
+              <circle cx={right - 1} cy={y(f[f.length - 1][0])} r={3} fill={fcColor} />
             </>
           )}
           <path d={"M" + history.map((p, i) => `${x(i)},${y(p[1])}`).join("L")} fill="none" stroke={C.Blue} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />

@@ -65,6 +65,8 @@ export const prefs = {
   get watchedJson() { return get("watched") ?? "[]"; },
   set watchedJson(v: string) { set("watched", v); },
   /** Karta Výkon proti predikci v zápisu sbalená. */
+  get utkaniFilter() { return get("utkani_filter") ?? "all"; },
+  set utkaniFilter(v: string) { set("utkani_filter", v); },
   /** Karta podpory skrytá do (ms). */
   get supportHiddenUntil() { return Number(get("support_hidden_until") ?? 0) || 0; },
   set supportHiddenUntil(v: number) { set("support_hidden_until", String(v)); },
