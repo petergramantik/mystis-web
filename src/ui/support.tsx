@@ -30,7 +30,7 @@ export function SupportStrip({ always = false, dark = false }: { always?: boolea
           <T semi size={14} color={dark ? "#fff" : C.Ink}>☕ Podpořit vývoj</T>
           <Muted size={12} color={dark ? C.MutedOnNavy : C.Muted} text="Aplikace je zdarma a vzniká ve volném čase. Dobrovolný příspěvek pomůže." />
         </div>
-        <div className="row g8">{btn("50 Kč", 50)}{btn("200 Kč", 200)}{btn("Vlastní", "custom")}</div>
+        <div className="row g8">{btn("🍺 50 Kč", 50)}{btn("🍛 200 Kč", 200)}{btn("💰 Vlastní", "custom")}</div>
       </div>
       {amount != null && <SupportSheet initial={amount} onClose={() => setAmount(null)} />}
     </>
@@ -47,7 +47,7 @@ function SupportSheet({ initial, onClose }: { initial: number | "custom"; onClos
     <div style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(10,20,40,.45)", display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={onClose}>
       <div className="col g12" onClick={(e) => e.stopPropagation()}
         style={{ background: "#fff", width: "100%", maxWidth: 560, borderRadius: "20px 20px 0 0", padding: "18px 16px calc(18px + env(safe-area-inset-bottom))", maxHeight: "90vh", overflowY: "auto", color: C.Ink }}>
-        <div className="row"><T bold size={18} style={{ flex: 1 }}>{`Podpořit vývoj${amount ? ` · ${amount} Kč` : ""}`}</T><span className="clickable" style={{ fontSize: 22, color: C.Muted, padding: "0 4px" }} onClick={onClose}>✕</span></div>
+        <div className="row"><T bold size={18} style={{ flex: 1 }}>{`Podpořit vývoj · ${initial === 50 ? "🍺" : initial === 200 ? "🍛" : "💰"}${amount ? ` ${amount} Kč` : ""}`}</T><span className="clickable" style={{ fontSize: 22, color: C.Muted, padding: "0 4px" }} onClick={onClose}>✕</span></div>
         {initial === "custom" && <TextField value={custom} onChange={setCustom} label="Částka v Kč" placeholder="např. 100" numeric />}
         {(initial !== "custom" || amount) && (
           <div className="col g8" style={{ alignItems: "center" }}>
