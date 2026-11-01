@@ -585,19 +585,19 @@ export class AppVm {
 
   /** Všechna odehraná utkání družstva v sezóně, od nejnovějšího. */
   previousList(ctx: NextMatchContext): [LosMatch | null, string][] {
-    const out: [LosMatch | null, string][] = [];
+    // jen utkání z aktuálního rozpisu družstva (žádné jiné načtené zápisy, např. z minulé sezóny), seřazená podle data
     const liveDone = ctx.liveNow && this.liveFinished(ctx);
-    if (liveDone) { const l = this.liveLinks.get(this.teamKey(ctx)); if (l) out.push([ctx.next, l]); }
-    const losPaths = new Set(ctx.los.filter((x) => x.played && !(ctx.liveNow && x === ctx.next)).map((x) => x.zapisPath));
-    Array.from(this.zapisy.values())
-      .filter((z) => !losPaths.has(z.path) && !out.some((o) => o[1] === z.path) && this.zapisBelongs(z, ctx) && Live.isZapisFinished(z, this.format))
-      .sort((a, b) => (Parsers.date(b.dateText) ?? LDATE_MIN) - (Parsers.date(a.dateText) ?? LDATE_MIN))
-      .forEach((z) => out.push([ctx.los.find((x) => x.zapisPath === z.path) ?? null, z.path]));
     const running = this.liveRunning(ctx);
-    ctx.los.filter((x) => x.played && !((liveDone || running) && x === ctx.next))
-      .sort((a, b) => (b.dateTime ?? -LDT_MAX) - (a.dateTime ?? -LDT_MAX))
-      .forEach((x) => out.push([x, x.zapisPath]));
-    return out;
+    const items: [LosMatch, string][] = [];
+    for (const x of ctx.los) {
+      if (running && x === ctx.next) continue;
+      if (liveDone && x === ctx.next) { items.push([x, this.liveLinks.get(this.teamKey(ctx)) ?? x.zapisPath]); continue; }
+      if (x.played) { items.push([x, x.zapisPath]); continue; }
+      // dohrané, ale STIS ho ještě nepotvrdil
+      const z = x.zapisPath ? this.zapisy.get(x.zapisPath) : undefined;
+      if (z && z.games.length && this.zapisBelongs(z, ctx) && Live.isZapisFinished(z, this.format)) items.push([x, x.zapisPath]);
+    }
+    return items.sort((a, b) => (b[0].dateTime ?? -LDT_MAX) - (a[0].dateTime ?? -LDT_MAX));
   }
 
   lastUtkani(team: string | null = null): LastUtkani | null {
