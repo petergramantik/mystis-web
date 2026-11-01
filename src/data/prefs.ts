@@ -54,6 +54,11 @@ export const prefs = {
     prefs.recentProfiles = [[path, name] as [string, string], ...prefs.recentProfiles.filter((x) => x[0] !== path)].slice(0, 8);
   },
   get matchFormat() { return get("match_format"); },
+  /** Živě: přidané soutěže (JSON) a sledovaná utkání (JSON). */
+  get liveCompsJson() { return get("live_comps") ?? "[]"; },
+  set liveCompsJson(v: string) { set("live_comps", v); },
+  get watchedJson() { return get("watched") ?? "[]"; },
+  set watchedJson(v: string) { set("watched", v); },
   /** Karta Výkon proti predikci v zápisu sbalená. */
   get predCollapsed() { return get("pred_collapsed") === "true"; },
   set predCollapsed(v: boolean) { set("pred_collapsed", String(v)); },

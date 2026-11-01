@@ -11,6 +11,16 @@ import { type LDate, LDATE_MIN, LDT_MAX, fmtDT, ldDay, ldMonth, ldYear, ldtDate,
 import { FetchError, WebFetcher } from "../data/fetcher";
 import { prefs } from "../data/prefs";
 
+/** Soutěž na obrazovce Živě. */
+export interface LiveComp { svaz: string; rocnik: number; soutez: string; label: string; mine?: boolean }
+/** Sledované utkání (max. 5) s vlastním nastavením upozornění. */
+export interface Watched {
+  key: string; svaz: string; rocnik: number; soutez: string; compLabel: string; round: string;
+  home: string; away: string; homeRef: TeamRef | null; awayRef: TeamRef | null; dateTime: number | null;
+  zapisPath: string; mode: "off" | "games" | "sets"; fan: "home" | "away" | "none";
+}
+export const MAX_WATCHED = 5;
+
 /** Obrazovky aplikace (vlastní navigace se zásobníkem). */
 export type Screen =
   | { t: "Overview" } | { t: "Ladder" } | { t: "Str" } | { t: "Matches" } | { t: "Opponents" }
@@ -20,7 +30,8 @@ export type Screen =
   | { t: "Duel"; aId: string; aName: string; bId: string; bName: string; pA?: number }
   | { t: "ZapisDetail"; path: string; myTeam: string }
   | { t: "Fixture"; team: number; round: string; home: string; away: string }
-  | { t: "Team"; team: number };
+  | { t: "Team"; team: number }
+  | { t: "Watch"; key: string };
 
 export const S = {
   Overview: { t: "Overview" } as Screen, Ladder: { t: "Ladder" } as Screen, Str: { t: "Str" } as Screen,
@@ -102,7 +113,8 @@ export class AppVm {
    * Otevření z notifikace živého utkání: dohrané utkání -> celý zápis, jinak Živé utkání
    * (družstvo podle klíče, protože pořadí družstev se po dohrání mění).
    */
-  openLiveNotification(d: { path?: string; key?: string; team?: string; live?: number }) {
+  openLiveNotification(d: { path?: string; key?: string; team?: string; live?: number; watch?: string }) {
+    if (d.watch) { this.go({ t: "Watch", key: d.watch }); return; }
     const path = d.path ?? "";
     const z = path ? this.zapisy.get(path) : undefined;
     const idx = d.key != null ? this.next.findIndex((c) => this.teamKey(c) === d.key) : d.live ?? -1;
@@ -755,7 +767,126 @@ export class AppVm {
   ladderTab = "tabulka";
   /** po otevření obrazovky posunout na sekci (např. "klutch" v Rekordech) */
   scrollTarget: string | null = null;
-  matchesTab = "utkani";
+  matchesTab = "zapasy";
+  // ---------- Živě: utkání soutěží a sledovaná utkání
+  liveDay = 0;
+  liveOnlyWatched = false;
+  liveQuery = "";
+  compLos = new Map<string, LosMatch[]>();
+  compLosAt = new Map<string, number>();
+  compLosLoading = new Set<string>();
+  compKey(c: { svaz: string; rocnik: number; soutez: string }) { return `${c.svaz}|${c.rocnik}|${c.soutez}`; }
+  /** Soutěže mých družstev + přidané (pamatují se). */
+  liveComps(): LiveComp[] {
+    const out: LiveComp[] = [];
+    for (const c of this.next) {
+      const r = c.myTeam.ref;
+      if (r && !out.some((x) => this.compKey(x) === this.compKey(r))) out.push({ svaz: r.svaz, rocnik: r.rocnik, soutez: r.soutez, label: c.myTeam.competition || c.myTeam.name, mine: true });
+    }
+    let extra: LiveComp[] = [];
+    try { extra = JSON.parse(prefs.liveCompsJson); } catch { extra = []; }
+    for (const e of extra) if (!out.some((x) => this.compKey(x) === this.compKey(e))) out.push({ ...e, label: this.compLabel(e) ?? e.label, mine: false });
+    return out;
+  }
+  /** Název soutěže z nadpisu žebříčku STR („POŘADÍ STR - KSST … - K2C - 2026-2027“). */
+  compLabel(c: { svaz: string; rocnik: number; soutez: string }): string | null {
+    const t = this.strLadders.get(Stis.zebricek(c.svaz, c.rocnik, c.soutez))?.title ?? "";
+    const parts = t.split(" - ").map((x) => x.trim()).filter((x) => x);
+    return parts.length >= 3 ? parts[parts.length - 2] : null;
+  }
+  addLiveComp(ref: TeamRef, label: string) {
+    let extra: LiveComp[] = [];
+    try { extra = JSON.parse(prefs.liveCompsJson); } catch { extra = []; }
+    const c: LiveComp = { svaz: ref.svaz, rocnik: ref.rocnik, soutez: ref.soutez, label };
+    if (!this.liveComps().some((x) => this.compKey(x) === this.compKey(c))) { extra.push(c); prefs.liveCompsJson = JSON.stringify(extra); }
+    this.loadStrLadder(c.svaz, c.rocnik, c.soutez);
+    this.loadCompLos(c, true);
+    this.emit();
+  }
+  removeLiveComp(c: LiveComp) {
+    let extra: LiveComp[] = [];
+    try { extra = JSON.parse(prefs.liveCompsJson); } catch { extra = []; }
+    prefs.liveCompsJson = JSON.stringify(extra.filter((x) => this.compKey(x) !== this.compKey(c)));
+    this.emit();
+  }
+  loadCompLos(c: { svaz: string; rocnik: number; soutez: string }, force = false) {
+    const k = this.compKey(c);
+    if (this.compLosLoading.has(k)) return;
+    if (!force && this.compLos.has(k) && Date.now() - (this.compLosAt.get(k) ?? 0) < 3 * 60_000) return;
+    this.compLosLoading.add(k); this.emit();
+    this.repo.competitionLos(c, force ? 60_000 : 5 * 60_000).then((l) => {
+      this.compLos.set(k, l); this.compLosAt.set(k, Date.now());
+      // u sledovaných doplnit odkaz na zápis a čas
+      let changed = false;
+      const ws = this.watched();
+      for (const w of ws) {
+        if (this.compKey(w) !== k) continue;
+        const m = l.find((x) => this.boardKey(c, x) === w.key);
+        if (m && m.zapisPath && m.zapisPath !== w.zapisPath) { w.zapisPath = m.zapisPath; changed = true; }
+      }
+      if (changed) this.saveWatched(ws);
+    }, () => {}).finally(() => { this.compLosLoading.delete(k); this.emit(); });
+  }
+  boardKey(c: { svaz: string; rocnik: number; soutez: string }, m: { round: string; home: string; away: string }) {
+    return `${this.compKey(c)}|${m.round}|${Stats.fold(m.home)}|${Stats.fold(m.away)}`;
+  }
+  /** Utkání podle klíče (z načtených rozpisů soutěží nebo ze sledovaných). */
+  boardMatch(key: string): { comp: LiveComp; m: LosMatch } | null {
+    for (const c of this.liveComps()) {
+      const m = this.compLos.get(this.compKey(c))?.find((x) => this.boardKey(c, x) === key);
+      if (m) return { comp: c, m };
+    }
+    return null;
+  }
+  watched(): Watched[] { try { return JSON.parse(prefs.watchedJson); } catch { return []; } }
+  private saveWatched(ws: Watched[]) { prefs.watchedJson = JSON.stringify(ws); this.emit(); }
+  watchOf(key: string): Watched | null { return this.watched().find((w) => w.key === key) ?? null; }
+  /** Přidá / odebere sledování; vrací chybu při překročení limitu. */
+  toggleWatch(c: LiveComp, m: LosMatch): string | null {
+    const ws = this.watched();
+    const key = this.boardKey(c, m);
+    if (ws.some((w) => w.key === key)) { this.saveWatched(ws.filter((w) => w.key !== key)); return null; }
+    if (ws.length >= MAX_WATCHED) return `Sledovat jde nejvýš ${MAX_WATCHED} utkání – nejdřív zrušte jiné.`;
+    ws.push({ key, svaz: c.svaz, rocnik: c.rocnik, soutez: c.soutez, compLabel: c.label, round: m.round, home: m.home, away: m.away,
+      homeRef: m.homeRef, awayRef: m.awayRef, dateTime: m.dateTime, zapisPath: m.zapisPath, mode: "games", fan: "home" });
+    this.saveWatched(ws);
+    void this.askLivePermissionQuiet();
+    this.startLiveWatch();
+    return null;
+  }
+  setWatch(key: string, patch: Partial<Pick<Watched, "mode" | "fan">>) {
+    this.saveWatched(this.watched().map((w) => (w.key === key ? { ...w, ...patch } : w)));
+  }
+  private async askLivePermissionQuiet() {
+    if (typeof Notification !== "undefined" && Notification.permission === "default") { try { await Notification.requestPermission(); } catch { /* */ } this.emit(); }
+  }
+  /** Sledovaná utkání, která právě probíhají (−5 h … +30 min od začátku, zápis ještě neskončil). */
+  watchedRunning(): Watched[] {
+    const now = nowLdt();
+    return this.watched().filter((w) => {
+      if (w.dateTime == null || w.dateTime < now - 5 * 60 || w.dateTime > now + 30) return false;
+      const z = w.zapisPath ? this.zapisy.get(w.zapisPath) : undefined;
+      return !(z && z.games.length && Live.isZapisFinished(z, this.format));
+    });
+  }
+  private watchSearched = new Map<string, number>();
+  /** Obnoví sledovaná probíhající utkání (zápis nebo jeho dohledání). */
+  private watchTick() {
+    for (const w of this.watchedRunning()) {
+      if (w.mode === "off" && !(this.current.t === "Watch" && (this.current as { key: string }).key === w.key)) continue;
+      if (w.zapisPath) { this.loadZapis(w.zapisPath, false, true); continue; }
+      const c = { svaz: w.svaz, rocnik: w.rocnik, soutez: w.soutez };
+      this.loadCompLos(c, true);
+      const last = this.watchSearched.get(w.key) ?? 0;
+      if (Date.now() - last < 60_000 || !w.homeRef) continue;
+      this.watchSearched.set(w.key, Date.now());
+      const m = this.boardMatch(w.key)?.m;
+      if (!m) continue;
+      const fake = { myTeam: { name: w.home, ref: w.homeRef, category: null, competition: null, singles: null, doubles: null, notOnRoster: false }, next: m } as unknown as NextMatchContext;
+      this.repo.findZapis(fake).then((p) => { if (p) { this.setWatchPath(w.key, p); this.loadZapis(p, false, true); } }, () => {});
+    }
+  }
+  private setWatchPath(key: string, path: string) { this.saveWatched(this.watched().map((w) => (w.key === key ? { ...w, zapisPath: path } : w))); }
   compSeason: number | null = null;
   compId: string | null = null;
   /** soutěž otevřená z profilu jiného hráče (není mezi mými soutěžemi) */
@@ -1153,6 +1284,7 @@ export class AppVm {
     this.liveWatch = setInterval(() => this.liveWatchTick(), 60_000);
   }
   private liveWatchTick() {
+    this.watchTick();
     if (prefs.liveMode === "off") return;
     this.next.forEach((c, i) => {
       if (!this.liveRunning(c)) return;
@@ -1166,8 +1298,27 @@ export class AppVm {
 
   private notifyLive(path: string, z: Zapis) {
     const idx = this.next.findIndex((c) => c.liveNow && this.zapisBelongs(z, c));
-    if (idx < 0) return;
-    const ctx = this.next[idx];
+    if (idx >= 0) {
+      const ctx = this.next[idx];
+      this.notifyCore(path, z, this.zapisMyHome(z, ctx), prefs.liveMode, null, ctx.myTeam.name,
+        (tag, t, b) => this.post(tag, t, b, true, idx, path));
+      return;
+    }
+    const w = this.watched().find((x) => x.zapisPath === path);
+    if (!w) return;
+    const mh = w.fan === "home" ? true : w.fan === "away" ? false : null;
+    this.notifyCore(path, z, mh, w.mode, `${w.home} – ${w.away}`, mh == null ? "" : mh ? w.home : w.away,
+      (tag, t, b) => this.postWatch(tag, t, b, w));
+  }
+
+  /**
+   * Společné oznamování nových her / setů / konce zápisu. [myHomeOrNull] = pohled (null = nikomu nefandím:
+   * bez ✅/❌ a bez zvuků), [label] = název cizího utkání v notifikaci.
+   */
+  private notifyCore(path: string, z: Zapis, myHomeOrNull: boolean | null, mode: "off" | "games" | "sets", label: string | null, endTeam: string,
+    send: (tag: string, title: string, body: string) => void) {
+    const neutral = myHomeOrNull == null;
+    const myHome = myHomeOrNull ?? true;
     const done = z.games.filter((g) => g.result != null);
     const seen = this.liveSeen.get(path);
     const finished = Live.isZapisFinished(z, this.format);
@@ -1180,7 +1331,6 @@ export class AppVm {
     }
     const setsSeen = this.liveSetsSeen.get(path) ?? new Map<number, number>();
     this.liveSetsSeen.set(path, setsSeen);
-    const myHome = this.zapisMyHome(z, ctx);
     let h = 0, a = 0, lastWon = false;
     const fresh: string[][] = [];
     const freshSets: string[][] = [];
@@ -1197,7 +1347,7 @@ export class AppVm {
         const mineN = (myHome ? g.homeNames : g.awayNames).join(" + "), oppN = (myHome ? g.awayNames : g.homeNames).join(" + ");
         const hs = g.sets.filter((x) => x > 0).length, as = g.sets.filter((x) => x < 0).length;
         lastSetWon = wonSet;
-        freshSets.push([`${wonSet ? "🟢" : "🔴"} ${mineN} – ${oppN}: set ${wonSet ? `${w}:${pts}` : `${pts}:${w}`}`, `${g.no}. hra · sety ${myHome ? hs : as}:${myHome ? as : hs}`, `${g.no}-${now}`]);
+        freshSets.push([`${neutral ? "•" : wonSet ? "🟢" : "🔴"} ${mineN} – ${oppN}: set ${wonSet ? `${w}:${pts}` : `${pts}:${w}`}`, `${g.no}. hra · sety ${myHome ? hs : as}:${myHome ? as : hs}`, `${g.no}-${now}`]);
       }
       if (g.result == null || seen.has(g.no)) continue;
       seen.add(g.no);
@@ -1205,23 +1355,24 @@ export class AppVm {
       const mine = (myHome ? g.homeNames : g.awayNames).join(" + "), opp = (myHome ? g.awayNames : g.homeNames).join(" + ");
       const ms = myHome ? g.homeSets : g.awaySets, os = myHome ? g.awaySets : g.homeSets;
       lastWon = won;
-      fresh.push([`${won ? "✅" : "❌"} ${mine} – ${opp}${ms != null && os != null ? ` ${ms}:${os}` : ""}`, `${g.no}. hra · stav ${myHome ? h : a}:${myHome ? a : h}`, String(g.no)]);
+      fresh.push([`${neutral ? "•" : won ? "✅" : "❌"} ${mine} – ${opp}${ms != null && os != null ? ` ${ms}:${os}` : ""}`, `${g.no}. hra · stav ${myHome ? h : a}:${myHome ? a : h}`, String(g.no)]);
     }
     const my = myHome ? h : a, op = myHome ? a : h;
     const endNow = finished && !this.liveEndSent.has(path);
-    const mode = prefs.liveMode;
     const withSets = mode === "sets" && freshSets.length > 0;
-    if (prefs.liveSounds && mode !== "off" && (fresh.length || endNow || withSets))
+    if (prefs.liveSounds && !neutral && mode !== "off" && (fresh.length || endNow || withSets))
       playSound(endNow ? (my >= op ? "victory" : "loss") : fresh.length ? (lastWon ? "win" : "loss") : lastSetWon ? "win" : "loss");
     if (mode === "off") { if (endNow) this.liveEndSent.add(path); return; }
-    if (withSets) for (const f of freshSets.slice(-3)) void this.post(`live-${path}-set-${f[2]}`, f[0], f[1], true, idx, path);
+    const pre = label ? `${label}: ` : "";
+    if (withSets) for (const f of freshSets.slice(-3)) send(`live-${path}-set-${f[2]}`, pre + f[0], f[1]);
     if (fresh.length > 3) {
-      void this.post(`live-${path}-${fresh[fresh.length - 1][2]}`, `${fresh.length} nových her · stav ${my}:${op}`, fresh.map((f) => f[0]).join("\n"), true, idx, path);
-    } else for (const f of fresh) void this.post(`live-${path}-${f[2]}`, f[0], f[1], true, idx, path);
+      send(`live-${path}-${fresh[fresh.length - 1][2]}`, `${pre}${fresh.length} nových her · stav ${my}:${op}`, fresh.map((f) => f[0]).join("\n"));
+    } else for (const f of fresh) send(`live-${path}-${f[2]}`, pre + f[0], f[1]);
     if (endNow) {
       this.liveEndSent.add(path);
       const opp = myHome ? z.away : z.home;
-      void this.post(`live-end-${path}`, `🏁 Konec: ${my > op ? "výhra" : my < op ? "prohra" : "remíza"} ${my}:${op}`, `${ctx.myTeam.name} – ${opp}`, true, idx, path);
+      if (neutral) send(`live-end-${path}`, `🏁 Konec: ${z.home} ${h}:${a} ${z.away}`, label ?? "");
+      else send(`live-end-${path}`, `🏁 Konec: ${my > op ? "výhra" : my < op ? "prohra" : "remíza"} ${my}:${op}`, `${endTeam} – ${opp}`);
     }
   }
 
@@ -1235,6 +1386,20 @@ export class AppVm {
       else {
         const n = new Notification(title, { body, tag });
         if (data) n.onclick = () => { try { window.focus(); } catch { /* */ } this.openLiveNotification(data); };
+      }
+    } catch { /* nepodstatné */ }
+  }
+
+  /** Notifikace sledovaného cizího utkání (stačí povolení prohlížeče). */
+  private async postWatch(tag: string, title: string, body: string, w: Watched) {
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    try {
+      const data = { watch: w.key, path: w.zapisPath };
+      const reg = await navigator.serviceWorker?.getRegistration();
+      if (reg) await reg.showNotification(title, { body, tag, icon: "icon-192.png", badge: "icon-192.png", data });
+      else {
+        const n = new Notification(title, { body, tag });
+        n.onclick = () => { try { window.focus(); } catch { /* */ } this.openLiveNotification(data); };
       }
     } catch { /* nepodstatné */ }
   }

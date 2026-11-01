@@ -492,12 +492,12 @@ export function Field({ label, value, options, onPick }: { label: string; value:
 }
 
 /** Výsledky setů (kladné = vyhráli domácí); sety mého družstva zeleně, prohrané oranžově. */
-export function SetsLine({ sets, myHome }: { sets: number[]; myHome: boolean }) {
+export function SetsLine({ sets, myHome, neutral = false }: { sets: number[]; myHome: boolean; neutral?: boolean }) {
   return (
     <div style={{ fontSize: 11, whiteSpace: "pre", overflow: "hidden", textOverflow: "ellipsis", fontWeight: 600 }}>
       {sets.map((v, i) => {
         const pts = Math.abs(v), w = pts >= 10 ? pts + 2 : 11;
-        return <span key={i} style={{ color: (v > 0) === myHome ? C.Win : C.OrangeText }}>{(i ? "  " : "") + (v > 0 ? `${w}:${pts}` : `${pts}:${w}`)}</span>;
+        return <span key={i} style={{ color: neutral ? C.Muted : (v > 0) === myHome ? C.Win : C.OrangeText }}>{(i ? "  " : "") + (v > 0 ? `${w}:${pts}` : `${pts}:${w}`)}</span>;
       })}
     </div>
   );

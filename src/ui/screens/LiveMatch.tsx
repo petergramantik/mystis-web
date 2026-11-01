@@ -195,7 +195,7 @@ export function LiveScreen({ team }: { team: number }) {
   );
 }
 
-function ScoreHeader({ st, myHome, homeName, awayName, empty }: { st: LiveState; myHome: boolean; homeName: string; awayName: string; empty: boolean }) {
+export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = false }: { st: LiveState; myHome: boolean; homeName: string; awayName: string; empty: boolean; neutral?: boolean }) {
   const my = myHome ? st.home : st.away, opp = myHome ? st.away : st.home;
   const pWin = myHome ? st.pHomeWin : st.pAwayWin, pLoss = myHome ? st.pAwayWin : st.pHomeWin;
   // nejpravděpodobnější konečný výsledek, pořadí domácí : hosté jako velké skóre
@@ -209,20 +209,24 @@ function ScoreHeader({ st, myHome, homeName, awayName, empty }: { st: LiveState;
       </div>
       {empty ? <Muted color={C.MutedOnNavy} size={13} text="Zatím nejsou známé sestavy – šance se ukáže, až bude zápis nebo ruční sestavy." maxLines={3} /> : <>
       {/* dlaždice pod družstvem, kterého se týkají: moje šance na výhru na mé straně */}
-      <TileRow>
+      {neutral ? <TileRow>
+        <StatTile label="Domácí" value={Stats.pct(st.pHomeWin)} dark />
+        <StatTile label="Remíza" value={Stats.pct(st.pDraw)} dark />
+        <StatTile label="Hosté" value={Stats.pct(st.pAwayWin)} dark />
+      </TileRow> : <TileRow>
         {myHome ? <StatTile label="Výhra" value={Stats.pct(pWin)} dark valueColor={C.WinLight} /> : <StatTile label="Prohra" value={Stats.pct(pLoss)} dark valueColor={C.Peach} />}
         <StatTile label="Remíza" value={Stats.pct(st.pDraw)} dark />
         {myHome ? <StatTile label="Prohra" value={Stats.pct(pLoss)} dark valueColor={C.Peach} /> : <StatTile label="Výhra" value={Stats.pct(pWin)} dark valueColor={C.WinLight} />}
-      </TileRow>
+      </TileRow>}
       <ProbBar p={pWin + st.pDraw / 2} reverse={!myHome} />
-      {st.finished ? <Muted color={C.MutedOnNavy} size={13} text={`Konečný výsledek z pohledu vašeho družstva: ${my} : ${opp}`} />
-        : <div className="row g8" style={{ flexWrap: "wrap" }}><PredictionText hs={a} as_={b} myHome={myHome} dark /><Muted color={C.MutedOnNavy} size={13} text={`· odehráno ${st.played} z ${st.games.length}`} /></div>}
+      {st.finished ? <Muted color={C.MutedOnNavy} size={13} text={neutral ? `Konečný výsledek ${st.home} : ${st.away}` : `Konečný výsledek z pohledu vašeho družstva: ${my} : ${opp}`} />
+        : <div className="row g8" style={{ flexWrap: "wrap" }}><PredictionText hs={a} as_={b} myHome={neutral ? null : myHome} dark /><Muted color={C.MutedOnNavy} size={13} text={`· odehráno ${st.played} z ${st.games.length}`} /></div>}
       </>}
     </NavyHeader>
   );
 }
 
-function GameRow({ g, pHome, myHome, mine, onOpen, onResult }: { g: LiveGame; pHome: number; myHome: boolean; mine: MyLiveGame | null; onOpen: (() => void) | null; onResult: (() => void) | null }) {
+export function GameRow({ g, pHome, myHome, mine, onOpen, onResult, neutral = false }: { g: LiveGame; pHome: number; myHome: boolean; mine: MyLiveGame | null; onOpen: (() => void) | null; onResult: (() => void) | null; neutral?: boolean }) {
   let right;
   if (g.result == null) {
     const myP = myHome ? pHome : 1 - pHome;
@@ -235,15 +239,15 @@ function GameRow({ g, pHome, myHome, mine, onOpen, onResult }: { g: LiveGame; pH
     right = (
       <>
         <Muted text={even ? "Vyrovnané" : "Favorit"} size={10} maxLines={1} />
-        <T bold color={even ? C.Ink : myP >= 0.5 ? C.Win : C.OrangeText} style={{ whiteSpace: "nowrap" }}>{even ? "50 : 50" : g.doubles ? Stats.pct(favP) : `${favName} ${Stats.pct(favP)}`}</T>
+        <T bold color={even || neutral ? C.Ink : myP >= 0.5 ? C.Win : C.OrangeText} style={{ whiteSpace: "nowrap" }}>{even ? "50 : 50" : g.doubles ? Stats.pct(favP) : `${favName} ${Stats.pct(favP)}`}</T>
         {g.doubles && !even && !g.inProgress
-          ? <T size={11} semi color={myP >= 0.5 ? C.Win : C.OrangeText} lines={1} style={{ maxWidth: 130 }}>{favName}</T>
+          ? <T size={11} semi color={neutral ? C.Ink : myP >= 0.5 ? C.Win : C.OrangeText} lines={1} style={{ maxWidth: 130 }}>{favName}</T>
           : <Muted text={g.inProgress ? `hraje se ${g.homeSets ?? 0}:${g.awaySets ?? 0}` : onResult ? "zadat ›" : ""} size={11} maxLines={1} />}
       </>
     );
   } else {
     const iWon = (g.result === 1) === myHome;
-    right = <T bold color="#fff" style={{ background: C.result(iWon), borderRadius: 8, padding: "3px 8px" }}>{g.homeSets != null && g.awaySets != null ? `${g.homeSets}:${g.awaySets}` : g.result === 1 ? "domácí" : "hosté"}</T>;
+    right = <T bold color="#fff" style={{ background: neutral ? C.Grey : C.result(iWon), borderRadius: 8, padding: "3px 8px" }}>{g.homeSets != null && g.awaySets != null ? `${g.homeSets}:${g.awaySets}` : g.result === 1 ? "domácí" : "hosté"}</T>;
   }
   let mineText: string | null = null;
   if (mine) {
@@ -258,9 +262,9 @@ function GameRow({ g, pHome, myHome, mine, onOpen, onResult }: { g: LiveGame; pH
         <div className="row g10">
           <T bold color={C.Muted} style={{ width: 28, flex: "none" }}>{g.no}.</T>
           <div className="col w1">
-            <T size={14} bold={myHome} lines={1}>{g.home.map((p) => p.name).join(" + ")}</T>
-            <T size={14} bold={!myHome} lines={1}>{g.away.map((p) => p.name).join(" + ")}</T>
-            {g.sets.length > 0 && <SetsLine sets={g.sets} myHome={myHome} />}
+            <T size={14} bold={neutral ? g.result === 1 : myHome} lines={1}>{g.home.map((p) => p.name).join(" + ")}</T>
+            <T size={14} bold={neutral ? g.result === -1 : !myHome} lines={1}>{g.away.map((p) => p.name).join(" + ")}</T>
+            {g.sets.length > 0 && <SetsLine sets={g.sets} myHome={myHome} neutral={neutral} />}
           </div>
           <div className={"col" + (onResult ? " clickable" : "")} style={{ alignItems: "flex-end", padding: onResult ? 4 : 0 }}
             onClick={onResult ? (e) => { e.stopPropagation(); onResult(); } : undefined}>{right}</div>

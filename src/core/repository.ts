@@ -206,6 +206,27 @@ export class StisRepository {
     return null;
   }
 
+  /**
+   * Všechna utkání soutěže: nejdřív rozpis celé soutěže, jinak sloučené rozpisy všech jejích družstev.
+   * [maxAge] krátké při sledování živých výsledků (rozpis nese průběžný stav).
+   */
+  async competitionLos(c: { svaz: string; rocnik: number; soutez: string }, maxAge = 5 * 60_000): Promise<LosMatch[]> {
+    const key = (m: LosMatch) => `${m.round}|${Stats.fold(m.home)}|${Stats.fold(m.away)}`;
+    try {
+      const all = Parsers.los(await this.fetcher.get(`/los-vse/svaz-${c.svaz}/rocnik-${c.rocnik}/soutez-${c.soutez}`, maxAge), c.svaz, c.rocnik, c.soutez);
+      const teams = new Set(all.flatMap((m) => [Stats.fold(m.home), Stats.fold(m.away)]));
+      if (all.length && teams.size > 2 && all.length > teams.size) return all;
+    } catch { /* stránka celé soutěže není – sloučit rozpisy družstev */ }
+    const teams = await this.competitionTeams({ id: "", name: "", ...c });
+    const out = new Map<string, LosMatch>();
+    for (const t of teams) {
+      try {
+        for (const m of Parsers.los(await this.fetcher.get(Stis.losVse(t), maxAge), c.svaz, c.rocnik, c.soutez)) if (!out.has(key(m))) out.set(key(m), m);
+      } catch { /* družstvo přeskočit */ }
+    }
+    return Array.from(out.values());
+  }
+
   async competitionTeams(ref: TeamRef): Promise<TeamRef[]> {
     const s = (await this.soupisky(ref.svaz, ref.rocnik, ref.soutez)).map((x) => x.team!).filter((x) => x);
     if (s.length) return s;

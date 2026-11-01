@@ -2,18 +2,36 @@ import { useEffect, useState } from "react";
 import { vm, S } from "../../app/vm";
 import type { LosMatch } from "../../core/models";
 import { Stats, groupBy, sum } from "../../core/stats";
-import { LDT_MAX, fmtShort, ldDow, ldtDate, nowLdt } from "../../core/dates";
+import { LDT_MAX, fmtShort, ldDow, ldtDate, nowLdt, today } from "../../core/dates";
 import { C, Chips, Divider, Empty, ListCard, Loading, MatchRow, Muted, Pill, Segmented, T, TextField } from "../components";
 import { fmtMonth, hhmmLdt } from "../fmt";
+import { LiveBoard } from "./LiveBoard";
 
 /** Záložka Utkání: utkání družstva (minulá, probíhající, budoucí) a jednotlivé zápasy hráče. */
 export function MatchesScreen() {
   const tab = vm.matchesTab;
   return (
     <div className="col g10">
-      <div className="px16"><Segmented options={[["utkani", "Utkání"], ["zapasy", "Zápasy"]]} selected={tab} onSelect={(k) => vm.set("matchesTab", k)} /></div>
-      {tab === "utkani" ? <TeamFixtures /> : <PlayerMatches />}
+      <div className="px16 row g8">
+        <div style={{ flex: 1 }}><Segmented options={[["zapasy", "Zápasy"], ["utkani", "Utkání"]]} selected={tab} onSelect={(k) => vm.set("matchesTab", k)} /></div>
+        <LiveButton on={tab === "zive"} onClick={() => vm.set("matchesTab", "zive")} />
+      </div>
+      {tab === "utkani" ? <TeamFixtures /> : tab === "zive" ? <LiveBoard /> : <PlayerMatches />}
     </div>
+  );
+}
+
+/** Tlačítko Živě: červená tečka a počet dnešních utkání ve sledovaných soutěžích. */
+function LiveButton({ on, onClick }: { on: boolean; onClick: () => void }) {
+  const comps = vm.liveComps();
+  useEffect(() => { for (const c of comps) vm.loadCompLos(c); }, [comps.length]);
+  const td = today();
+  const n = comps.reduce((s, c) => s + (vm.compLos.get(vm.compKey(c)) ?? []).filter((m) => m.dateTime != null && ldtDate(m.dateTime) === td).length, 0);
+  return (
+    <button className={"chip" + (on ? " on" : "")} onClick={onClick} style={{ height: 40, borderRadius: 12, display: "flex", alignItems: "center", gap: 6 }}>
+      <span style={{ width: 8, height: 8, borderRadius: 4, background: n > 0 ? "#E5484D" : C.Grey, display: "inline-block" }} />
+      {`Živě${n > 0 ? ` ${n}` : ""}`}
+    </button>
   );
 }
 

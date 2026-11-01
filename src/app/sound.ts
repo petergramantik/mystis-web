@@ -130,14 +130,37 @@ function groan(c: AudioContext, t0: number) {
 
 export type LiveSound = "win" | "loss" | "victory";
 
+// zvuky davu z MP3 (public/sounds), načtené až při prvním použití; při chybě syntéza
+const buffers = new Map<string, AudioBuffer | null>();
+async function mp3(c: AudioContext, name: string): Promise<AudioBuffer | null> {
+  if (buffers.has(name)) return buffers.get(name)!;
+  try {
+    const r = await fetch(`sounds/${name}.mp3`);
+    const b = await c.decodeAudioData(await r.arrayBuffer());
+    buffers.set(name, b);
+    return b;
+  } catch { buffers.set(name, null); return null; }
+}
+function playBuf(c: AudioContext, b: AudioBuffer, at: number, gain = 1) {
+  const s = c.createBufferSource(); s.buffer = b;
+  const g = c.createGain(); g.gain.value = gain;
+  s.connect(g); g.connect(c.destination); s.start(at);
+}
+
 export function playSound(kind: LiveSound) {
   const c = ac();
   if (!c) return;
-  const go = () => {
+  const go = async () => {
+    const b = await mp3(c, kind === "loss" ? "loss" : "win");
     const t = c.currentTime + 0.05;
+    if (b) {
+      playBuf(c, b, t);
+      if (kind === "victory") playBuf(c, b, t + Math.max(0.5, b.duration - 0.25)); // konec utkání: zajásání 2× (~4 s)
+      return;
+    }
     if (kind === "win") cheer(c, t);
     else if (kind === "loss") groan(c, t);
     else cheer(c, t, true);
   };
-  if (c.state === "suspended") c.resume().then(go, () => {}); else go();
+  if (c.state === "suspended") c.resume().then(go, () => {}); else void go();
 }
