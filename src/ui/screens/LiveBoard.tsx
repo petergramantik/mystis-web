@@ -22,7 +22,7 @@ function statusOf(c: LiveComp, m: LosMatch): Status {
   const now = nowLdt();
   const sm = /^(\d+)\s*:\s*(\d+)$/.exec(m.score);
   if (z && z.games.length) {
-    const [h, a] = z.score;
+    const [h, a] = vm.scoreOf(z);
     if (vm.finished(z)) return { kind: "done", text: `${h} : ${a}`, h, a };
     return { kind: "live", text: `${h} : ${a} · ${z.games.filter((g) => g.result != null).length}/${z.games.length || vm.format.games}`, h, a };
   }

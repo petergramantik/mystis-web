@@ -31,7 +31,7 @@ function periodFrom(period: string): LDate {
 function matchScore(m: LosMatch, home: boolean, z: Zapis | undefined, myHome: (z: Zapis) => boolean): [number, number] | null {
   const sm = /^(\d+)\s*:\s*(\d+)$/.exec(m.score);
   if (sm && (vm.scoreFinal(m.score) || !z || !z.games.length)) { const h = +sm[1], a = +sm[2]; return home ? [h, a] : [a, h]; }
-  if (z && z.games.length) { const [h, a] = z.score; return myHome(z) ? [h, a] : [a, h]; }
+  if (z && z.games.length) { const [h, a] = vm.scoreOf(z); return myHome(z) ? [h, a] : [a, h]; }
   return null;
 }
 

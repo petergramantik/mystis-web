@@ -489,6 +489,21 @@ export class AppVm {
     if (Array.from(this.zapisLoading).some((p) => p.includes(`/svaz-${c.svaz}/`) && p.includes(`/soutez-${c.soutez}/`))) return "loading";
     return "unknown";
   }
+  /**
+   * Skóre utkání [domácí, hosté]: z her (hlavička online zápisu zaostává), ale u dohraného utkání „do 10“,
+   * kde se po rozhodnutí ještě dohrávalo, oficiální skóre z hlavičky (např. 10:6 místo 10:8).
+   */
+  scoreOf(z: Zapis): [number, number] {
+    const s = z.score;
+    const f = this.fmtOf(z);
+    const [ph, pa] = z.points;
+    if (f.target == null || ph == null || pa == null || Math.max(ph, pa) !== f.target) return s;
+    const gs = [...z.games].sort((a, b) => a.no - b.no);
+    let h = 0, a = 0, reached = -1;
+    gs.forEach((g, i) => { if (g.result === 1) h++; else if (g.result === -1) a++; if (reached < 0 && Math.max(h, a) >= f.target!) reached = i; });
+    const playedAfter = reached >= 0 && gs.slice(reached + 1).some((g) => g.result != null);
+    return playedAfter ? [ph, pa] : s;
+  }
   fmtOf(z: Zapis): MatchFormat { return this.formatForComp(this.compOfPath(z.path)); }
   finished(z: Zapis): boolean { return Live.isZapisFinished(z, this.fmtOf(z)); }
   /** Rozpis soutěže (moje družstvo nebo načtený rozpis soutěže). */
@@ -966,6 +981,21 @@ export class AppVm {
   }
   private async askLivePermissionQuiet() {
     if (typeof Notification !== "undefined" && Notification.permission === "default") { try { await Notification.requestPermission(); } catch { /* */ } this.emit(); }
+  }
+  /** Počet právě probíhajících utkání ve všech soutěžích na obrazovce Živě. */
+  boardLiveCount(): number {
+    const now = nowLdt();
+    let n = 0;
+    for (const c of this.liveComps()) {
+      const f = this.formatForComp(c);
+      for (const m of this.compLos.get(this.compKey(c)) ?? []) {
+        if (m.dateTime == null || m.dateTime > now || m.dateTime < now - 5 * 60) continue;
+        const z = m.zapisPath ? this.zapisy.get(m.zapisPath) : undefined;
+        if (z && z.games.length ? Live.isZapisFinished(z, f) : m.played && this.scoreFinal(m.score, f)) continue;
+        n++;
+      }
+    }
+    return n;
   }
   /** Sledovaná utkání, která právě probíhají (−5 h … +30 min od začátku, zápis ještě neskončil). */
   watchedRunning(): Watched[] {

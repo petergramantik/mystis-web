@@ -66,7 +66,7 @@ function TeamFixtures() {
     const place = (homeRef ? vm.teamInfos.get(homeRef.id)?.herna : null) ?? (z?.place.trim() ? z.place : null) ?? vm.homePlace(homeRef, m.home);
     let score: [number, number] | null = null;
     if (state === "live" && liveZ) {
-      const [h, a] = liveZ.score;
+      const [h, a] = vm.scoreOf(liveZ);
       const zh = vm.zapisMyHome(liveZ, ctx);
       score = zh ? [h, a] : [a, h];
     } else if (state !== "future" || (z && z.games.length)) {
@@ -74,7 +74,7 @@ function TeamFixtures() {
       // STIS v rozpisu někdy drží 0:0 nebo průběžný stav i po dohrání – konečný výsledek pak bereme ze zápisu
       if (sm && (vm.scoreFinal(m.score) || !z || !z.games.length)) { const h = parseInt(sm[1], 10), a = parseInt(sm[2], 10); score = home ? [h, a] : [a, h]; }
       else if (z) {
-        const [h, a] = z.score;
+        const [h, a] = vm.scoreOf(z);
         score = vm.zapisMyHome(z, ctx) ? [h, a] : [a, h];
       }
     }

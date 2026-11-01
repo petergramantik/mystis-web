@@ -119,7 +119,7 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
   const names = (ns: string[], ids: string[], bold: boolean) => ns.map((n, i) => (
     <span key={i} style={isMe(ids[i], n) ? { color: C.Blue, fontWeight: 800 } : bold ? { fontWeight: 700 } : undefined}>{(i ? " + " : "") + n}</span>
   ));
-  const [hPts, aPts] = z.score;
+  const [hPts, aPts] = vm.scoreOf(z);
   const single = z.games.filter((g) => !g.doubles);
   const setsOf = (g: ZapisGame, home: boolean) => (home ? g.homeSets ?? 0 : g.awaySets ?? 0);
   const hSets = sum(z.games.map((g) => setsOf(g, true))), aSets = sum(z.games.map((g) => setsOf(g, false)));

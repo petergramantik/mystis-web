@@ -39,6 +39,9 @@ export function OnboardingScreen() {
 export function OverviewScreen() {
   const me = vm.me;
   const [switching, setSwitching] = useState(false);
+  // rozpisy soutěží pro pruh „Živě“ (z mezipaměti, nejvýš jednou za pár minut)
+  const compCount = vm.liveComps().length;
+  useEffect(() => { for (const c of vm.liveComps()) vm.loadCompLos(c); }, [compCount, vm.next.length]);
   if (me == null) {
     return <div style={{ padding: 16 }}>{vm.loadingMe ? <Loading /> : <ErrorBox text={vm.error ?? "Data zatím nejsou načtená."} onRetry={() => vm.loadMe(true)} />}</div>;
   }
@@ -139,13 +142,18 @@ export function OverviewScreen() {
       <InstallBanner />
       {vm.error != null && <div className="px16"><ErrorBox text={vm.error} onRetry={() => vm.loadMe(true)} /></div>}
       <div className="col g12 px16">
-        {vm.watchedRunning().length > 0 && (
-          <div className="row clickable" style={{ background: C.Live, color: "#fff", borderRadius: 12, padding: "8px 12px" }}
-            onClick={() => { vm.matchesTab = "zive"; vm.liveOnlyWatched = true; vm.liveDay = 0; vm.tab(S.Matches); }}>
-            <T bold size={14} color="#fff" style={{ flex: 1 }}>{`● Živě: ${vm.watchedRunning().length} ${vm.watchedRunning().length === 1 ? "sledované utkání" : vm.watchedRunning().length < 5 ? "sledovaná utkání" : "sledovaných utkání"}`}</T>
-            <T bold color="#fff">›</T>
-          </div>
-        )}
+        {(vm.watchedRunning().length > 0 || vm.boardLiveCount() > 0) && (() => {
+          const w = vm.watchedRunning().length, all = vm.boardLiveCount();
+          const utk = (n: number) => (n === 1 ? "utkání" : "utkání");
+          const text = w > 0 ? `● Živě: ${w} ${w === 1 ? "sledované" : w < 5 ? "sledovaná" : "sledovaných"}${all > 0 ? ` · ${all} ${utk(all)} celkem` : ""}` : `● Živě: ${all} ${utk(all)} ve vašich soutěžích`;
+          return (
+            <div className="row clickable" style={{ background: C.Live, color: "#fff", borderRadius: 12, padding: "8px 12px" }}
+              onClick={() => { vm.matchesTab = "zive"; vm.liveOnlyWatched = w > 0; vm.liveDay = 0; vm.tab(S.Matches); }}>
+              <T bold size={14} color="#fff" style={{ flex: 1 }}>{text}</T>
+              <T bold color="#fff">›</T>
+            </div>
+          );
+        })()}
         {vm.next.length >= 1 && <Muted size={12} style={{ padding: "0 4px", marginBottom: -4 }} text={vm.next.length > 1 ? "Vyberte družstvo, dalším klepnutím otevřete jeho detail ›" : "Klepnutím otevřete detail družstva ›"} />}
         {vm.next.length >= 1 && <Chips options={vm.next.map((c, i) => [String(i), c.myTeam.name + (i === vm.nextSelected ? " ›" : "")])} selected={String(vm.nextSelected)}
           onSelect={(k) => { const i = parseInt(k, 10); if (i === vm.nextSelected) vm.go({ t: "Team", team: i }); else vm.selectTeam(i); }} />}
@@ -352,8 +360,8 @@ function PreviousCard({ ctx, prev, back, total, onHome }: { ctx: NextMatchContex
   if (!prev || !ctx) return <AppCard bg={C.Navy}>{head}<Muted text="V této sezóně družstvo ještě nehrálo." color={muted} /><div><HomeButton onHome={onHome} left={false} /></div></AppCard>;
   const homeName = (z?.home.trim() ? z.home : null) ?? m?.home ?? "";
   const awayName = (z?.away.trim() ? z.away : null) ?? m?.away ?? "";
-  const hp = z ? z.score[0] : null;
-  const ap = z ? z.score[1] : null;
+  const hp = z ? vm.scoreOf(z)[0] : null;
+  const ap = z ? vm.scoreOf(z)[1] : null;
   const score = hp != null && ap != null ? `${hp} : ${ap}` : m?.score.replace(":", " : ") ?? "–";
   let stats: ReturnType<typeof Live.playerStats> = [];
   if (z) {
