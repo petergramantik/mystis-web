@@ -235,7 +235,7 @@ function ProfileExtras({ p }: { p: PlayerPage }) {
   const ranges = seasonRanges(strPoints(p, "vse"));
   const seasons = Stats.seasons(p);
   const five = ch.filter((m) => m.fiveSetter), fiveW = five.filter((m) => m.won).length;
-  const last10 = ch.slice(-10);
+  const last10 = ch.slice(-8);
   const cur = rec0.currentStreak;
   const opp = (o: { name: string; id: string; record: string; matches: Match[] } | null, label: string, color: string) => o && (
     <div className="row clickable" style={{ padding: "4px 0" }} onClick={() => duel(o.id, o.name)}>

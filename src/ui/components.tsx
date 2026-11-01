@@ -326,8 +326,16 @@ export function MatchRow({ m, onClick, showDate = true }: { m: Match; onClick: (
           </div>
         ) : <ResultBadge won={m.won} text={m.won ? "V" : "P"} />}
         <div className="col w1">
-          <T semi size={16} lines={1}>{m.opponent}</T>
-          <Muted text={`${m.opponentTeam}${m.oppStrBefore != null ? ` · STR ${m.oppStrBefore}` : ""}`} maxLines={1} />
+          <T semi size={16} lines={1}>
+            {m.opponent}
+            {m.oppStrBefore != null && (() => {
+              // STR soupeře v době zápasu a rozdíl proti mému tehdejšímu STR (+ = soupeř silnější)
+              const d = m.strBefore != null ? m.oppStrBefore - m.strBefore : null;
+              const col = d == null ? C.Muted : m.won && d >= 50 ? C.Win : !m.won && d <= -50 ? C.OrangeText : C.Muted;
+              return <span style={{ fontWeight: 500, fontSize: 13, color: C.Muted }}>{` · ${m.oppStrBefore}`}{d != null && <span style={{ color: col, fontWeight: 600 }}>{` (${signedInt(d)})`}</span>}</span>;
+            })()}
+          </T>
+          <Muted text={m.opponentTeam} maxLines={1} />
           {m.unofficial && <T size={11} bold color={C.Live}>neoficiální · odhad STR</T>}
         </div>
         <div className="col" style={{ alignItems: "flex-end", gap: 2 }}>

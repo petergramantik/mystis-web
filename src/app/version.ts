@@ -1,10 +1,18 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "1.7";
+export const APP_VERSION = "1.8";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.8", date: "1. 11. 2026", title: "Zápasy a forma",
+    items: [
+      "U zápasů STR soupeře v době zápasu a rozdíl proti vašemu STR",
+      "Forma z posledních 8 zápasů na Přehledu i v profilu",
+      "Pruh „Dnes živě“ pro nadcházející utkání",
+    ],
+  },
   {
     version: "1.7", date: "1. 11. 2026", title: "Dnešní utkání",
     items: ["Modrý pruh na Přehledu upozorní na dnešní nadcházející utkání (s odpočtem hodinu před začátkem), přednostně vaše nebo sledované"],

@@ -52,7 +52,7 @@ export function OverviewScreen() {
   const seasonMatches = meL.chronological.filter((m) => m.season === season);
   const start = seasonMatches[0]?.strBefore ?? null;
   const cur = me.currentStr;
-  const form = Stats.form(meL, 5, 1e9, season);
+  const form = Stats.form(meL, 8, 1e9, season);
   // zápasy z online zápisu, u kterých se ještě dočítá STR soupeře (Výkon se může změnit)
   const formBusy = meL.chronological.slice(-25).some((m) => m.unofficial && m.oppStrBefore == null)
     && Array.from(vm.loadingPlayers.values()).some((x) => x);
@@ -151,10 +151,10 @@ export function OverviewScreen() {
           const pick = ups.find((u) => u.mine);
           const first = pick ?? ups[0];
           const mins = first.dateTime - nowLdt();
-          const when = mins <= 60 ? `Za ${Math.max(1, mins)} min` : `Dnes ve ${hhmmLdt(first.dateTime)}`;
+          const when = mins <= 60 ? `Za ${Math.max(1, mins)} min` : `Dnes živě ve ${hhmmLdt(first.dateTime)}`;
           const text = pick ? `○ ${when}: ${shortTeam(pick.home)} – ${shortTeam(pick.away)}`
             : mins <= 60 ? `○ ${when}: ${shortTeam(first.home)} – ${shortTeam(first.away)}${ups.length > 1 ? ` (+${ups.length - 1})` : ""}`
-              : `○ Dnes: ${ups.length} ${ups.length === 1 ? "utkání" : "utkání"}, první ve ${hhmmLdt(first.dateTime)}`;
+              : `○ Dnes živě: ${ups.length} utkání, první ve ${hhmmLdt(first.dateTime)}`;
           return (
             <div className="row clickable" style={{ background: C.Blue, color: "#fff", borderRadius: 12, padding: "8px 12px" }}
               onClick={() => { vm.matchesTab = "zive"; vm.liveOnlyWatched = false; vm.liveDay = 0; vm.tab(S.Matches); }}>
@@ -181,7 +181,7 @@ export function OverviewScreen() {
         <MatchPager ctx={nextCtx} />
         <LastUtkaniCard />
         <AppCard onClick={() => vm.tab(S.Str)}>
-          <Muted text="Forma · posledních 5" size={13} />
+          <Muted text="Forma · posledních 8" size={13} />
           <FormDots results={form.last.map((m) => m.won)} />
           <div className="rowb" style={{ gap: 0 }}>
             <Muted text="Konec sezóny (odhad): " size={14} style={{ whiteSpace: "pre" }} />
