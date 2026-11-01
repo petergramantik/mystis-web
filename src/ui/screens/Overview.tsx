@@ -61,14 +61,16 @@ export function OverviewScreen() {
   const nextCtx = vm.next[vm.nextSelected] ?? vm.next.find((c) => c.next != null) ?? null;
   // Úspěšnost v soutěži aktivního družstva
   // dlaždice: stránky = soutěže mých družstev + „Všechny soutěže“; výchozí soutěž aktivního družstva
-  const pages = [...vm.next.map((c) => c.myTeam), null];
-  const defaultIdx = Math.max(0, vm.nextSelected);
+  // jediná soutěž: bez stránky „Všechny soutěže“ (ukazovala by totéž)
+  const compCountTiles = new Set(vm.next.map((c) => c.myTeam.ref ? `${c.myTeam.ref.svaz}|${c.myTeam.ref.soutez}` : c.myTeam.competition || c.myTeam.name)).size;
+  const pages = compCountTiles > 1 ? [...vm.next.map((c) => c.myTeam), null] : vm.next.length === 1 ? [vm.next[0].myTeam] : [null];
+  const defaultIdx = Math.min(pages.length - 1, Math.max(0, vm.nextSelected));
   const tileIdx = vm.ovTile != null && vm.ovTile < pages.length ? vm.ovTile : defaultIdx;
   const activeTeam = pages[tileIdx] ?? null;
   const teamMatches = activeTeam ? seasonMatches.filter((m) => Stats.fold(m.myTeam) === Stats.fold(activeTeam.name)) : seasonMatches;
   const teamWins = teamMatches.filter((m) => m.won).length;
   const perf = Stats.overExpectedOf(teamMatches);
-  const compName = activeTeam ? activeTeam.competition || activeTeam.name : "Všechny soutěže";
+  const compName = activeTeam ? activeTeam.competition || activeTeam.name : compCountTiles === 1 && vm.next[0] ? vm.next[0].myTeam.competition || vm.next[0].myTeam.name : "Všechny soutěže";
   const swipe = (dir: number) => { const n = pages.length; vm.ovTile = (tileIdx + dir + n) % n; vm.emit(); };
   const remaining = Stats.estimateRemaining(me, vm.next.length ? sum(vm.next.map((c) => Stats.remainingTeamMatches(c.los))) : null);
   const fc = Stats.forecast(me, remaining, vm.repo.seasonEnd(vm.next.flatMap((c) => c.los)));

@@ -1,10 +1,18 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.8.1";
+export const APP_VERSION = "2.8.2";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.8.2", date: "1. 11. 2026", title: "Drobnosti",
+    items: [
+      "Sledovaná utkání a přidané soutěže se ukládají ke každému hráči zvlášť (po přepnutí hráče se nemíchají)",
+      "Přehled: hráč v jediné soutěži nemá u dlaždic přepínání na „Všechny soutěže“",
+      "Interní žebříček: řazení STR | % | +/-",
+    ],
+  },
   {
     version: "2.8.1", date: "1. 11. 2026", title: "Oprava pruhu Živě",
     items: ["Dohrané sledované utkání se už nepočítá jako živé (i když jeho zápis nebyl načtený)"],

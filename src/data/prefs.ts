@@ -7,6 +7,24 @@ function get(k: string): string | null {
 function set(k: string, v: string | null) {
   try { if (v == null) localStorage.removeItem(P + k); else localStorage.setItem(P + k, v); } catch { /* soukromý režim */ }
 }
+/**
+ * Hodnota uložená zvlášť pro každého hráče (podle čísla hráče z player_path). Starší společná hodnota
+ * (z doby před ukládáním po hráčích) se jednou převezme prvním hráčem, který ji čte.
+ */
+function playerKey(k: string): string {
+  const pp = get("player_path") ?? "";
+  const id = /hrac-(\d+)/.exec(pp)?.[1] ?? pp;
+  return `${k}@${id}`;
+}
+function getP(k: string): string | null {
+  const pk = playerKey(k);
+  const v = get(pk);
+  if (v != null) return v;
+  const legacy = get(k);
+  if (legacy != null) { set(pk, legacy); set(k, null); }
+  return legacy;
+}
+function setP(k: string, v: string | null) { set(playerKey(k), v); }
 const num = (k: string, d: number) => { const v = get(k); const n = v == null ? NaN : Number(v); return Number.isFinite(n) ? n : d; };
 
 declare global { interface Window { MYSTIS_PROXY?: string } }
@@ -55,15 +73,15 @@ export const prefs = {
   },
   get matchFormat() { return get("match_format"); },
   /** Živě: přidané soutěže (JSON) a sledovaná utkání (JSON). */
-  get liveCompsJson() { return get("live_comps") ?? "[]"; },
-  set liveCompsJson(v: string) { set("live_comps", v); },
+  get liveCompsJson() { return getP("live_comps") ?? "[]"; },
+  set liveCompsJson(v: string) { setP("live_comps", v); },
   /** ruční formát pro soutěž: "svaz|soutez" -> klíč formátu (JSON) */
   get compFormatsJson() { return get("comp_formats") ?? "{}"; },
   set compFormatsJson(v: string) { set("comp_formats", v); },
-  get liveCompSel() { return get("live_comp_sel"); },
-  set liveCompSel(v: string | null) { set("live_comp_sel", v); },
-  get watchedJson() { return get("watched") ?? "[]"; },
-  set watchedJson(v: string) { set("watched", v); },
+  get liveCompSel() { return getP("live_comp_sel"); },
+  set liveCompSel(v: string | null) { setP("live_comp_sel", v); },
+  get watchedJson() { return getP("watched") ?? "[]"; },
+  set watchedJson(v: string) { setP("watched", v); },
   /** Karta Výkon proti predikci v zápisu sbalená. */
   get utkaniFilter() { return get("utkani_filter") ?? "all"; },
   set utkaniFilter(v: string) { set("utkani_filter", v); },

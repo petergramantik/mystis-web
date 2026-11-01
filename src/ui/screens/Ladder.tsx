@@ -373,7 +373,7 @@ function InternalLadder() {
       {dialog}
       <Muted text={`${club.name} · ${club.ladder.length} hráčů · ${club.rosters.length} družstev`} size={14} />
       <Chips options={[["all", "Celý oddíl"], ...teamNames.map((t) => [t, shortTeam(t, club.name)] as [string, string])]} selected={team} onSelect={setTeam} />
-      <Chips options={[["str", "Podle STR"], ["change", "Změna za sezónu"], ["wins", "Úspěšnost"]]} selected={sort} onSelect={setSort} />
+      <Chips options={[["str", "STR"], ["wins", "%"], ["change", "+/-"]]} selected={sort} onSelect={setSort} />
       <TileRow>
         <StatTile label={club.stabilityKnown ? "Průměr stabilní sestavy" : "Průměrné STR"} value={(av ?? avgAll) != null ? f0((av ?? avgAll)!) : "–"}
           sub={club.stabilityKnown ? `${stableList.length} hráčů · všichni ${avgAll != null ? f0(avgAll) : "–"}` : "počítám účast…"} />
