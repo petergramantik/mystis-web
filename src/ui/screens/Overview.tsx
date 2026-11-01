@@ -113,8 +113,10 @@ export function OverviewScreen() {
             <div style={{ width: "calc(100% + 150px)", position: "relative", zIndex: 1 }}>
               <Marquee text={provisional == null ? "STR ›" : "STR · NEOFICIÁLNÍ ODHAD ›"} color={C.MutedOnNavy} size={13} />
             </div>
-            <BigNumber text={(provisional ?? cur)?.toString() ?? "—"} color="#fff" size={72} />
-            {provisional != null && cur != null ? (
+            <BigNumber text={((provisional != null && !vm.unofficialPending() ? provisional : null) ?? cur)?.toString() ?? "—"} color="#fff" size={72} />
+            {provisional != null && cur != null && vm.unofficialPending() ? (
+              <T semi size={14} color={C.MutedOnNavy}>oficiálně {cur} · počítám odhad…</T>
+            ) : provisional != null && cur != null ? (
               <T semi size={14} color={provisional >= cur ? C.WinLight : C.Peach}>oficiálně {cur} · změna {signedInt(provisional - cur)}</T>
             ) : start != null && cur != null ? (
               <T semi size={15} color={cur >= start ? C.WinLight : C.Peach}>{(cur >= start ? "▲ " : "▼ ") + signedInt(cur - start)} za sezónu</T>

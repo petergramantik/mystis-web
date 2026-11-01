@@ -207,6 +207,23 @@ async function main() {
   console.log(`  model STR: průměrná odchylka ${(err / cnt).toFixed(2)} bodu na ${cnt} zápasech`);
   check("model accuracy", err / cnt < 1.5);
 
+  // ---------- odhad změny STR za celé utkání (postupně hra po hře, se skutečným STR soupeřů) proti oficiální změně
+  {
+    const byZ = new Map<string, Match[]>();
+    for (const m of p.chronological) if (m.zapisPath) { const l = byZ.get(m.zapisPath) ?? []; l.push(m); byZ.set(m.zapisPath, l); }
+    let zn = 0, zexact = 0, zerr = 0;
+    for (const ms of byZ.values()) {
+      if (ms.some((m) => m.strBefore == null || m.strAfter == null || m.oppStrBefore == null || Math.abs(m.strAfter - m.strBefore) > 40)) continue;
+      const start = ms[0].strBefore!, official = ms[ms.length - 1].strAfter! - start;
+      const games = ms.map((m, i) => new LiveGame(i + 1, [lp(p.id, p.name, null)], [lp(m.opponentId, m.opponent, m.oppStrBefore)], m.won ? 1 : -1));
+      const tl = LiveTimeline.timeline(games, p.id, p.name, start);
+      const est = Math.round(tl[tl.length - 1].strAfter!) - start;
+      zn++; if (est === official) zexact++; zerr += Math.abs(est - official);
+    }
+    console.log(`  odhad STR za utkání: ${zexact}/${zn} přesně, průměrná odchylka ${(zerr / Math.max(1, zn)).toFixed(2)} bodu`);
+    check("utkání STR estimate", zn === 0 || zerr / zn < 2);
+  }
+
   // ---------- kapitán
   const exp = Stats.expectedTeamScore([["A", 1500], ["B", 1450], ["C", 1400], ["D", 1350]], [1500, 1450, 1400, 1350]);
   check("team expectation symmetric", Math.abs(exp.my - 9.0) < 0.01 && exp.games === 18, () => J(exp));

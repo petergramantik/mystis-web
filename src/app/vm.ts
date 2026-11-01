@@ -444,7 +444,7 @@ export class AppVm {
     const unoff = this.unofficialFor(m).filter((x) => x.zapisPath !== z.path);
     let before = start;
     for (let i = unoff.length - 1; i >= 0; i--) if (unoff[i].strAfter != null) { before = unoff[i].strAfter!; break; }
-    const games = Live.fromZapis(z, (id, n) => this.strOf(id, n), (id, n) => this.rangeOf(id, n));
+    const games = Live.fromZapis(z, this.oppStrFor(z, m), (id, n) => this.rangeOf(id, n));
     return LiveTimeline.timeline(games, m.id, m.name, before);
   }
 
@@ -658,7 +658,7 @@ export class AppVm {
     let cur = start;
     const out: Match[] = [];
     for (const [z, date] of candidates) {
-      const games = Live.fromZapis(z, (id, n) => this.strOf(id, n), (id, n) => this.rangeOf(id, n));
+      const games = Live.fromZapis(z, this.oppStrFor(z, p), (id, n) => this.rangeOf(id, n));
       const tl = LiveTimeline.timeline(games, p.id, p.name, cur);
       if (!tl.length) continue;
       const myHome = tl[0].home;
@@ -683,6 +683,63 @@ export class AppVm {
   }
 
   unofficialMatches(): Match[] { return this.me ? this.unofficialFor(this.me) : []; }
+
+  /**
+   * STR soupeřů hráče [p] v zápisu pro odhad změny STR: přednostně STR před tímto utkáním z jejich stránky
+   * (zápas už jim STIS započítal), jinak aktuální STR z jejich stránky; chybějící stránky se dočtou na pozadí
+   * (do té doby ukazuje Přehled „počítám odhad…“). Ostatní hráči jako dřív (žebříčky, soupisky).
+   */
+  oppStrFor(z: Zapis, p: { id: string; name: string }): (id: string | null, n: string) => number | null {
+    const oppIds = this.zapisOpponentIds(z, p);
+    const oppPaths = oppIds.map((id) => this.zapisPlayerPath(id, z.path));
+    this.requestPlayers(oppPaths);
+    if (p.id === this.me?.id) for (const x of oppPaths) this.estPaths.add(x);
+    return (id, n) => {
+      if (id && oppIds.includes(id)) {
+        const pg = this.players.get(this.zapisPlayerPath(id, z.path));
+        if (pg) {
+          // jejich zápas proti mně v tomto utkání (STR před přesně tou hrou)
+          const mm = pg.matches.find((x) => x.zapisPath === z.path && x.strBefore != null && (x.opponentId === p.id || Stats.fold(x.opponent) === Stats.fold(p.name)));
+          if (mm) return mm.strBefore;
+          if (pg.currentStr != null) return pg.currentStr;
+        }
+      }
+      return this.strOf(id, n);
+    };
+  }
+  /** Stránka hráče ze zápisu (svaz zápisu, aktuální ročník). */
+  zapisPlayerPath(id: string, zapisPath: string): string {
+    const svaz = Stis.svaz(zapisPath);
+    return svaz != null ? `/hrac-${id}/svaz-${svaz}/rocnik-${Stis.currentRocnik()}` : this.playerPathById(id);
+  }
+  /** ID soupeřů hráče [p] ve dvouhrách zápisu. */
+  zapisOpponentIds(z: Zapis, p: { id: string; name: string }): string[] {
+    const f = Stats.fold(p.name);
+    const isMe = (id: string | undefined, n: string) => (!!id && id === p.id) || Stats.fold(n.replace(/\(.*?\)/g, "").trim()) === f;
+    const out: string[] = [];
+    for (const g of z.games) {
+      if (g.doubles) continue;
+      const hMe = isMe(g.homeIds[0], g.homeNames[0] ?? ""), aMe = isMe(g.awayIds[0], g.awayNames[0] ?? "");
+      const opp = hMe ? g.awayIds[0] : aMe ? g.homeIds[0] : undefined;
+      if (opp && !out.includes(opp)) out.push(opp);
+    }
+    return out;
+  }
+  private requested = new Set<string>();
+  /** Načte stránky hráčů na pozadí (každou jen jednou za běh; volatelné i během vykreslení). */
+  requestPlayers(paths: string[]) {
+    const todo = paths.filter((x) => !this.requested.has(x) && !this.players.has(x));
+    if (!todo.length) return;
+    for (const x of todo) this.requested.add(x);
+    queueMicrotask(() => { for (const x of todo) this.loadPlayer(x); });
+  }
+  /** Odhad STR z neoficiálních zápasů ještě čeká na STR soupeřů (stránky se načítají). */
+  unofficialPending(): boolean {
+    for (const x of this.estPaths) if (!this.players.has(x) && this.loadingPlayers.get(x) !== false) return true;
+    return false;
+  }
+  /** Stránky soupeřů potřebné pro odhad mého STR z neoficiálních zápasů. */
+  private estPaths = new Set<string>();
 
   withLive(p: PlayerPage): PlayerPage {
     const extra = this.unofficialFor(p);

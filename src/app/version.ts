@@ -1,10 +1,17 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.5.1";
+export const APP_VERSION = "2.6";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.6", date: "1. 11. 2026", title: "Přesnější odhad STR",
+    items: [
+      "Odhad STR po neoficiálním utkání počítá se skutečným STR soupeřů – jejich stránky se načtou automaticky (dřív se při neznámém STR počítalo se stejně silným soupeřem)",
+      "Dokud se STR soupeřů načítá, Přehled ukazuje „počítám odhad…“",
+    ],
+  },
   {
     version: "2.5.1", date: "1. 11. 2026", title: "Oprava sdílených odkazů",
     items: ["Sdílený odkaz otevře zápis i ve chvíli, kdy se aplikace zrovna aktualizuje (dřív se mohla ukázat úvodní obrazovka)"],
