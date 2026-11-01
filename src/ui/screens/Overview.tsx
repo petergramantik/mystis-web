@@ -184,8 +184,8 @@ export function OverviewScreen() {
           const w = vm.watchedRunning().length, all = vm.boardLiveCount();
           const utk = (n: number) => (n === 1 ? "utkání" : "utkání");
           const done = vm.boardTodayCounts().done;
-          const text = (w > 0 ? `● Živě: ${w} ${w === 1 ? "sledované" : w < 5 ? "sledovaná" : "sledovaných"}${all > 0 ? ` · ${all} ${utk(all)} celkem` : ""}` : `● Živě: ${all} ${utk(all)} ve vašich soutěžích`)
-            + (done > 0 ? ` · dohráno ${done}` : "");
+          void utk;
+          const text = [`● Živě: ${Math.max(all, w)}`, done > 0 ? `Dohráno: ${done}` : null, w > 0 ? `Sledováno: ${w}` : null].filter((x) => x).join(" · ");
           return (
             <div className="row clickable" style={{ background: C.Live, color: "#fff", borderRadius: 12, padding: "8px 12px" }}
               onClick={() => { vm.matchesTab = "zive"; vm.liveOnlyWatched = w > 0; vm.liveDay = 0; vm.tab(S.Matches); }}>
