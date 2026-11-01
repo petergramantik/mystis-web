@@ -11,6 +11,7 @@ import {
 import { ProfileInput } from "./Overview";
 import { InstallCard } from "../install";
 import { strPoints } from "./StrScreen";
+import { APP_VERSION } from "../../app/version";
 
 /** "1 výhra", "3 výhry", "5 výher" / "1 prohra", "2 prohry", "6 proher" */
 function streakText(s: number): string {
@@ -241,10 +242,13 @@ export function SettingsScreen() {
       </AppCard>
       {msg && <AppCard><Muted text={msg} color={C.Ink} size={14} maxLines={4} /></AppCard>}
       <AppCard>
-        <T bold>O aplikaci</T>
-        <Muted size={13} maxLines={10} text={"MySTIS čte veřejné stránky stis.ping-pong.cz. Změny STR počítá podle oficiálního popisu eSTeR, doladěného na 5 080 skutečných zápasech. " +
-          (standalone ? "Aplikace běží z plochy." : "Na plochu telefonu ji přidáte v menu prohlížeče → Přidat na plochu (Chrome) nebo Sdílet → Přidat na plochu (Safari).") +
-          ` Verze ${typeof __BUILD__ !== "undefined" ? __BUILD__.replace(/^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d).*/, "$3. $2. $1 $4:$5 UTC") : "vývojová"}.`} />
+        <div className="row clickable" onClick={() => vm.go({ t: "About" })}>
+          <div className="col w1">
+            <T bold>O aplikaci</T>
+            <Muted size={13} maxLines={4} text={`Verze ${APP_VERSION} · autor, novinky, zdroj dat. ` + (standalone ? "Aplikace běží z plochy." : "Na plochu ji přidáte v menu prohlížeče → Přidat na plochu.")} />
+          </div>
+          <T bold color={C.Blue}>›</T>
+        </div>
       </AppCard>
       {vm.prefs.proxyUrl && <ProxyRow />}
       <div style={{ height: 8 }} />

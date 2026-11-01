@@ -11,6 +11,7 @@ import { FixtureScreen, NextMatchScreen } from "./ui/screens/NextMatch";
 import { LiveScreen, LiveTopRing } from "./ui/screens/LiveMatch";
 import { TeamScreen } from "./ui/screens/Team";
 import { WatchScreen } from "./ui/screens/LiveBoard";
+import { AboutScreen } from "./ui/screens/About";
 import { ProfileScreen } from "./ui/screens/Profile";
 import { PairScreen, ZapisDetailScreen } from "./ui/screens/Duel";
 import { CaptainScreen, CompareScreen } from "./ui/screens/Captain";
@@ -42,6 +43,7 @@ function title(s: Screen): string {
     case "Player": return "Profil hráče";
     case "Team": return "Družstvo";
     case "Watch": return "Živé utkání";
+    case "About": return "O aplikaci";
     case "Live": return "Živé utkání";
     case "Duel": return "Vzájemné zápasy";
     case "ZapisDetail": return "Zápis o utkání";
@@ -66,6 +68,7 @@ function Body({ s }: { s: Screen }) {
     case "Player": return <ProfileScreen path={s.path} />;
     case "Team": return <TeamScreen team={s.team} />;
     case "Watch": return <WatchScreen k={s.key} />;
+    case "About": return <AboutScreen />;
     case "Live": return <LiveScreen team={s.team} />;
     case "Duel": return <PairScreen aId0={s.aId} aName0={s.aName} bId0={s.bId} bName0={s.bName} pA0={s.pA} />;
     case "ZapisDetail": return <ZapisDetailScreen path={s.path} myTeam={s.myTeam} />;
@@ -125,6 +128,7 @@ function Root() {
               {item("Porovnání hráčů", "compare", { t: "Compare", a: null, b: null })}
               {item("Rekordy a statistiky", "trophy", S.Records)}
               {item("Nastavení", "settings", S.Settings)}
+              {item("O aplikaci", "info", { t: "About" })}
             </div>
           </>
         )}

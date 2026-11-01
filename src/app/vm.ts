@@ -32,7 +32,8 @@ export type Screen =
   | { t: "ZapisDetail"; path: string; myTeam: string }
   | { t: "Fixture"; team: number; round: string; home: string; away: string }
   | { t: "Team"; team: number }
-  | { t: "Watch"; key: string };
+  | { t: "Watch"; key: string }
+  | { t: "About" };
 
 export const S = {
   Overview: { t: "Overview" } as Screen, Ladder: { t: "Ladder" } as Screen, Str: { t: "Str" } as Screen,
