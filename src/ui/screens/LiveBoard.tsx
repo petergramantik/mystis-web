@@ -7,7 +7,7 @@ import { Stats } from "../../core/stats";
 import { Live, MatchFormats } from "../../core/live";
 import { ldtDate, nowLdt, today } from "../../core/dates";
 import type { SearchClub } from "../../core/search";
-import { AppCard, Avatar, C, Chips, Divider, Empty, ListCard, Loading, Muted, OButton, Segmented, T, shortTeam } from "../components";
+import { AppCard, Avatar, C, Chips, Divider, Empty, ListCard, Loading, Muted, OButton, Segmented, Spinner, T, shortTeam } from "../components";
 import { hhmmLdt } from "../fmt";
 import { GameRow, ScoreHeader } from "./LiveMatch";
 import { useZapisStr } from "./Duel";
@@ -90,16 +90,17 @@ export function LiveBoard() {
         onSelect={(k) => { vm.liveCompSel = k; vm.emit(); }} />}
       {msg && <Muted text={msg} color={C.OrangeText} size={13} maxLines={3} />}
       {sections.map(({ c, list, loading }) => {
-        const fmt = vm.formatAuto ? vm.compFormat(c) : vm.format;
         return (
           <div key={vm.compKey(c)} className="col g6">
             <div className="row g8" style={{ padding: "4px 4px 0" }}>
               <div className="col w1">
                 <T bold size={13} color={C.Muted} lines={2} style={{ letterSpacing: 0.5 }}>{c.label.toUpperCase()}</T>
-                {fmt && <Muted text={MatchFormats.short(fmt)} size={11} />}
+                <FormatBadge c={c} />
               </div>
               <span className="clickable" style={{ color: C.Blue, fontSize: 13, fontWeight: 600, flex: "none" }}
                 onClick={() => vm.openCompetition({ id: "", name: "", svaz: c.svaz, rocnik: c.rocnik, soutez: c.soutez }, c.label, "", "tabulka")}>Tabulka ›</span>
+              {!c.mine && <span className="clickable" aria-label="Odebrat soutěž" style={{ color: C.OrangeText, fontSize: 16, flex: "none", padding: "0 2px 0 6px" }}
+                onClick={() => { if (window.confirm(`Odebrat soutěž ${c.label}?`)) { vm.removeLiveComp(c); vm.liveCompSel = "all"; vm.emit(); } }}>✕</span>}
             </div>
             {loading ? <AppCard><Loading text="Načítám rozpis soutěže…" /></AppCard>
               : !list.length ? <Muted text={vm.liveOnlyWatched ? "Žádné sledované utkání." : "V tento den se v soutěži nehraje."} size={13} style={{ paddingLeft: 4 }} />
@@ -148,6 +149,44 @@ function BoardRow({ c, m, onError }: { c: LiveComp; m: LosMatch; onError: (e: st
       </div>
       <Divider />
     </div>
+  );
+}
+
+/** Formát soutěže: kolečko při zjišťování, „neznámý – zvolit“, nebo popisek; klepnutím výběr formátu. */
+export function FormatBadge({ c }: { c: { svaz: string; rocnik: number; soutez: string } }) {
+  const [pick, setPick] = useState(false);
+  if (!vm.formatAuto) return <Muted text={`${MatchFormats.short(vm.format)} (Nastavení)`} size={11} />;
+  const state = vm.compFormatState(c);
+  const f = vm.formatForComp(c);
+  return (
+    <>
+      {state === "loading" ? (
+        <div className="row g6"><Spinner size={11} width={2} color={C.Muted} /><Muted text="zjišťuji formát…" size={11} /></div>
+      ) : (
+        <span className="clickable" onClick={(e) => { e.stopPropagation(); setPick(true); }}
+          style={{ fontSize: 11, fontWeight: state === "unknown" ? 700 : 500, color: state === "unknown" ? C.OrangeText : C.Muted }}>
+          {state === "unknown" ? "Formát neznámý – zvolit ›" : `${MatchFormats.short(f)}${state === "manual" ? " · ručně" : ""} ›`}
+        </span>
+      )}
+      {pick && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 60 }} onClick={(e) => e.stopPropagation()}>
+          <div onClick={() => setPick(false)} style={{ position: "absolute", inset: 0, background: "rgba(14,26,51,0.45)" }} />
+          <div className="col g4" style={{ position: "absolute", left: 0, right: 0, bottom: 0, background: C.Ground, borderRadius: "22px 22px 0 0", padding: "14px 16px 22px" }}>
+            <T bold size={18}>Formát soutěže</T>
+            <Muted size={12} maxLines={2} text="Podle formátu se počítají predikce, konec utkání a upozornění." />
+            {[{ key: null as string | null, label: "Automaticky (podle zápisů)" }, ...MatchFormats.ALL.map((x) => ({ key: x.key as string | null, label: x.label }))].map((o) => {
+              const on = o.key == null ? state !== "manual" : vm.compFormatOverride(c)?.key === o.key;
+              return (
+                <div key={String(o.key)} className="radio" onClick={() => { vm.setCompFormat(c, o.key); setPick(false); }}>
+                  <div className={"c" + (on ? " on" : "")} />
+                  <span>{o.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -316,7 +355,8 @@ export function WatchScreen({ k }: { k: string }) {
           <div className="row">
             <div className="col w1">
               <T semi size={14}>{comp ? vm.compLabel(comp) ?? comp.label : ""}</T>
-              <Muted size={12} text={[comp && vm.formatAuto && vm.compFormat(comp) ? MatchFormats.short(vm.compFormat(comp)!) : null, m?.round ? `${m.round}. kolo` : null, dt != null ? `začátek ${hhmmLdt(dt)}` : null, z?.online ? "online zápis" : null].filter((x) => x).join(" · ")} />
+              {comp && <FormatBadge c={comp} />}
+              <Muted size={12} text={[m?.round ? `${m.round}. kolo` : null, dt != null ? `začátek ${hhmmLdt(dt)}` : null, z?.online ? "online zápis" : null].filter((x) => x).join(" · ")} />
             </div>
             {comp && m && (w || vm.canWatch(comp, m)) && <span className="clickable" style={{ fontSize: 26, color: w ? "#F5A524" : C.Muted }} onClick={() => { const e = vm.toggleWatch(comp, m); if (e) alertless(e); }}>{w ? "★" : "☆"}</span>}
           </div>

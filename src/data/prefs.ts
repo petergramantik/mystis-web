@@ -57,6 +57,9 @@ export const prefs = {
   /** Živě: přidané soutěže (JSON) a sledovaná utkání (JSON). */
   get liveCompsJson() { return get("live_comps") ?? "[]"; },
   set liveCompsJson(v: string) { set("live_comps", v); },
+  /** ruční formát pro soutěž: "svaz|soutez" -> klíč formátu (JSON) */
+  get compFormatsJson() { return get("comp_formats") ?? "{}"; },
+  set compFormatsJson(v: string) { set("comp_formats", v); },
   get liveCompSel() { return get("live_comp_sel"); },
   set liveCompSel(v: string | null) { set("live_comp_sel", v); },
   get watchedJson() { return get("watched") ?? "[]"; },

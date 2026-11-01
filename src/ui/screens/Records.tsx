@@ -6,7 +6,7 @@ import { MatchFormats } from "../../core/live";
 import { WebFetcher } from "../../data/fetcher";
 import {
   AppCard, BigNumber, C, Empty, Icon, KeyValue, ListCard, Loading, MatchRow, Muted, NavyHeader, OButton, PrimaryButton, SectionTitle,
-  StatTile, StrChart, T, TextField, TileRow, Avatar, dec1, signedInt, Segmented,
+  StatTile, StrChart, T, TextField, TileRow, Avatar, dec1, signedInt, Segmented, Spinner,
 } from "../components";
 import { ProfileInput } from "./Overview";
 import { InstallCard } from "../install";
@@ -198,7 +198,8 @@ export function SettingsScreen() {
         <Muted size={13} maxLines={3} text="Podle formátu se sestavují ruční sestavy, počítá šance na výhru a pozná konec utkání." />
         <div className="radio" onClick={() => vm.changeFormat(null)}>
           <div className={"c" + (vm.formatAuto ? " on" : "")} />
-          <span>{`Automaticky podle soutěže${vm.formatAuto ? ` (teď: ${MatchFormats.short(vm.format)})` : ""}`}</span>
+          <span>{`Automaticky podle soutěže${vm.formatAuto && (() => { const r = vm.next[vm.nextSelected]?.myTeam.ref; return !r || vm.compFormatState(r) !== "loading"; })() ? ` (teď: ${MatchFormats.short(vm.format)})` : ""}`}</span>
+          {vm.formatAuto && (() => { const r = vm.next[vm.nextSelected]?.myTeam.ref; return !!r && vm.compFormatState(r) === "loading"; })() && <Spinner size={14} width={2} />}
         </div>
         {MatchFormats.ALL.map((f) => (
           <div key={f.key} className="radio" onClick={() => vm.changeFormat(f)}>

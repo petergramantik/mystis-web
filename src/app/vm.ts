@@ -449,7 +449,31 @@ export class AppVm {
   /** Formát pro soutěž: ruční volba, jinak rozpoznaný, jinak výchozí. */
   formatForComp(c: { svaz: string; soutez: string } | null): MatchFormat {
     if (!this.formatAuto) return MatchFormats.of(prefs.matchFormat);
+    const o = c ? this.compFormatOverride(c) : null;
+    if (o) return o;
     return (c && this.compFormat(c)) ?? MatchFormats.DEFAULT;
+  }
+  private compFormats(): Record<string, string> { try { return JSON.parse(prefs.compFormatsJson); } catch { return {}; } }
+  /** Ručně zvolený formát soutěže (má přednost před rozpoznaným). */
+  compFormatOverride(c: { svaz: string; soutez: string }): MatchFormat | null {
+    const k = this.compFormats()[`${c.svaz}|${c.soutez}`];
+    return k ? MatchFormats.of(k) : null;
+  }
+  setCompFormat(c: { svaz: string; soutez: string }, key: string | null) {
+    const m = this.compFormats();
+    if (key) m[`${c.svaz}|${c.soutez}`] = key; else delete m[`${c.svaz}|${c.soutez}`];
+    prefs.compFormatsJson = JSON.stringify(m);
+    this.emit();
+  }
+  /** Stav formátu soutěže: ručně zvolený / rozpoznaný / zjišťuje se / neznámý. */
+  compFormatState(c: { svaz: string; rocnik: number; soutez: string }): "manual" | "detected" | "loading" | "unknown" {
+    if (this.compFormatOverride(c)) return "manual";
+    if (this.compFormat(c)) return "detected";
+    const k = this.compKey(c);
+    const own = this.next.some((x) => x.myTeam.ref && this.compKey(x.myTeam.ref) === k);
+    if (this.compLosLoading.has(k) || (!own && !this.compLos.has(k)) || (own && this.loadingNext)) return "loading";
+    if (Array.from(this.zapisLoading).some((p) => p.includes(`/svaz-${c.svaz}/`) && p.includes(`/soutez-${c.soutez}/`))) return "loading";
+    return "unknown";
   }
   fmtOf(z: Zapis): MatchFormat { return this.formatForComp(this.compOfPath(z.path)); }
   finished(z: Zapis): boolean { return Live.isZapisFinished(z, this.fmtOf(z)); }
