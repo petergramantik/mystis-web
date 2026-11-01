@@ -34,7 +34,7 @@ function teamPage(id: string) {
 // MOCK_LIVE=1: kolo 6 začalo před 30 min, rozpis ukazuje průběžný stav 3:2, zápis má 5 her
 const LIVE = process.env.MOCK_LIVE === "1";
 function liveStart() {
-  const d = new Date(Date.now() - 30 * 60_000); // místní čas (spouštět s TZ=Europe/Prague)
+  const d = new Date(Date.now() + (process.env.MOCK_OFFSET ? +process.env.MOCK_OFFSET : -30) * 60_000); // místní čas (TZ=Europe/Prague)
   const p = (x: number) => String(x).padStart(2, "0");
   return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
@@ -45,7 +45,7 @@ function losPage(id: string) {
   const o2 = `<a href="/druzstvo-${OPP.id}/svaz-420802/rocnik-2026/soutez-${t.soutez}">${OPP.name}</a>`;
   const rows = [
     `<tr><td>5.</td><td>23.10.2026 18:00</td><td>${o1}</td><td>${me}</td><td><a href="/zapis/svaz-420802/rocnik-2026/soutez-${t.soutez}/utkani-672291">${process.env.MOCK_ZERO === "1" ? "0:0" : "9:9"}</a></td></tr>`,
-    `<tr><td>6.</td><td>${LIVE ? liveStart() : "30.10.2026 17:30"}</td><td>${me}</td><td>${o1}</td><td><a href="/zapis/svaz-420802/rocnik-2026/soutez-${t.soutez}/utkani-700001">${LIVE ? "3:2" : "online"}</a></td></tr>`,
+    `<tr><td>6.</td><td>${LIVE ? liveStart() : "30.10.2026 17:30"}</td><td>${me}</td><td>${o1}</td><td><a href="/zapis/svaz-420802/rocnik-2026/soutez-${t.soutez}/utkani-700001">${LIVE && !process.env.MOCK_OFFSET ? "3:2" : "online"}</a></td></tr>`,
     `<tr><td>7.</td><td>06.11.2026 18:00</td><td>${o2}</td><td>${me}</td><td></td></tr>`,
     `<tr><td>8.</td><td>13.11.2026 17:30</td><td>${me}</td><td>${o1}</td><td></td></tr>`,
     `<tr><td>9.</td><td>20.11.2026 18:00</td><td>${o2}</td><td>${me}</td><td></td></tr>`,

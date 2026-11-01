@@ -983,6 +983,21 @@ export class AppVm {
   private async askLivePermissionQuiet() {
     if (typeof Notification !== "undefined" && Notification.permission === "default") { try { await Notification.requestPermission(); } catch { /* */ } this.emit(); }
   }
+  /** Dnešní ještě nezačatá utkání (soutěže na obrazovce Živě + moje družstva), od nejbližšího; mine = moje nebo sledované. */
+  boardUpcomingToday(): { home: string; away: string; dateTime: number; mine: boolean }[] {
+    const now = nowLdt(), td = today();
+    const out = new Map<string, { home: string; away: string; dateTime: number; mine: boolean }>();
+    const watchedKeys = new Set(this.watched().map((w) => w.key));
+    const add = (m: LosMatch, mine: boolean) => {
+      if (m.dateTime == null || m.dateTime <= now || ldtDate(m.dateTime) !== td) return;
+      const k = `${Stats.fold(m.home)}|${Stats.fold(m.away)}|${m.dateTime}`;
+      const prev = out.get(k);
+      out.set(k, { home: m.home, away: m.away, dateTime: m.dateTime, mine: mine || !!prev?.mine });
+    };
+    for (const c of this.next) for (const m of c.los) add(m, true);
+    for (const c of this.liveComps()) for (const m of this.compLos.get(this.compKey(c)) ?? []) add(m, watchedKeys.has(this.boardKey(c, m)));
+    return Array.from(out.values()).sort((a, b) => a.dateTime - b.dateTime);
+  }
   /** Počet právě probíhajících utkání ve všech soutěžích na obrazovce Živě. */
   boardLiveCount(): number {
     const now = nowLdt();

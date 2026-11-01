@@ -4,13 +4,14 @@ import { Clubs, Stis, type LosMatch } from "../../core/models";
 import { Stats, StrModel, sum } from "../../core/stats";
 import { matchForecast } from "../../core/season";
 import { Live } from "../../core/live";
+import { nowLdt } from "../../core/dates";
 import type { NextMatchContext } from "../../core/repository";
 import { roundScore, type SearchPlayer } from "../../core/search";
 import {
   AppCard, Avatar, BigNumber, C, Chips, Marquee, Dialog, Empty, ErrorBox, ErrorWithDiagnostics, FormDots, Icon, ListCard, Loading, MatchRow,
-  Muted, NavyHeader, Pill, PredictionText, PrimaryButton, ProbBar, ResultBadge, SectionTitle, Sparkline, Spinner, StatTile, T, TextField, TileRow, dec1, f0, signedInt,
+  Muted, NavyHeader, Pill, PredictionText, shortTeam, PrimaryButton, ProbBar, ResultBadge, SectionTitle, Sparkline, Spinner, StatTile, T, TextField, TileRow, dec1, f0, signedInt,
 } from "../components";
-import { fmtDMYdt, fmtWhenShort } from "../fmt";
+import { fmtDMYdt, fmtWhenShort, hhmmLdt } from "../fmt";
 import { ProxySetup } from "./Records";
 import { InstallBanner, InstallButton } from "../install";
 import { useZapisRefresh } from "../zapis";
@@ -144,6 +145,24 @@ export function OverviewScreen() {
       {vm.error != null && <div className="px16"><ErrorBox text={vm.error} onRetry={() => vm.loadMe(true)} /></div>}
       <div className="col g12 px16">
         <SoundUnlockBar />
+        {vm.watchedRunning().length === 0 && vm.boardLiveCount() === 0 && vm.boardUpcomingToday().length > 0 && (() => {
+          // nic se nehraje, ale dnes ještě bude: modrý pruh s nejbližším (přednostně moje / sledované)
+          const ups = vm.boardUpcomingToday();
+          const pick = ups.find((u) => u.mine);
+          const first = pick ?? ups[0];
+          const mins = first.dateTime - nowLdt();
+          const when = mins <= 60 ? `Za ${Math.max(1, mins)} min` : `Dnes ve ${hhmmLdt(first.dateTime)}`;
+          const text = pick ? `○ ${when}: ${shortTeam(pick.home)} – ${shortTeam(pick.away)}`
+            : mins <= 60 ? `○ ${when}: ${shortTeam(first.home)} – ${shortTeam(first.away)}${ups.length > 1 ? ` (+${ups.length - 1})` : ""}`
+              : `○ Dnes: ${ups.length} ${ups.length === 1 ? "utkání" : "utkání"}, první ve ${hhmmLdt(first.dateTime)}`;
+          return (
+            <div className="row clickable" style={{ background: C.Blue, color: "#fff", borderRadius: 12, padding: "8px 12px" }}
+              onClick={() => { vm.matchesTab = "zive"; vm.liveOnlyWatched = false; vm.liveDay = 0; vm.tab(S.Matches); }}>
+              <T bold size={14} color="#fff" lines={2} style={{ flex: 1 }}>{text}</T>
+              <T bold color="#fff">›</T>
+            </div>
+          );
+        })()}
         {(vm.watchedRunning().length > 0 || vm.boardLiveCount() > 0) && (() => {
           const w = vm.watchedRunning().length, all = vm.boardLiveCount();
           const utk = (n: number) => (n === 1 ? "utkání" : "utkání");
