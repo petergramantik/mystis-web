@@ -83,6 +83,9 @@ export const prefs = {
   get watchedJson() { return getP("watched") ?? "[]"; },
   set watchedJson(v: string) { setP("watched", v); },
   /** Karta Výkon proti predikci v zápisu sbalená. */
+  /** Soupeři: vybraná soutěž (null = výchozí hlavní soutěž, "all" = všichni) */
+  get oppComp() { return getP("opp_comp"); },
+  set oppComp(v: string | null) { setP("opp_comp", v); },
   get utkaniFilter() { return get("utkani_filter") ?? "all"; },
   set utkaniFilter(v: string) { set("utkani_filter", v); },
   /** Karta podpory skrytá do (ms). */

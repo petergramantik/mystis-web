@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { vm, S } from "../../app/vm";
 import { Stis, type PlayerPage, type TeamRoster } from "../../core/models";
 import { Stats, distinctBy } from "../../core/stats";
+import type { SearchPlayer } from "../../core/search";
 import {
-  AppCard, BigNumber, C, Chips, Divider, ErrorBox, Field, Legend, ListCard, Loading, Muted, Pill, SectionTitle, StrChart, T, signedInt,
+  AppCard, BigNumber, Empty, TextField, C, Chips, Divider, ErrorBox, Field, Legend, ListCard, Loading, Muted, Pill, SectionTitle, StrChart, T, signedInt,
 } from "../components";
 import { strPoints } from "./StrScreen";
 import { TeamForecast } from "./NextMatch";
@@ -95,31 +96,82 @@ function CompareRow({ label, a, b, better = 0, bold }: { label: string; a: strin
   );
 }
 
+/** Výběr hráče pro porovnání: zvolený hráč, hledání na STIS a rychlé návrhy (já, oddíl, nejčastější soupeři). */
+function PlayerPick({ label, value, name, onPick, offerMe }: { label: string; value: string; name: string | null; onPick: (path: string, name: string) => void; offerMe: boolean }) {
+  const me = vm.me;
+  const [q, setQ] = useState("");
+  const [res, setRes] = useState<SearchPlayer[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [open, setOpen] = useState(!value);
+  const search = () => {
+    const t = q.trim();
+    if (t.length < 2) return;
+    setBusy(true); setErr(null);
+    vm.searchPlayers(t, (r, e) => { setBusy(false); setRes(r); setErr(e); });
+  };
+  const pick = (path: string, n: string) => { onPick(path, n); setOpen(false); setQ(""); setRes(null); };
+  // rychlé návrhy: oddíl (interní žebříček) a nejčastější soupeři
+  const club = me ? vm.club.ladder.filter((e) => e.path && e.id !== me.id).slice(0, 6).map((e) => [e.path!, e.name] as [string, string]) : [];
+  const opps = me ? Stats.opponents(me).filter((o) => o.matches.some((m) => m.opponentPath)).slice(0, 6)
+    .map((o) => [o.matches.find((m) => m.opponentPath)!.opponentPath, o.name] as [string, string]) : [];
+  const chip = (path: string, n: string, k: string) => (
+    <button key={k} className={"chip" + (path === value ? " on" : "")} style={{ height: 32, fontSize: 13 }} onClick={() => pick(path, n)}>{n}</button>
+  );
+  return (
+    <AppCard>
+      <div className="row clickable" onClick={() => setOpen(!open)}>
+        <div className="col w1">
+          <Muted text={label} size={12} />
+          <T bold size={16} lines={1} color={value ? C.Ink : C.Muted}>{value ? name ?? "Hráč" : "Vyberte hráče"}</T>
+        </div>
+        <T bold color={C.Blue} style={{ flex: "none" }}>{open ? "Zavřít" : "Změnit ›"}</T>
+      </div>
+      {open && <>
+        {offerMe && me && <div className="row g6" style={{ flexWrap: "wrap" }}>{chip(me.path, `Já (${me.name})`, "me")}</div>}
+        <TextField value={q} onChange={setQ} icon="search" label="Hledat hráče na STIS (jméno)" onEnter={search} />
+        <div className="row g8"><button className="chip on" style={{ height: 34 }} onClick={search}>{busy ? "Hledám…" : "Hledat"}</button></div>
+        {err && <Muted text={err} color={C.OrangeText} size={12} maxLines={3} />}
+        {res && !res.length && <Muted text="Nikoho takového STIS nenašel." size={13} />}
+        {res && res.slice(0, 15).map((r) => (
+          <div key={r.path} className="row clickable" style={{ padding: "6px 0" }} onClick={() => pick(r.path, r.name)}>
+            <div className="col w1">
+              <T semi size={14} lines={1}>{r.name}</T>
+              <Muted size={12} maxLines={1} text={[r.club, r.birthYear ? `nar. ${r.birthYear}` : null, r.str != null ? `STR ${r.str}` : null].filter((x) => x).join(" · ")} />
+            </div>
+            <T color={C.Blue} style={{ flex: "none" }}>›</T>
+          </div>
+        ))}
+        {!res && club.length > 0 && <><Muted text="Hráči oddílu" size={12} /><div className="row g6" style={{ flexWrap: "wrap" }}>{club.map(([p, n]) => chip(p, n, "c" + p))}</div></>}
+        {!res && opps.length > 0 && <><Muted text="Nejčastější soupeři" size={12} /><div className="row g6" style={{ flexWrap: "wrap" }}>{opps.map(([p, n]) => chip(p, n, "o" + p))}</div></>}
+      </>}
+    </AppCard>
+  );
+}
+
 export function CompareScreen({ a0, b0 }: { a0: string | null; b0: string | null }) {
   const me = vm.me;
-  const options: [string, string][] = me ? distinctBy([[me.path, `${me.name} (vy)`] as [string, string],
-    ...vm.club.ladder.filter((e) => e.path != null && e.id !== me.id).map((e) => [e.path!, e.name] as [string, string])], (x) => x[0]) : [];
   const [a, setA] = useState(a0 ?? me?.path ?? "");
-  const [b, setB] = useState(b0 ?? options[1]?.[0] ?? "");
+  const [b, setB] = useState(b0 ?? "");
+  const [names, setNames] = useState<Record<string, string>>({});
   const [period, setPeriod] = useState("3r");
   const page = (p: string): PlayerPage | null => (me && p === me.path ? vm.meWithLive() ?? me : vm.players.get(p) ? vm.withLive(vm.players.get(p)!) : null);
-  const pa = page(a), pb = page(b);
+  const pa = a ? page(a) : null, pb = b ? page(b) : null;
   useEffect(() => {
-    if (!me) return;
-    if (a !== me.path && a) vm.loadPlayer(a);
-    if (b !== me.path && b) vm.loadPlayer(b);
+    if (a && a !== me?.path) vm.loadPlayer(a);
+    if (b && b !== me?.path) vm.loadPlayer(b);
   }, [a, b]);
-  if (!me) return <Loading />;
-  const nameOf = (p: string) => options.find((o) => o[0] === p)?.[1] ?? page(p)?.name ?? "Hráč";
-  const opts = options.some((o) => o[0] === a) ? options : [...options, [a, nameOf(a)] as [string, string]];
-  const opts2 = opts.some((o) => o[0] === b) || !b ? opts : [...opts, [b, nameOf(b)] as [string, string]];
+  const nameOf = (p: string) => (p ? page(p)?.name ?? names[p] ?? (me && p === me.path ? me.name : null) : null);
   const season = Stis.currentRocnik();
   return (
     <div className="col g12 px16">
-      <Field label="Hráč 1" value={a} options={opts2} onPick={setA} />
-      <Field label="Hráč 2" value={b} options={opts2} onPick={setB} />
-      {options.length < 2 && <Muted size={13} maxLines={4} text="Další hráče oddílu načtu z interního žebříčku (chvíli to trvá). Soupeře můžete porovnat i z obrazovky vzájemných zápasů." />}
-      {!pa || !pb ? (b ? <Loading text="Načítám profily hráčů…" /> : null) : (() => {
+      <PlayerPick label="Hráč 1" value={a} name={nameOf(a)} offerMe onPick={(p, n) => { setA(p); setNames({ ...names, [p]: n }); }} />
+      <div className="row" style={{ justifyContent: "center", marginTop: -6, marginBottom: -6 }}>
+        <button className="chip" style={{ height: 30 }} onClick={() => { setA(b); setB(a); }} aria-label="Prohodit hráče">⇅ prohodit</button>
+      </div>
+      <PlayerPick label="Hráč 2" value={b} name={nameOf(b)} offerMe={a !== me?.path} onPick={(p, n) => { setB(p); setNames({ ...names, [p]: n }); }} />
+      {!a || !b ? <Muted size={13} maxLines={3} text="Vyberte oba hráče – hledat lze kohokoli ze STIS." />
+        : !pa || !pb ? ((vm.loadingPlayers.get(a) !== false || vm.loadingPlayers.get(b) !== false) ? <Loading text="Načítám profily hráčů…" /> : <Empty text="Profil hráče se nepodařilo načíst." />) : (() => {
         const sa = pa.chronological.filter((m) => m.season === season), sb = pb.chronological.filter((m) => m.season === season);
         const ra = Stats.records(pa), rb = Stats.records(pb);
         const fa = Stats.form(pa), fb = Stats.form(pb);

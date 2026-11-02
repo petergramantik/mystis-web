@@ -4,7 +4,7 @@ import type { Match } from "../../core/models";
 import { ClubStat, OpponentStat, Stats, StrModel, sum } from "../../core/stats";
 import {
   AppCard, Avatar, BigNumber, C, Chips, DMY, Divider, Empty, HeaderPlayer, ListCard, Loading, Muted, NavyHeader, OButton, Pill, ProbBar,
-  ResultBadge, SectionTitle, Segmented, StatTile, T, TextField, TileRow, dec1, signedInt,
+  ResultBadge, SectionTitle, Segmented, StatTile, T, TextField, TileRow, dec1, signedInt, Icon,
 } from "../components";
 
 export function OpponentsScreen() {
@@ -13,16 +13,25 @@ export function OpponentsScreen() {
   if (!meAll) return <Loading />;
   const mode = vm.oppMode;
   const comps = Array.from(new Set([...meAll.chronological].reverse().map((m) => m.competition).filter((c) => c.trim())));
-  const comp = vm.oppComp === "all" || comps.includes(vm.oppComp) ? vm.oppComp : "all";
+  // výchozí: hlavní soutěž (soutěž družstva, za které hraji nejvíc) – poslední soutěž zápasů za toto družstvo
+  const mainTeam = vm.next[vm.mainTeamIndex]?.myTeam.name;
+  const mainComp = mainTeam ? [...meAll.chronological].reverse().find((m) => Stats.fold(m.myTeam) === Stats.fold(mainTeam) && m.competition.trim())?.competition : undefined;
+  const saved = vm.prefs.oppComp;
+  const comp = saved === "all" || (saved && comps.includes(saved)) ? saved : mainComp && comps.includes(mainComp) ? mainComp : "all";
   const me = comp === "all" ? meAll : meAll.copy({ matches: meAll.matches.filter((m) => m.competition === comp) });
   const opps = Stats.opponents(me);
   const clubs = Stats.clubsOf(opps);
   return (
     <div className="col g10 px16">
-      <Muted text={`${opps.length} soupeřů z ${clubs.length} klubů`} size={14} />
-      <Segmented options={[["name", "Podle jména"], ["club", "Podle klubu"]]} selected={mode} onSelect={(k) => { vm.set("oppMode", k); setQuery(""); }} />
-      {comps.length > 1 && <Chips options={[["all", "Všichni"], ...comps.map((c) => [c, c] as [string, string])]} selected={comp} onSelect={(k) => vm.set("oppComp", k)} />}
+      <div className="row g8">
+        <div style={{ flex: 1 }}><Segmented options={[["name", "Podle jména"], ["club", "Podle klubu"]]} selected={mode} onSelect={(k) => { vm.set("oppMode", k); setQuery(""); }} /></div>
+        <button className="chip" onClick={() => vm.go({ t: "Compare", a: null, b: null })} style={{ height: 40, borderRadius: 12, display: "flex", alignItems: "center", gap: 6 }}>
+          <Icon name="compare" size={18} />Porovnat
+        </button>
+      </div>
       <TextField value={query} onChange={setQuery} icon="search" label={mode === "club" ? "Název klubu, např. Slavoj" : "Jméno soupeře"} />
+      {comps.length > 1 && <Chips options={[["all", "Všichni"], ...comps.map((c) => [c, c] as [string, string])]} selected={comp} onSelect={(k) => { vm.prefs.oppComp = k; vm.emit(); }} />}
+      <T size={14} color={C.Muted} style={{ padding: "0 4px" }}>{`${opps.length} soupeřů z ${clubs.length} klubů`}</T>
       {mode === "club" ? (() => {
         const list = Stats.searchClubs(me, query);
         return (

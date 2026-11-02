@@ -1,10 +1,17 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.8.6";
+export const APP_VERSION = "2.9";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.9", date: "2. 11. 2026", title: "Porovnání hráčů a Soupeři",
+    items: [
+      "Porovnání libovolných dvou hráčů – hledání kohokoli ze STIS, rychlá volba „Já“, hráči oddílu a nejčastější soupeři, prohození hráčů",
+      "Soupeři: tlačítko Porovnat, výchozí je vaše hlavní soutěž (Všichni zůstává), rozložení jako na kartě Utkání",
+    ],
+  },
   {
     version: "2.8.6", date: "2. 11. 2026", title: "Nová ikona",
     items: ["Nová ikona aplikace (plocha, Android, iPhone, záložka prohlížeče, notifikace)"],
