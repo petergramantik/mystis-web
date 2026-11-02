@@ -2,7 +2,7 @@
 // Verzi doplní build.sh – každé nasazení tak má vlastní mezipaměť a stará se smaže.
 const VER = "__VER__";
 const CACHE = "mystis-" + VER;
-const SHELL = ["./", "index.html", "main.js?v=" + VER, "main.css?v=" + VER, "config.js?v=" + VER, "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png"];
+const SHELL = ["./", "index.html", "main.js?v=" + VER, "main.css?v=" + VER, "config.js?v=" + VER, "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-512-maskable.png", "icons/apple-touch-icon.png", "icons/favicon.ico"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}).then(() => self.skipWaiting())); });
 self.addEventListener("activate", (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));

@@ -1740,7 +1740,7 @@ export class AppVm {
     try {
       const data = live ? { live: liveTeam, path: livePath, key: this.next[liveTeam] ? this.teamKey(this.next[liveTeam]) : undefined, team: this.next[liveTeam]?.myTeam.name } : undefined;
       const reg = await navigator.serviceWorker?.getRegistration();
-      if (reg) await reg.showNotification(title, { body, tag, icon: "icon-192.png", badge: "icon-192.png", data, silent: live && this.notifySilent });
+      if (reg) await reg.showNotification(title, { body, tag, icon: "icons/icon-192.png", badge: "icons/icon-192.png", data, silent: live && this.notifySilent });
       else {
         const n = new Notification(title, { body, tag, silent: live && this.notifySilent });
         if (data) n.onclick = () => { try { window.focus(); } catch { /* */ } this.openLiveNotification(data); };
@@ -1754,7 +1754,7 @@ export class AppVm {
     try {
       const data = { watch: w.key, path: w.zapisPath };
       const reg = await navigator.serviceWorker?.getRegistration();
-      if (reg) await reg.showNotification(title, { body, tag, icon: "icon-192.png", badge: "icon-192.png", data, silent: this.notifySilent });
+      if (reg) await reg.showNotification(title, { body, tag, icon: "icons/icon-192.png", badge: "icons/icon-192.png", data, silent: this.notifySilent });
       else {
         const n = new Notification(title, { body, tag, silent: this.notifySilent });
         n.onclick = () => { try { window.focus(); } catch { /* */ } this.openLiveNotification(data); };

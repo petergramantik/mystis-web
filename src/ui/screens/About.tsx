@@ -34,7 +34,7 @@ export function AboutScreen() {
     <div className="col g12 px16" style={{ paddingTop: 4 }}>
       <AppCard>
         <div className="row g12">
-          <img src="icon-192.png" alt="" width={56} height={56} style={{ borderRadius: 14 }} />
+          <img src="icons/icon-192.png" alt="" width={56} height={56} style={{ borderRadius: 14 }} />
           <div className="col w1">
             <T bold size={22}>MySTIS</T>
             <Muted size={13} text={`Verze ${APP_VERSION} · sestavení ${buildText()}`} />
