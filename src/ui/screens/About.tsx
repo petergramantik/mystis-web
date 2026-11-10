@@ -87,7 +87,7 @@ export function AboutScreen() {
         <T bold>Zdroj dat</T>
         <Muted size={13} maxLines={6} text="Neoficiální aplikace. Data jsou z veřejných stránek stis.ping-pong.cz, změny STR se počítají podle popisu systému eSTeR. Oficiální výsledky, body a STR platí vždy podle STIS." />
         <T bold style={{ paddingTop: 6 }}>Soukromí</T>
-        <Muted size={13} maxLines={6} text="Data se ukládají jen v tomto telefonu (v prohlížeči). Požadavky na STIS jdou přes vlastní proxy (Cloudflare Worker), nic dalšího se nikam neodesílá." />
+        <Muted size={13} maxLines={6} text="Data se ukládají jen v tomto telefonu (v prohlížeči). Požadavky na STIS jdou přes vlastní proxy (Cloudflare Worker). Aplikace počítá anonymní počet zařízení: jednou denně pošle náhodné číslo instalace a verzi aplikace – bez jména, hráče STIS a dalších osobních údajů." />
         <T bold style={{ paddingTop: 6 }}>Zvuky</T>
         <Muted size={13} text="Zvuky: generováno AI." />
       </AppCard>

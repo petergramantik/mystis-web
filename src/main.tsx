@@ -18,6 +18,7 @@ import { CaptainScreen, CompareScreen } from "./ui/screens/Captain";
 import { RecordsScreen, SettingsScreen } from "./ui/screens/Records";
 import { AppShareSheet, GuestBar, ShareSheet, shareOptions } from "./ui/shareActions";
 import { SupportMenuSheet } from "./ui/support";
+import { APP_VERSION } from "./app/version";
 import "./ui/app.css";
 
 const TABS: [Screen, string, string][] = [
@@ -194,6 +195,25 @@ navigator.serviceWorker?.addEventListener("message", (e: MessageEvent) => {
   const d = e.data;
   if (d?.type === "notification" && d.data) vm.openLiveNotification(d.data);
 });
+// Anonymní počítadlo zařízení: jednou denně pošle Workeru náhodné ID instalace (žádné jméno ani hráč).
+// Jednoduchý GET bez vlastních hlaviček – starší Worker bez počítadla ho jen přepošle na STIS a nic se nerozbije.
+(() => {
+  try {
+    let id = localStorage.getItem("mystis.anon_id");
+    if (!id) {
+      id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem("mystis.anon_id", id);
+    }
+    const day = new Date().toISOString().slice(0, 10);
+    if (localStorage.getItem("mystis.anon_day") === day) return;
+    const proxy = vm.prefs.proxyUrl;
+    if (!proxy) return;
+    setTimeout(() => {
+      fetch(`${proxy}/__hit?id=${encodeURIComponent(id!)}&v=${encodeURIComponent(APP_VERSION)}`, { mode: "cors", cache: "no-store" })
+        .then(() => localStorage.setItem("mystis.anon_day", day), () => { /* bez sítě – zkusí příště */ });
+    }, 3000);
+  } catch { /* soukromý režim */ }
+})();
 // sdílený odkaz: ?z= zápis, ?h= hráč, ?d= vzájemné zápasy
 // Odkaz se uloží i do sessionStorage: po aktualizaci aplikace (service worker stránku jednou obnoví)
 // by se jinak adresa bez parametrů otevřela na úvodní obrazovce.
