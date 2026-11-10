@@ -11,6 +11,24 @@ export function appLink(params: Record<string, string> = {}): string {
 }
 export const matchLink = (zapisPath: string) => appLink({ z: zapisPath });
 export const playerLink = (playerPath: string) => appLink({ h: playerPath });
+/** Sdílená predikce utkání (vše potřebné k jejímu přepočtu u příjemce). */
+export interface SharedPred {
+  s: string; r: number; c: string; cl: string; k: string; t: number | null; dt: string;
+  /** formát: hráči, hry, čtyřhry, cíl (null = hrají se všechny), popis */
+  f: { p: number; g: number; d: number; t: number | null; l: string } | string;
+  h: { n: string; id: string | null }; a: { n: string; id: string | null };
+  /** sestavy: [id, jméno, STR při sdílení] */
+  hp: [string | null, string, number | null][]; ap: [string | null, string, number | null][];
+}
+const b64u = (s: string) => btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+export function decodePred(x: string): SharedPred | null {
+  try {
+    const bin = atob(x.replace(/-/g, "+").replace(/_/g, "/"));
+    const d = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (ch) => ch.charCodeAt(0))));
+    return d && d.h && d.a && Array.isArray(d.hp) && Array.isArray(d.ap) ? d : null;
+  } catch { return null; }
+}
+export const predictionLink = (p: SharedPred) => appLink({ pr: b64u(JSON.stringify(p)) });
 export const duelLink = (aPath: string, aName: string, bPath: string, bName: string) => appLink({ d: [aPath, aName, bPath, bName].join("~") });
 
 function toast(text: string) { vm.toast(text); }

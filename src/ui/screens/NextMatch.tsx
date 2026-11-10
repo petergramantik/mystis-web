@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { vm } from "../../app/vm";
 import { RosterPlayer, Stis, type PlayerPage, type TeamRef } from "../../core/models";
 import { Stats } from "../../core/stats";
@@ -12,7 +12,8 @@ import {
 } from "../components";
 import { fmtWhenLong } from "../fmt";
 import { HallCard } from "../hall";
-import { appBase, shareLink } from "../share";
+import { shareLink, predictionLink, decodePred, type SharedPred } from "../share";
+import { ShareSheet, type ShareOpt } from "../shareActions";
 
 /** Rozbor dalšího (ne nejbližšího) budoucího utkání – stejný obsah jako Příští zápas. */
 export function FixtureScreen({ team, round, home, away }: { team: number; round: string; home: string; away: string }) {
@@ -130,6 +131,7 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
   home?: boolean | null;
 }) {
   const rs = vm.refineState(theirRoster, theirRef);
+  const [shareOpen, setShareOpen] = useState(false);
   const mineP: [RosterPlayer, boolean][] = minePick.length ? minePick
     : me.currentStr != null ? [[new RosterPlayer(me.id, me.path, me.name, 1, null, null, me.currentStr, null, null, "", null), false]] : [];
   const mine = mineP.map((x) => x[0]);
@@ -161,7 +163,8 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
           <T semi size={14}>{`${Math.round(w)} z ${theirs.length}`}</T>
         </div>
       ))}
-      {ctx?.next && <button className="textbtn" style={{ alignSelf: "flex-start" }} onClick={() => {
+      {ctx?.next && <button className="textbtn" style={{ alignSelf: "flex-start" }} onClick={() => setShareOpen(true)}>Sdílet predikci ›</button>}
+      {ctx?.next && shareOpen && (() => {
         const n = ctx.next!;
         const [hn, an] = ctx.home ? [ctx.myTeam.name, ctx.opponentName] : [ctx.opponentName, ctx.myTeam.name];
         const when0 = n.dateTime != null ? fmtWhenLong(n.dateTime) : n.dateText;
@@ -171,8 +174,19 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
           `Predikce MySTIS: ${res} ${hs}:${as_} · výhra ${Stats.pct(fc.pWin)}, remíza ${Stats.pct(fc.pDraw)}, prohra ${Stats.pct(fc.pLoss)}`,
           `Naše sestava: ${mineP.map(label).join(", ")}`,
           `Soupeř: ${theirsPick.map(label).join(", ")}`].join("\n");
-        void shareLink(`${hn} – ${an}`, text, appBase());
-      }}>Sdílet predikci ›</button>}
+        const ref = ctx.myTeam.ref;
+        const side = (l: [RosterPlayer, boolean][]) => l.map(([p]) => [p.id, p.name, p.str] as [string | null, string, number | null]);
+        const mineT = { n: ctx.myTeam.name, id: ref?.id ?? null }, oppT = { n: ctx.opponentName, id: ctx.opponentRef?.id ?? null };
+        const data: SharedPred | null = ref ? {
+          s: ref.svaz, r: ref.rocnik, c: ref.soutez, cl: ctx.myTeam.competition ?? "", k: n.round, t: n.dateTime, dt: n.dateText, f: { p: fmt.players, g: fmt.games, d: fmt.doubles, t: fmt.target, l: fmt.label },
+          h: ctx.home ? mineT : oppT, a: ctx.home ? oppT : mineT, hp: side(ctx.home ? mineP : theirsPick), ap: side(ctx.home ? theirsPick : mineP),
+        } : null;
+        const opts: ShareOpt[] = [
+          { label: "Text", sub: "Termín, odhad výsledku a sestavy jako zpráva", icon: "list", run: () => shareLink(`${hn} – ${an}`, text) },
+          ...(data ? [{ label: "Odkaz", sub: "Predikce v aplikaci – otevře ji i člověk bez profilu", icon: "share", run: () => shareLink(`Predikce: ${hn} – ${an}`, `Predikce: ${hn} – ${an}`, predictionLink(data)) }] : []),
+        ];
+        return <ShareSheet opts={opts} onClose={() => setShareOpen(false)} />;
+      })()}
       <Muted size={12} maxLines={4} text={`Sestavy: stabilní hráči (aspoň třetina utkání družstva), doplnění náhradníky s nejvíc utkáními. Každý s každým (${mine.length}×${theirs.length} dvouher) + ${fmt.doubles} ${fmt.doubles === 1 ? "čtyřhra" : "čtyřhry"}, pravděpodobnosti podle STR.`} />
     </AppCard>
   );
@@ -293,3 +307,78 @@ function OtherClubSection({ me, ctx }: { me: PlayerPage; ctx: NextMatchContext }
     </>
   );
 }
+
+/** Sdílená predikce utkání (odkaz ?pr=): přepočet podle aktuálního STR, i bez nastavené aplikace. */
+export function PredictionScreen({ data }: { data: string }) {
+  const d = decodePred(data);
+  const comp = d ? { svaz: d.s, rocnik: d.r, soutez: d.c } : null;
+  const pathOf = (id: string | null) => (id && d ? `/hrac-${id}/svaz-${d.s}/rocnik-${Stis.currentRocnik()}` : null);
+  useEffect(() => {
+    if (!d || !comp) return;
+    vm.loadCompLos(comp);
+    vm.requestPlayers([...d.hp, ...d.ap].map((p) => pathOf(p[0])).filter((x): x is string => !!x));
+  }, [data]);
+  if (!d || !comp) return <div className="px16"><Empty text="Odkaz na predikci je neplatný nebo poškozený." /></div>;
+  const fmt: MatchFormat = typeof d.f === "object" && d.f ? { key: "shared", label: d.f.l, players: d.f.p, games: d.f.g, doubles: d.f.d, target: d.f.t }
+    : MatchFormats.ALL.find((x) => x.key === d.f) ?? MatchFormats.DEFAULT;
+  const strNow = (p: [string | null, string, number | null]) => {
+    const path = pathOf(p[0]);
+    const pg = path ? (vm.me?.path === path || vm.me?.id === p[0] ? vm.me : vm.players.get(path)) : undefined;
+    return pg?.currentStr ?? p[2];
+  };
+  const loading = [...d.hp, ...d.ap].filter((p) => { const x = pathOf(p[0]); return x && !vm.players.has(x) && vm.loadingPlayers.get(x) !== false && vm.me?.id !== p[0]; }).length;
+  const hs = d.hp.map(strNow), as_ = d.ap.map(strNow);
+  const fc = matchForecast(hs.map((x) => x ?? 1400), as_.map((x) => x ?? 1400), fmt);
+  const [lh, la] = fc.likely;
+  // stav utkání podle rozpisu soutěže
+  const los = vm.compLos.get(vm.compKey(comp)) ?? [];
+  const f = (x: string) => Stats.fold(x);
+  const m = los.find((x) => x.round === d.k && ((d.h.id && x.homeRef?.id === d.h.id) || f(x.home) === f(d.h.n)) && ((d.a.id && x.awayRef?.id === d.a.id) || f(x.away) === f(d.a.n)));
+  const st = m ? vm.boardStatus(comp, m) : null;
+  const mineIdx = vm.next.findIndex((c) => c.myTeam.ref?.id && (c.myTeam.ref.id === d.h.id || c.myTeam.ref.id === d.a.id));
+  const when0 = d.t != null ? fmtWhenLong(d.t) : d.dt;
+  const team = (t: { n: string; id: string | null }) => (t.id ? () => vm.openTeam({ id: t.id!, name: t.n, svaz: d.s, rocnik: d.r, soutez: d.c }, d.cl) : undefined);
+  const lineup = (title: string, ps: [string | null, string, number | null][], strs: (number | null)[]) => (
+    <AppCard>
+      <T bold>{title}</T>
+      {ps.map((p, i) => {
+        const go = p[0] ? () => vm.go({ t: "Player", path: pathOf(p[0])! }) : null;
+        return (
+          <div key={i} className={"row" + (go ? " clickable" : "")} style={{ padding: "3px 0" }} onClick={go ?? undefined}>
+            <T semi size={14} lines={1} style={{ flex: 1 }}>{p[1]}{go && <span style={{ color: C.Muted }}> ›</span>}</T>
+            <T bold size={14}>{strs[i] != null ? String(strs[i]) : "–"}</T>
+          </div>
+        );
+      })}
+    </AppCard>
+  );
+  return (
+    <div className="col g12">
+      <NavyHeaderLite>
+        <Muted text={[d.cl, d.k ? `${d.k}. kolo` : null, when0].filter((x) => x).join(" · ")} color={C.MutedOnNavy} size={13} maxLines={2} />
+        <div className="row g8" style={{ alignItems: "center" }}>
+          <T bold size={17} color="#fff" lines={2} style={{ flex: 1 }}><span className={team(d.h) ? "clickable" : undefined} onClick={team(d.h)}>{d.h.n}</span></T>
+          <div className="col" style={{ alignItems: "center", flex: "none" }}>
+            <BigNumber text={`${lh} : ${la}`} color="#fff" size={34} style={{ whiteSpace: "nowrap" }} />
+            <Muted text="nejpravděpodobněji" color={C.MutedOnNavy} size={11} />
+          </div>
+          <T bold size={17} color="#fff" lines={2} end style={{ flex: 1 }}><span className={team(d.a) ? "clickable" : undefined} onClick={team(d.a)}>{d.a.n}</span></T>
+        </div>
+        <Muted text={`výhra domácích ${Stats.pct(fc.pWin)} · remíza ${Stats.pct(fc.pDraw)} · výhra hostů ${Stats.pct(fc.pLoss)}`} color="#fff" size={13} maxLines={2} />
+        <ProbBar p={fc.pWin + fc.pDraw / 2} />
+        <Muted text={loading ? `Načítám aktuální STR hráčů… (${loading})` : "Podle STR hráčů k dnešnímu dni."} color={C.MutedOnNavy} size={12} />
+      </NavyHeaderLite>
+      <div className="col g12 px16">
+        {st?.kind === "live" && m?.zapisPath && <AppCard bg={C.Live} onClick={() => vm.go({ t: "Shared", path: m.zapisPath })}><T bold color="#fff">{`● Utkání se už hraje (${st.text}) – sledovat živě ›`}</T></AppCard>}
+        {st?.kind === "done" && m?.zapisPath && <AppCard bg={C.Navy} onClick={() => vm.go({ t: "ZapisDetail", path: m.zapisPath, myTeam: mineIdx >= 0 ? vm.next[mineIdx].myTeam.name : "" })}><T bold color="#fff">{`✓ Dohráno ${st.text} – zápis ›`}</T></AppCard>}
+        {mineIdx >= 0 && !vm.guest && <OButton text="Otevřít můj Příští zápas ›" onClick={() => { vm.nextSelected = mineIdx; vm.go({ t: "NextMatch" }); }} />}
+        {lineup(`Domácí: ${d.h.n}`, d.hp, hs)}
+        {lineup(`Hosté: ${d.a.n}`, d.ap, as_)}
+        <Muted size={12} maxLines={4} text={`Formát: ${fmt.label}. Sestavy podle toho, kdo predikci sdílel; šance se počítají ze STR systémem eSTeR.`} />
+        <div style={{ height: 8 }} />
+      </div>
+    </div>
+  );
+}
+
+function NavyHeaderLite({ children }: { children: ReactNode }) { return <div className="header"><div className="col g8">{children}</div></div>; }

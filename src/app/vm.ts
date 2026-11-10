@@ -37,7 +37,8 @@ export type Screen =
   | { t: "Watch"; key: string }
   | { t: "About" }
   | { t: "Shared"; path: string }
-  | { t: "OtherTeam"; ref: TeamRef; comp: string };
+  | { t: "OtherTeam"; ref: TeamRef; comp: string }
+  | { t: "Prediction"; data: string };
 
 export const S = {
   Overview: { t: "Overview" } as Screen, Ladder: { t: "Ladder" } as Screen, Str: { t: "Str" } as Screen,
@@ -153,16 +154,18 @@ export class AppVm {
     let s: Screen | null = null;
     // odkaz může obsahovat i adresu STIS (https://stis.ping-pong.cz/zapis/…) – bere se jen cesta
     const norm = (x: string | null, part: string) => { if (!x) return null; const i = x.indexOf(part); return i >= 0 ? x.slice(i).split("#")[0] : null; };
-    const z = norm(q.get("z"), "/zapis/"), h = norm(q.get("h"), "/hrac-"), d = q.get("d");
+    const z = norm(q.get("z"), "/zapis/"), h = norm(q.get("h"), "/hrac-"), d = q.get("d"), pr = q.get("pr");
     const idOf = (p: string) => /hrac-(\d+)/.exec(p)?.[1] ?? "";
     if (z && z.startsWith("/zapis/")) s = { t: "Shared", path: z };
     else if (h && h.startsWith("/hrac-")) s = { t: "Player", path: h };
+    else if (pr) s = { t: "Prediction", data: pr };
     else if (d) {
       const [ap, an, bp, bn] = d.split("~");
       if (ap && bp) s = { t: "Duel", aId: idOf(ap), aName: an ?? "", bId: idOf(bp), bName: bn ?? "" };
     }
     if (!s) return false;
     this.svazHint = Stis.svaz(z ?? h ?? d ?? "") ?? null;
+    if (pr) { try { const x = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(pr.replace(/-/g, "+").replace(/_/g, "/")), (ch) => ch.charCodeAt(0)))); if (x?.s) this.svazHint = String(x.s); } catch { /* */ } }
     if (this.onboarding) { this.guest = true; this.stack = [s]; this.emit(); } else this.go(s);
     return true;
   }

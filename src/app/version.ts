@@ -1,10 +1,17 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.9.1";
+export const APP_VERSION = "2.10";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.10", date: "10. 11. 2026", title: "Sdílená predikce",
+    items: [
+      "Sdílet predikci: volba Text, nebo Odkaz – odkaz otevře predikci utkání i člověk bez nastavené aplikace",
+      "Sdílená predikce se přepočítá podle aktuálního STR; když se už hraje nebo je dohráno, nabídne živé utkání nebo zápis",
+    ],
+  },
   {
     version: "2.9.1", date: "10. 11. 2026", title: "Anonymní počítadlo",
     items: ["Aplikace jednou denně anonymně ohlásí své spuštění (náhodné číslo instalace, bez osobních údajů) – kvůli počtu uživatelů"],

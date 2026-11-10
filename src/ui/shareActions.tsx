@@ -5,7 +5,7 @@ import { Live } from "../core/live";
 import { Stis, type PlayerPage, type Zapis } from "../core/models";
 import { Stats } from "../core/stats";
 import { C, Muted, T, Icon, PrimaryButton, OButton } from "./components";
-import { appBase, duelLink, matchLink, playerLink, shareImage, shareLink } from "./share";
+import { appBase, appLink, duelLink, matchLink, playerLink, shareImage, shareLink } from "./share";
 import { qrSvg } from "./qr";
 import { zapisStrInfo } from "./screens/Duel";
 import { strPoints } from "./screens/StrScreen";
@@ -30,6 +30,7 @@ export function shareOptions(s: Screen): ShareOpt[] {
       return path ? matchOpts(path) : [];
     }
     case "Shared": case "ZapisDetail": return matchOpts(s.path);
+    case "Prediction": return [{ label: "Odkaz na predikci", sub: "Otevře ji i člověk bez nastavené aplikace", icon: "share", run: () => shareLink("Predikce utkání", "Predikce utkání (MySTIS)", appLink({ pr: s.data })) }];
     case "Player": {
       const p = vm.me?.path === s.path ? vm.meWithLive() : vm.players.get(s.path);
       return p ? playerOpts(p) : [];
