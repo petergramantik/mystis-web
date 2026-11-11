@@ -317,6 +317,7 @@ export class AppVm {
     const rosters = () => this.next.flatMap((c) => [...c.opponentRoster, ...c.myRoster]);
     const lastOpp = (f: (x: Match) => boolean) => { const ch = m?.chronological ?? []; for (let i = ch.length - 1; i >= 0; i--) if (f(ch[i])) return ch[i].oppStrAfter; return null; };
     if (id) {
+      const cur = this.players.get(this.playerPathById(id))?.currentStr; if (cur != null) return cur;
       for (const p of this.players.values()) if (p.id === id && p.currentStr != null) return p.currentStr;
       const l = this.club.ladder.find((e) => e.id === id)?.str; if (l != null) return l;
       const r = rosters().find((x) => x.id === id)?.str; if (r != null) return r;

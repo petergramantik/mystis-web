@@ -80,7 +80,8 @@ function ClubRow({ c, onClick }: { c: ClubStat; onClick: () => void }) {
 }
 
 export function OpponentRow({ o, myStr, onClick }: { o: OpponentStat; myStr: number | null; onClick: () => void }) {
-  const ls = o.lastStr;
+  // aktuální STR (profil, žebříček, soupiska), jinak STR po posledním vzájemném zápase
+  const ls = vm.strOf(o.id, o.name) ?? o.lastStr;
   return (
     <>
       <div className="row g12 clickable" style={{ padding: "11px 14px" }} onClick={onClick}>
@@ -135,17 +136,18 @@ export function ClubScreen({ club }: { club: string }) {
 export function H2HScreen({ oppKey }: { oppKey: string }) {
   const me = vm.meWithLive();
   const o = me ? Stats.opponents(me).find((x) => x.key === oppKey) ?? null : null;
-  let oppPath: string | null = null;
-  if (o) {
-    for (let i = o.matches.length - 1; i >= 0; i--) if (o.matches[i].opponentPath) { oppPath = o.matches[i].opponentPath; break; }
-    if (!oppPath && o.id) oppPath = `/hrac-${o.id}`;
-  }
+  // profil soupeře v aktuálním ročníku (odkaz z posledního vzájemného zápasu může vést na starý ročník)
+  let oppPath: string | null = o?.id ? vm.playerPathById(o.id) : null;
+  if (o && !oppPath) for (let i = o.matches.length - 1; i >= 0; i--) if (o.matches[i].opponentPath) { oppPath = o.matches[i].opponentPath; break; }
   // aktuální STR soupeře ze stránky hráče (STR z posledního vzájemného zápasu může být staré)
   useEffect(() => { if (oppPath) vm.loadPlayer(oppPath); }, [oppPath]);
   if (!me) return <Loading />;
   if (!o) return <Empty text="Soupeř nenalezen." />;
   const myStr = me.currentStr;
-  const oppStr = (oppPath ? vm.players.get(oppPath)?.currentStr : null) ?? o.lastStr;
+  const pageStr = oppPath ? vm.players.get(oppPath)?.currentStr ?? null : null;
+  const oppStr = pageStr ?? vm.strOf(o.id, o.name) ?? o.lastStr;
+  const stale = pageStr == null && oppStr != null && oppStr === o.lastStr;
+  const loadingOpp = oppPath != null && vm.loadingPlayers.get(oppPath) === true;
   const p = myStr != null && oppStr != null ? StrModel.winProbability(myStr, oppStr) : null;
   const five = o.matches.filter((m) => m.fiveSetter);
   const dSum = sum(o.matches.map((m) => m.delta).filter((x): x is number => x != null));
@@ -167,6 +169,7 @@ export function H2HScreen({ oppKey }: { oppKey: string }) {
             <div className="row"><T bold style={{ flex: 1 }}>Šance na výhru v dalším zápase</T><BigNumber text={Stats.pct(p)} color={p >= 0.5 ? C.Win : C.OrangeText} size={24} /></div>
             <ProbBar p={p} />
             <Muted size={13} text={`Rozdíl STR ${signedInt(myStr - oppStr)} · výhra +${StrModel.gainIfWin(myStr, oppStr)} · prohra −${-StrModel.lossIfLose(myStr, oppStr)} STR`} />
+            {stale && <Muted size={12} text={`STR soupeře po posledním vzájemném zápase${loadingOpp ? ", načítám aktuální…" : ""}`} />}
           </AppCard>
         )}
         <TileRow>

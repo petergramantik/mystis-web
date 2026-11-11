@@ -1,10 +1,17 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.12";
+export const APP_VERSION = "2.12.1";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.12.1", date: "11. 11. 2026", title: "Aktuální STR soupeře ve vzájemných zápasech",
+    items: [
+      "Vzájemné zápasy a seznam Soupeři počítají šanci s aktuálním STR soupeře (profil, žebříček, soupiska) místo STR po posledním vzájemném zápase",
+      "Profil soupeře se načítá z aktuálního ročníku; dokud není načtený, je u šance poznámka",
+    ],
+  },
   {
     version: "2.12", date: "11. 11. 2026", title: "Sdílení aktuálního stavu jako obrázek",
     items: [
