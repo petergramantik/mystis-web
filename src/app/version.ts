@@ -1,10 +1,20 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.13.3";
+export const APP_VERSION = "2.14";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.14", date: "11. 11. 2026", title: "Komplexní model predikcí",
+    items: [
+      "Nastavení → Komplexní model predikcí (výchozí vypnuto): k STR přidá vzájemné zápasy hráčů a výhodu domácího prostředí v soutěži",
+      "Vzájemné zápasy: novější a při podobném rozdílu STR mají větší váhu, malý vzorek se stáhne k nule, nejvýš ±40 STR",
+      "Platí pro šanci v jedné hře, soupeře, příští zápas, predikci utkání, sezóny i živé utkání",
+      "Ověřeno zpětným testem na 5 020 skutečných zápasech: vzájemné zápasy predikci zlepšují, korekce formou ji zhoršovala, proto se nepoužívá",
+      "Stránka „Jak počítáme predikce“: popis komplexního modelu a ověření na načtených hráčích",
+    ],
+  },
   {
     version: "2.13.3", date: "11. 11. 2026", title: "Oprava horní lišty na iPhonu",
     items: ["iPhone (aplikace z plochy): horní lišta už není schovaná pod stavovým řádkem; totéž pro menu ⋮, živý pruh utkání a úvodní obrazovku"],

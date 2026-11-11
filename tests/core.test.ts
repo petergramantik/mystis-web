@@ -9,6 +9,7 @@ import { Stats, StrModel, sum } from "../src/core/stats";
 import { StisRepository, type Fetcher } from "../src/core/repository";
 import { matchForecast, myForecast } from "../src/core/season";
 import { Live, LiveGame, LiveTimeline, MatchFormats, lp } from "../src/core/live";
+import { h2hAdj, homeAdvantage } from "../src/core/complex";
 import { Search, Stability, roundScore } from "../src/core/search";
 import { ldOf, ldtOf } from "../src/core/dates";
 import { matchOdds, pointsRule, predictSeason } from "../src/core/season";
@@ -442,6 +443,13 @@ async function main() {
     check("detect extraliga mužů", MatchFormats.detect([em])?.key === "5s_3", () => J(MatchFormats.detect([em])));
     const o3 = MatchFormats.singlesOrder([], MatchFormats.of("10_6"));
     check("SŘ 318.01 pořadí", o3.map(([h, a]) => L[h - 1] + R[a - 1]).join(" ") === "AX BY CZ BX AZ CY BZ CX AY", () => J(o3));
+    // komplexní model: vzájemná korekce kladná po výhrách nad stejně silným soupeřem, výhoda domácích stažená k nule
+    const hm = [1, 2, 3, 4].map((i) => Match.of({ seq: i, season: 2026, date: 20000 + i * 30, dateText: "", opponentId: "x9", score: "3:1", strBefore: 1500, oppStrBefore: 1500, myTeam: "A", opponent: "X" }));
+    const ha = h2hAdj(hm, "x9", 1500, 1500, 20200);
+    check("h2h kladná", ha.adj > 0 && ha.adj <= 40 && ha.games === 4, () => J(ha));
+    check("h2h bez zápasů", h2hAdj(hm, "y1", 1500, 1500, 20200).adj === 0);
+    const hv = homeAdvantage([...Array(40)].map((_, i) => ({ home: 1500, away: 1500, homeWon: i % 3 !== 0 })));
+    check("výhoda domácích", hv.adj > 0 && hv.adj <= 30, () => J(hv));
     check("byName", MatchFormats.byName("3LMB")?.key === "14_8" && MatchFormats.byName("Extraliga žen")?.key === "10_6_dl" && MatchFormats.byName("OS 1") == null);
   }
   // ---------- šance rozehrané hry podle setů

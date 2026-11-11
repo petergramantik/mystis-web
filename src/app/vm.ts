@@ -1,10 +1,11 @@
 // Stav aplikace a načítání dat (přepis AppViewModel.kt). Každá změna stavu zavolá emit() a React překreslí obrazovku.
+import { Complex, h2hAdj, homeAdvantage, type H2HInfo } from "../core/complex";
 import { Match, Stis, type TeamInfo, type StandingRow, type StrLadder, type ClubPage, type LosMatch, type PlayerPage, type RosterPlayer, type TeamRef, type TeamRoster, type Zapis, type ZapisGame } from "../core/models";
 import { Parsers } from "../core/parsers";
 import { shortTeam, surname } from "../core/names";
 import { StisRepository, HOUR, type NextMatchContext } from "../core/repository";
 import { playSound, soundUnlocked, onSoundUnlock } from "./sound";
-import { Stats, LadderEntry, maxBy, minBy, distinct, distinctBy, type SetStats } from "../core/stats";
+import { Stats, StrModel, LadderEntry, maxBy, minBy, distinct, distinctBy, type SetStats } from "../core/stats";
 import { Live, LiveTimeline, MatchFormats, type MatchFormat, type MyLiveGame } from "../core/live";
 import { Stability, type SearchClub, type SearchPlayer } from "../core/search";
 import { pointsRule, predictSeason, type SeasonPrediction, type SeasonTeam } from "../core/season";
@@ -200,6 +201,8 @@ export class AppVm {
   otherError: string | null = null;
 
   constructor() {
+    Complex.on = prefs.complexModel;
+    Complex.pair = (a, b) => this.pairInfo(a, b).adj;
     if (prefs.playerPath != null && typeof window !== "undefined") this.loadMe(false);
   }
 
@@ -526,10 +529,65 @@ export class AppVm {
   }
   /** Formát pro soutěž: ruční volba, jinak rozpoznaný, jinak výchozí. */
   formatForComp(c: { svaz: string; soutez: string } | null): MatchFormat {
+    const f = this.formatForCompBase(c);
+    // komplexní model: výhoda domácích odhadnutá z dvouher soutěže
+    return Complex.on && c ? { ...f, homeAdv: this.homeAdvFor(c).adj } : f;
+  }
+  private formatForCompBase(c: { svaz: string; soutez: string } | null): MatchFormat {
     if (!this.formatAuto) return MatchFormats.of(prefs.matchFormat);
     const o = c ? this.compFormatOverride(c) : null;
     if (o) return o;
     return (c && (this.compFormat(c) ?? MatchFormats.byName(this.compNameFor(c)))) ?? MatchFormats.DEFAULT;
+  }
+
+  // ---------- komplexní model predikcí ----------
+  get complexOn(): boolean { return Complex.on; }
+  setComplex(v: boolean) { prefs.complexModel = v; Complex.on = v; this.pairCache.clear(); this.emit(); }
+  private pairCache = new Map<string, H2HInfo>();
+  private pairVer = "";
+  /** Vzájemná korekce STR hráče a proti b (z historie a, případně b). */
+  pairInfo(a: string, b: string): H2HInfo {
+    const ver = `${this.players.size}|${this.me?.matches.length ?? 0}`;
+    if (ver !== this.pairVer) { this.pairCache.clear(); this.pairVer = ver; }
+    const key = a + "|" + b;
+    const hit = this.pairCache.get(key);
+    if (hit) return hit;
+    const pageOf = (id: string) => (this.me?.id === id ? this.me : this.players.get(this.playerPathById(id)) ?? Array.from(this.players.values()).find((p) => p.id === id) ?? null);
+    const sa = this.strOf(a, ""), sb = this.strOf(b, "");
+    const td = today();
+    let r: H2HInfo = { adj: 0, games: 0, weight: 0 };
+    const pa = pageOf(a);
+    if (pa) r = h2hAdj(pa.chronological, b, sa, sb, td);
+    if (!r.games) { const pb = pageOf(b); if (pb) { const x = h2hAdj(pb.chronological, a, sb, sa, td); r = { ...x, adj: -x.adj }; } }
+    this.pairCache.set(key, r);
+    return r;
+  }
+  /** Moje šance proti soupeři (komplexní model přidá vzájemnou korekci). */
+  myWinProb(oppId: string | null | undefined, myStr: number, oppStr: number): number {
+    const adj = Complex.on && oppId && this.me?.id ? this.pairInfo(this.me.id, oppId).adj : 0;
+    return StrModel.winProbability(myStr + adj, oppStr);
+  }
+  /** Komplexní model: dotáhne profily hráčů mého družstva (jejich vzájemné zápasy se soupeři). */
+  complexNeed(ids: (string | null | undefined)[]) {
+    if (!Complex.on) return;
+    this.requestPlayers(ids.filter((x): x is string => !!x && x !== this.me?.id).map((x) => this.playerPathById(x)));
+  }
+  private homeCache = new Map<string, { n: number; r: { adj: number; games: number } }>();
+  /** Výhoda domácích v soutěži z odehraných dvouher (STR hráčů podle dnešních hodnot). */
+  homeAdvFor(c: { svaz: string; soutez: string }): { adj: number; games: number } {
+    const zs = this.compPastZapisy(c);
+    const key = c.svaz + "/" + c.soutez;
+    const hit = this.homeCache.get(key);
+    if (hit && hit.n === zs.length) return hit.r;
+    const games: { home: number; away: number; homeWon: boolean }[] = [];
+    for (const z of zs) for (const g of z.games) {
+      if (g.doubles || g.wo || g.result == null || g.homeNames.length !== 1 || g.awayNames.length !== 1) continue;
+      const h = this.strOf(g.homeIds[0] ?? null, g.homeNames[0]), a = this.strOf(g.awayIds[0] ?? null, g.awayNames[0]);
+      if (h != null && a != null) games.push({ home: h, away: a, homeWon: g.result === 1 });
+    }
+    const r = homeAdvantage(games);
+    this.homeCache.set(key, { n: zs.length, r });
+    return r;
   }
   private compFormats(): Record<string, string> { try { return JSON.parse(prefs.compFormatsJson); } catch { return {}; } }
   /** Ručně zvolený formát soutěže (má přednost před rozpoznaným). */

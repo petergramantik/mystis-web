@@ -92,7 +92,7 @@ export function OpponentRow({ o, myStr, onClick }: { o: OpponentStat; myStr: num
         </div>
         <div className="col" style={{ alignItems: "flex-end" }}>
           <BigNumber text={o.record} color={o.wins >= o.losses ? C.Win : C.OrangeText} size={20} />
-          {myStr != null && ls != null && <Muted text={`šance ${Stats.pct(StrModel.winProbability(myStr, ls))}`} size={12} />}
+          {myStr != null && ls != null && <Muted text={`šance ${Stats.pct(vm.myWinProb(o.id, myStr, ls))}`} size={12} />}
         </div>
       </div>
       <Divider />
@@ -148,7 +148,9 @@ export function H2HScreen({ oppKey }: { oppKey: string }) {
   const oppStr = pageStr ?? vm.strOf(o.id, o.name) ?? o.lastStr;
   const stale = pageStr == null && oppStr != null && oppStr === o.lastStr;
   const loadingOpp = oppPath != null && vm.loadingPlayers.get(oppPath) === true;
-  const p = myStr != null && oppStr != null ? StrModel.winProbability(myStr, oppStr) : null;
+  const p = myStr != null && oppStr != null ? vm.myWinProb(o.id, myStr, oppStr) : null;
+  const pBase = myStr != null && oppStr != null ? StrModel.winProbability(myStr, oppStr) : null;
+  const h2h = vm.complexOn && o.id && me.id ? vm.pairInfo(me.id, o.id) : null;
   const five = o.matches.filter((m) => m.fiveSetter);
   const dSum = sum(o.matches.map((m) => m.delta).filter((x): x is number => x != null));
   return (
@@ -169,6 +171,7 @@ export function H2HScreen({ oppKey }: { oppKey: string }) {
             <div className="row"><T bold style={{ flex: 1 }}>Šance na výhru v dalším zápase</T><BigNumber text={Stats.pct(p)} color={p >= 0.5 ? C.Win : C.OrangeText} size={24} /></div>
             <ProbBar p={p} />
             <Muted size={13} text={`Rozdíl STR ${signedInt(myStr - oppStr)} · výhra +${StrModel.gainIfWin(myStr, oppStr)} · prohra −${-StrModel.lossIfLose(myStr, oppStr)} STR`} />
+            {h2h && h2h.games > 0 && pBase != null && <Muted size={12} maxLines={2} text={`Komplexní model: vzájemná korekce ${h2h.adj > 0 ? "+" : h2h.adj < 0 ? "−" : "±"}${Math.abs(h2h.adj)} STR z ${h2h.games} ${h2h.games === 1 ? "zápasu" : "zápasů"} · podle samotného STR ${Stats.pct(pBase)}`} />}
             {stale && <Muted size={12} text={`STR soupeře po posledním vzájemném zápase${loadingOpp ? ", načítám aktuální…" : ""}`} />}
           </AppCard>
         )}

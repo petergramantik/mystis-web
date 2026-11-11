@@ -681,7 +681,8 @@ function CardForecast({ ctx, oppName, oppRef, oppRoster, home }: {
   if (!mine.length || !theirs.length) return <ForecastBox><Muted text={oppRoster.length ? "Počítám predikci…" : "Soupiska soupeře zatím není k dispozici."} color="#D6E1FA" size={13} /></ForecastBox>;
   const fmt = ctx.myTeam.ref ? vm.formatForComp(ctx.myTeam.ref) : vm.format;
   const order = vm.singlesOrderFor(ctx.myTeam.ref);
-  const f = myForecast(mine.map((p) => p.str ?? 1400), theirs.map((p) => p.str ?? 1400), home, fmt, order);
+  vm.complexNeed(mine.map((p) => p.id));
+  const f = myForecast(mine.map((p) => p.str ?? 1400), theirs.map((p) => p.str ?? 1400), home, fmt, order, { mine: mine.map((p) => p.id), theirs: theirs.map((p) => p.id) });
   // f je z pohledu mého družstva -> výsledek v pořadí domácí : hosté jako na kartě
   const [hh, aa] = home ? f.likely : [f.likely[1], f.likely[0]];
   const meIn = me ? mine.find((p) => p.id === me.id || Stats.fold(p.name) === Stats.fold(me.name)) : undefined;
@@ -693,7 +694,7 @@ function CardForecast({ ctx, oppName, oppRef, oppRoster, home }: {
   const myOpps = myPos > 0
     ? MatchFormats.slots(fmt, order).filter((x): x is { h: number; a: number } => "h" in x && (home === false ? x.a : x.h) === myPos).map((x) => ts[(home === false ? x.h : x.a) - 1]).filter((o) => !!o)
     : theirs;
-  const mySingles = meIn && myStr != null ? myOpps.map((o) => [o.name.split(" ")[0], StrModel.winProbability(myStr, o.str ?? 1400)] as [string, number]) : [];
+  const mySingles = meIn && myStr != null ? myOpps.map((o) => [o.name.split(" ")[0], vm.myWinProb(o.id, myStr, o.str ?? 1400)] as [string, number]) : [];
   return (
     <ForecastBox>
       <MiniOdds win={f.pWin} draw={f.pDraw} loss={f.pLoss} busy={rs.busy} />

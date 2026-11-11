@@ -35,14 +35,18 @@ export function pointsRule(rows: StandingRow[]): [number, number, number] {
 
 /** Pravděpodobnost výhry domácích, remízy a výhry hostů v jednom utkání družstev. */
 /** Predikce utkání ze STR sestav (domácí = první): šance a očekávané body. */
-export function matchForecast(home: number[], away: number[], format: MatchFormat, order?: [number, number][] | null): { pWin: number; pDraw: number; pLoss: number; expHome: number; expAway: number; likely: [number, number]; likelyP: number } {
+/** Sestava pro predikci: nejsilnější podle STR, doplněná průměrem; skutečná id hráčů (vzájemná bilance v komplexním modelu). */
+function teamLp(strs: number[], n: number, prefix: string, ids?: (string | null)[]) {
+  const s = strs.map((v, i) => [v, ids?.[i] ?? null] as [number, string | null]).sort((a, b) => b[0] - a[0]).slice(0, n);
+  while (s.length < n) s.push([s.length ? Math.round(s.reduce((a, b) => a + b[0], 0) / s.length) : 1400, null]);
+  return s.map(([v, id], i) => lp(id ?? prefix + i, prefix + i, v));
+}
+
+export interface LineupIds { home?: (string | null)[]; away?: (string | null)[] }
+
+export function matchForecast(home: number[], away: number[], format: MatchFormat, order?: [number, number][] | null, ids?: LineupIds): { pWin: number; pDraw: number; pLoss: number; expHome: number; expAway: number; likely: [number, number]; likelyP: number } {
   const n = format.players;
-  const mk = (strs: number[], prefix: string) => {
-    const s = [...strs].sort((a, b) => b - a).slice(0, n);
-    while (s.length < n) s.push(s.length ? Math.round(s.reduce((a, b) => a + b, 0) / s.length) : 1400);
-    return s.map((v, i) => lp(prefix + i, prefix + i, v));
-  };
-  const h = mk(home, "h"), a = mk(away, "a");
+  const h = teamLp(home, n, "h", ids?.home), a = teamLp(away, n, "a", ids?.away);
   const pos = (ps: typeof h) => new Map(ps.map((p, i) => [i + 1, p] as [number, typeof p]));
   const d2 = format.doubles >= 2;
   const games = Live.manualByPosition(pos(h), pos(a),
@@ -55,20 +59,15 @@ export function matchForecast(home: number[], away: number[], format: MatchForma
  * Predikce z pohledu mého družstva, spočítaná se skutečnými domácími (pořadí her závisí na tom, kdo je doma).
  * [myHome] null = neznámé → jako domácí.
  */
-export function myForecast(mine: number[], theirs: number[], myHome: boolean | null, format: MatchFormat, order?: [number, number][] | null) {
-  if (myHome !== false) return matchForecast(mine, theirs, format, order);
-  const f = matchForecast(theirs, mine, format, order);
+export function myForecast(mine: number[], theirs: number[], myHome: boolean | null, format: MatchFormat, order?: [number, number][] | null, ids?: { mine?: (string | null)[]; theirs?: (string | null)[] }) {
+  if (myHome !== false) return matchForecast(mine, theirs, format, order, { home: ids?.mine, away: ids?.theirs });
+  const f = matchForecast(theirs, mine, format, order, { home: ids?.theirs, away: ids?.mine });
   return { pWin: f.pLoss, pDraw: f.pDraw, pLoss: f.pWin, expHome: f.expAway, expAway: f.expHome, likely: [f.likely[1], f.likely[0]] as [number, number], likelyP: f.likelyP };
 }
 
-export function matchOdds(home: number[], away: number[], format: MatchFormat, order?: [number, number][] | null): [number, number, number, number] {
+export function matchOdds(home: number[], away: number[], format: MatchFormat, order?: [number, number][] | null, ids?: LineupIds): [number, number, number, number] {
   const n = format.players;
-  const mk = (strs: number[], prefix: string) => {
-    const s = [...strs].sort((a, b) => b - a).slice(0, n);
-    while (s.length < n) s.push(s.length ? Math.round(s.reduce((a, b) => a + b, 0) / s.length) : 1400);
-    return s.map((v, i) => lp(prefix + i, prefix + i, v));
-  };
-  const h = mk(home, "h"), a = mk(away, "a");
+  const h = teamLp(home, n, "h", ids?.home), a = teamLp(away, n, "a", ids?.away);
   const pos = (ps: typeof h) => new Map(ps.map((p, i) => [i + 1, p] as [number, typeof p]));
   const d2 = format.doubles >= 2;
   const games = Live.manualByPosition(pos(h), pos(a),

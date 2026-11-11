@@ -37,6 +37,8 @@ export const prefs = {
   /** Ručně zadaný odkaz na oddíl. */
   get clubPath() { return get("club_path"); },
   set clubPath(v: string | null) { set("club_path", v); },
+  get complexModel() { return get("complex_model") === "true"; },
+  set complexModel(v: boolean) { set("complex_model", String(v)); },
   get notifications() { return get("notifications") !== "false"; },
   set notifications(v: boolean) { set("notifications", String(v)); },
   /** Notifikace o hrách probíhajícího utkání (jen při otevřené aplikaci). */

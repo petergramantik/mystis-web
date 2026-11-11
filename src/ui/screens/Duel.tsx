@@ -72,7 +72,9 @@ export function PairScreen({ aId0, aName0, bId0, bName0, pA0 }: { aId0: string; 
       <div className="col g12 px16">
         {pA0 == null && ((aPath && !aIsMe && !vm.players.has(aPath) && vm.loadingPlayers.get(aPath) !== false) || (bPath && !vm.players.has(bPath) && vm.loadingPlayers.get(bPath) !== false)) ? <AppCard><Loading text="Načítám STR hráčů…" /></AppCard>
           : strA != null && strB != null && (() => {
-          const p = pA0 != null ? (swap ? 1 - pA0 : pA0) : StrModel.winProbability(strA, strB);
+          const h2h = pA0 == null && vm.complexOn && aId && bId ? vm.pairInfo(aId, bId) : null;
+          const pBase = StrModel.winProbability(strA, strB);
+          const p = pA0 != null ? (swap ? 1 - pA0 : pA0) : StrModel.winProbability(strA + (h2h?.adj ?? 0), strB);
           // strana mého družstva: zeleně; soupeř oranžově. Když nejde o moje družstvo: barvy podle avatarů.
           const mineTeams = new Set([...vm.next.map((c) => Stats.fold(c.myTeam.name)), ...(me?.matches ?? []).map((m) => Stats.fold(m.myTeam))]);
           const aMine = aIsMe || mineTeams.has(Stats.fold(lastTeam(pageA)));
@@ -96,7 +98,8 @@ export function PairScreen({ aId0, aName0, bId0, bName0, pA0 }: { aId0: string; 
                 <T size={13} bold color={colB}>{`${pct(1 - p)} ${first(bName)}`}</T>
               </div>
               <Muted size={13} maxLines={3} text={`${first(aName)}: výhra +${StrModel.gainIfWin(strA, strB)} / prohra −${-StrModel.lossIfLose(strA, strB)} · ${first(bName)}: výhra +${StrModel.gainIfWin(strB, strA)} / prohra −${-StrModel.lossIfLose(strB, strA)} STR`} />
-              <ModelLink section="hra" />
+              {h2h && h2h.games > 0 && <Muted size={12} maxLines={3} text={`Komplexní model: vzájemná korekce ${first(aName)} ${h2h.adj > 0 ? "+" : h2h.adj < 0 ? "−" : "±"}${Math.abs(h2h.adj)} STR z ${h2h.games} ${h2h.games === 1 ? "zápasu" : "zápasů"} · podle samotného STR ${pct(pBase)} : ${pct(1 - pBase)}`} />}
+              <ModelLink section={h2h ? "complex" : "hra"} />
             </AppCard>
           );
         })()}

@@ -1,4 +1,5 @@
 // Živé utkání: formáty, hry ze zápisu, pravděpodobnosti a průběžné STR (přepis Live.kt).
+import { Complex } from "./complex";
 import { Data, type Zapis } from "./models";
 import { StrModel, Stats, avg } from "./stats";
 
@@ -6,7 +7,7 @@ import { StrModel, Stats, avg } from "./stats";
  * Formát utkání družstev. seq = pořadí her: „D“ čtyřhra (číslují se postupně Č1, Č2), dvojice písmen dvouhra
  * (domácí A–D proti hostům X, Y, Z, U podle SŘ). Bez seq: nejdřív čtyřhry, pak dvouhry „každý s každým“ točením.
  */
-export interface MatchFormat { key: string; label: string; players: number; games: number; doubles: number; target: number | null; seq?: string }
+export interface MatchFormat { key: string; label: string; players: number; games: number; doubles: number; target: number | null; seq?: string; /** komplexní model: výhoda domácích (STR) */ homeAdv?: number }
 
 /** Pozice hry: čtyřhra n (1, 2) nebo dvouhra [domácí, hosté] (1-based). */
 export type Slot = { d: number } | { h: number; a: number };
@@ -397,6 +398,12 @@ export const Live = {
     const fbHome = allHome.length ? Math.trunc(avg(allHome)) : 1500;
     const fbAway = allAway.length ? Math.trunc(avg(allAway)) : 1500;
     const strH = games.map((x) => avgStr(x.home, fbHome)), strA = games.map((x) => avgStr(x.away, fbAway));
+    // komplexní model: výhoda domácích + vzájemná bilance dvojice ve dvouhře
+    if (Complex.on) games.forEach((x, i) => {
+      let adj = format.homeAdv ?? 0;
+      if (Complex.pair && x.home.length === 1 && x.away.length === 1 && x.home[0].id && x.away[0].id) adj += Complex.pair(x.home[0].id, x.away[0].id);
+      strH[i] += adj;
+    });
     const prior = games.map((_, i) => StrModel.winProbability(strH[i], strA[i]));
     // rozehrané hry: šance podle stavu na sety
     const probs = games.map((x, i) => (x.result == null ? Live.inGame(prior[i], x) : prior[i]));

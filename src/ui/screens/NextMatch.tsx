@@ -142,7 +142,8 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
   const exp = Stats.expectedTeamScore(mine.map((p) => [p.name, p.str ?? 0]), theirs.map((p) => p.str ?? 0), fmt.doubles);
   // nejpravděpodobnější konečný výsledek (hraje se do cíle, proto ne zaokrouhlený součet všech her)
   // počítá se se skutečnými domácími a pořadím her soutěže (stejně jako sdílená predikce)
-  const fc = myForecast(mine.map((p) => p.str ?? 1400), theirs.map((p) => p.str ?? 1400), home, fmt, vm.singlesOrderFor(ctx?.myTeam.ref ?? theirRef));
+  vm.complexNeed(mine.map((p) => p.id));
+  const fc = myForecast(mine.map((p) => p.str ?? 1400), theirs.map((p) => p.str ?? 1400), home, fmt, vm.singlesOrderFor(ctx?.myTeam.ref ?? theirRef), { mine: mine.map((p) => p.id), theirs: theirs.map((p) => p.id) });
   const [my, op] = fc.likely;
   // dvouhry na hráče podle formátu (u 1.–3. ligy 3 ze 4 soupeřů)
   const perGames = Math.max(1, Math.round(MatchFormats.singlesCount(fmt) / fmt.players));
@@ -200,13 +201,14 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
         ];
         return <ShareSheet opts={opts} onClose={() => setShareOpen(false)} />;
       })()}
-      <Muted size={12} maxLines={4} text={`Sestavy: stabilní hráči (aspoň třetina utkání družstva), doplnění náhradníky s nejvíc utkáními. Pořadí her podle formátu soutěže, pravděpodobnosti podle STR.`} />
+      <Muted size={12} maxLines={4} text={`Sestavy: stabilní hráči (aspoň třetina utkání družstva), doplnění náhradníky s nejvíc utkáními. Pořadí her podle formátu soutěže, pravděpodobnosti podle STR${vm.complexOn ? ` + komplexní model (vzájemné zápasy, výhoda domácích ${(() => { const h = fmt.homeAdv ?? 0; return `${h > 0 ? "+" : h < 0 ? "−" : "±"}${Math.abs(h)} STR`; })()})` : ""}.`} />
     </AppCard>
   );
 }
 
 export function ScoutSection({ me, roster, title }: { me: PlayerPage; roster: RosterPlayer[]; title: string }) {
   const scouts = Stats.scout(me, roster);
+  const myStr = me.currentStr;
   const withPaths = roster.map((p) => p.path).filter((x): x is string => !!x);
   const anyLoaded = withPaths.some((p) => vm.players.has(p));
   return (
@@ -232,7 +234,7 @@ export function ScoutSection({ me, roster, title }: { me: PlayerPage; roster: Ro
                   {page ? <FormDots results={Stats.form(page).last.map((m) => m.won)} /> : loading ? <Muted text="načítám formu…" size={12} /> : null}
                 </div>
                 <div className="col" style={{ alignItems: "flex-end" }}>
-                  {s.winProb != null && <BigNumber text={Stats.pct(s.winProb)} color={s.winProb >= 0.5 ? C.Win : C.OrangeText} size={20} />}
+                  {s.winProb != null && (() => { const wp = myStr != null && s.player.str != null ? vm.myWinProb(s.player.id, myStr, s.player.str) : s.winProb; return <BigNumber text={Stats.pct(wp)} color={wp >= 0.5 ? C.Win : C.OrangeText} size={20} />; })()}
                   {s.gain != null && s.loss != null && <Muted text={`+${s.gain} / −${-s.loss}`} size={12} maxLines={1} />}
                 </div>
               </div>

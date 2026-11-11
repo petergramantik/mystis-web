@@ -1,10 +1,11 @@
 // „Jak počítáme predikce“ – srozumitelný popis modelu (odkazuje se na něj u každé predikce).
-import { useEffect, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { backtest, Complex } from "../../core/complex";
 import { vm } from "../../app/vm";
 import { StrModel } from "../../core/stats";
 import { AppCard, C, Muted, T } from "../components";
 
-export type ModelSection = "hra" | "utkani" | "sestavy" | "zive" | "sezona" | "str" | "vykon";
+export type ModelSection = "hra" | "utkani" | "sestavy" | "zive" | "sezona" | "str" | "vykon" | "complex";
 
 /** Malý odkaz „Jak se to počítá? ›“ u predikce. */
 export function ModelLink({ section, dark = false, style }: { section: ModelSection; dark?: boolean; style?: CSSProperties }) {
@@ -75,8 +76,38 @@ export function ModelScreen({ section }: { section?: string | null }) {
         <P>Změna STR se počítá podle pravidel eSTeR: výhra nad stejně silným soupeřem +6, proti silnějšímu víc, proti slabšímu méně (až 0); poražený ztratí tolik, kolik vítěz získá. Ověřeno na 5 080 skutečných zápasech: 72 % změn přesně, průměrná odchylka 0,3 bodu. Neoficiální výsledky jsou odhad, dokud je STIS nepřepočítá.</P>
         <P><b>Výkon</b> = o kolik zápasů hráč vyhrál víc (nebo méně), než odpovídá šancím podle STR. Kladné číslo znamená, že hraje nad své STR.</P>
       </Sec>
+      <Sec id="complex" title="8. Komplexní model (volitelný)">
+        <P>Zapíná se v Nastavení{vm.complexOn ? " – teď je zapnutý" : " – teď je vypnutý"}. K samotnému STR přidává:</P>
+        <P><b>Vzájemné zápasy.</b> U každého předchozího zápasu dvojice se spočítá, o kolik dopadl jinak, než čekalo tehdejší STR. Novější zápasy mají větší váhu (poločas {Math.round(Complex.H2H_HALF_LIFE / 365)} roky) a zápasy, od kterých se rozdíl STR hráčů hodně změnil, se počítají méně. Výsledek se stáhne k nule (malý vzorek nic nedokazuje) a omezí na ±{Complex.H2H_CAP} STR. Platí pro šanci v jedné hře i pro všechny dvouhry v predikci utkání (u spoluhráčů se kvůli tomu načítají jejich profily).</P>
+        <P><b>Výhoda domácích.</b> Ze všech odehraných dvouher soutěže se spočítá, o kolik domácí hrají lépe, než říká STR. Opět staženo k nule a omezeno na ±{Complex.HOME_CAP} STR.</P>
+        <P><b>Forma se nezapočítává.</b> Teorie (Elo, Glicko-2) i zpětný test ukazují, že STR na každý zápas už reaguje – korekce formou (série výher a proher se zohledněním síly soupeřů) predikce na 5 020 skutečných zápasech zhoršila, stejně jako „nevyzpytatelnost“ hráče. Vzájemné zápasy je naopak zlepšily (Brier 0,1774 → 0,1764).</P>
+        <Backtest />
+      </Sec>
       <Muted size={12} maxLines={3} text="Neoficiální aplikace; oficiální výsledky, body a STR platí vždy podle STIS." />
       <div style={{ height: 8 }} />
+    </div>
+  );
+}
+
+/** Zpětný test na právě načtených hráčích (můj profil + načtení soupeři a spoluhráči). */
+function Backtest() {
+  const [r, setR] = useState<ReturnType<typeof backtest> | null>(null);
+  const run = () => {
+    const pages = [vm.me, ...vm.players.values()].filter((p, i, a) => !!p && a.findIndex((x) => x?.id === p.id) === i);
+    setR(backtest(pages.map((p) => p!.chronological)));
+  };
+  const f = (x: number) => x.toFixed(4).replace(".", ",");
+  return (
+    <div className="col g6" style={{ background: C.Tint, borderRadius: 14, padding: "10px 12px" }}>
+      {!r ? <span className="clickable" onClick={run} style={{ color: C.Blue, fontWeight: 600, fontSize: 14 }}>Ověřit na načtených hráčích ›</span> : (
+        <>
+          <T semi size={14}>{`Zpětný test: ${r.n} zápasů`}</T>
+          <Muted size={13} text={`Jen STR: Brier ${f(r.base[0])} · log-loss ${f(r.base[1])}`} />
+          <Muted size={13} text={`+ vzájemné zápasy: Brier ${f(r.h2h[0])} · log-loss ${f(r.h2h[1])}`} />
+          <Muted size={13} text={`+ forma (nepoužívá se): Brier ${f(r.form[0])} · log-loss ${f(r.form[1])}`} />
+          <Muted size={12} maxLines={3} text="Nižší je lepší. Každý zápas se předpovídá jen z toho, co bylo známo před ním." />
+        </>
+      )}
     </div>
   );
 }

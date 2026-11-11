@@ -213,6 +213,16 @@ export function SettingsScreen() {
       <AppCard>
         <div className="row g12">
           <div className="col w1">
+            <T bold>Komplexní model predikcí</T>
+            <Muted size={13} maxLines={6} text="Kromě STR započítá vzájemné zápasy hráčů (novější a při podobném STR mají větší váhu) a výhodu domácího prostředí v soutěži. Načítá navíc profily spoluhráčů, proto je ve výchozím stavu vypnutý." />
+          </div>
+          <div className={"switch" + (vm.complexOn ? " on" : "")} role="switch" aria-checked={vm.complexOn} onClick={() => vm.setComplex(!vm.complexOn)} />
+        </div>
+        <div className="row clickable" onClick={() => vm.go({ t: "Model", section: "complex" })}><T size={13} color={C.Blue}>Jak komplexní model funguje a jak je přesný ›</T></div>
+      </AppCard>
+      <AppCard>
+        <div className="row g12">
+          <div className="col w1">
             <T bold>Upozornění</T>
             <Muted size={13} maxLines={4} text="Nové výsledky a změna STR, připomínka den před utkáním. Na webu se kontroluje při otevření aplikace (prohlížeč neumí STIS hlídat na pozadí)." />
           </div>
