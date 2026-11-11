@@ -444,6 +444,16 @@ export const Stats = {
   },
 
   /** Procenta; 0 % a 100 % jen pro jistotu (jinak „<1 %“ / „>99 %“). */
+  /** Tři doplňkové pravděpodobnosti (výhra/remíza/prohra) zaokrouhlené tak, aby dávaly součet 100 % (metoda největších zbytků). */
+  pct3(a: number, b: number, c: number): [string, string, string] {
+    const xs = [a, b, c].map((x) => Math.max(0, x));
+    const tot = xs[0] + xs[1] + xs[2] || 1;
+    const raw = xs.map((x) => (x / tot) * 100);
+    const r = raw.map(Math.floor);
+    let left = 100 - (r[0] + r[1] + r[2]);
+    [0, 1, 2].sort((i, j) => (raw[j] - r[j]) - (raw[i] - r[i])).forEach((i) => { if (left > 0) { r[i]++; left--; } });
+    return r.map((v, i) => (v === 0 && xs[i] > 0 ? "<1 %" : v === 100 && raw[i] < 100 ? ">99 %" : `${v} %`)) as [string, string, string];
+  },
   pct(x: number): string {
     if (x > 0.995 && x < 1) return ">99 %";
     if (x < 0.005 && x > 0) return "<1 %";

@@ -2,12 +2,16 @@
 import { IS_DEV } from "./channel";
 
 export const PROD_VERSION = "2.14.1";
-export const DEV_VERSION = "2.15-dev.11";
+export const DEV_VERSION = "2.15-dev.12";
 export const APP_VERSION = IS_DEV ? DEV_VERSION : PROD_VERSION;
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.15-dev.12", date: "12. 11. 2026", title: "Procenta výhra/remíza/prohra",
+    items: ["Výhra, remíza a prohra se zaokrouhlují tak, aby dávaly dohromady vždy 100 %"],
+  },
   {
     version: "2.15-dev.11", date: "12. 11. 2026", title: "Název soutěže",
     items: ["Název soutěže se zjistí z kterékoli stažené stránky STIS, případně z hlavičky zápisu soutěže; náhradní názvy se přepíšou"],

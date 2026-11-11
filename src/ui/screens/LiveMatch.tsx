@@ -231,7 +231,10 @@ export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = f
   comp?: { text: string; onClick?: () => void } | null;
 }) {
   const my = myHome ? st.home : st.away, opp = myHome ? st.away : st.home;
-  const pWin = myHome ? st.pHomeWin : st.pAwayWin, pLoss = myHome ? st.pAwayWin : st.pHomeWin;
+  const pWin = myHome ? st.pHomeWin : st.pAwayWin;
+  // zaokrouhlení se součtem 100 %
+  const [tH, tD, tA] = Stats.pct3(st.pHomeWin, st.pDraw, st.pAwayWin);
+  const tWin = myHome ? tH : tA, tLoss = myHome ? tA : tH;
   // nejpravděpodobnější konečný výsledek, pořadí domácí : hosté jako velké skóre
   const [a, b] = st.likely;
   // při posunu dolů zmenšená hlavička přichycená pod horní lištou
@@ -241,7 +244,7 @@ export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = f
     on(); window.addEventListener("scroll", on, { passive: true });
     return () => window.removeEventListener("scroll", on);
   }, []);
-  const pct = empty ? null : neutral ? Stats.pct(st.pHomeWin) : Stats.pct(pWin);
+  const pct = empty ? null : neutral ? tH : tWin;
   // konec utkání: blikne hlavička (a kompaktní lišta)
   const endColor = () => (neutral ? C.Live : my > opp ? C.Win : my < opp ? C.OrangeText : C.Live);
   const endFlash = useChangeFlash(st.finished ? "end" : "run", () => {
@@ -281,13 +284,13 @@ export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = f
       {empty ? <Muted color={C.MutedOnNavy} size={13} text={emptyText ?? "Zatím nejsou známé sestavy – šance se ukáže, až bude zápis nebo ruční sestavy."} maxLines={3} /> : <>
       {/* dlaždice pod družstvem, kterého se týkají: moje šance na výhru na mé straně */}
       {neutral ? <TileRow>
-        <StatTile label="Domácí" value={Stats.pct(st.pHomeWin)} dark />
-        <StatTile label="Remíza" value={Stats.pct(st.pDraw)} dark />
-        <StatTile label="Hosté" value={Stats.pct(st.pAwayWin)} dark />
+        <StatTile label="Domácí" value={tH} dark />
+        <StatTile label="Remíza" value={tD} dark />
+        <StatTile label="Hosté" value={tA} dark />
       </TileRow> : <TileRow>
-        {myHome ? <StatTile label="Výhra" value={Stats.pct(pWin)} dark valueColor={C.WinLight} /> : <StatTile label="Prohra" value={Stats.pct(pLoss)} dark valueColor={C.Peach} />}
-        <StatTile label="Remíza" value={Stats.pct(st.pDraw)} dark />
-        {myHome ? <StatTile label="Prohra" value={Stats.pct(pLoss)} dark valueColor={C.Peach} /> : <StatTile label="Výhra" value={Stats.pct(pWin)} dark valueColor={C.WinLight} />}
+        {myHome ? <StatTile label="Výhra" value={tWin} dark valueColor={C.WinLight} /> : <StatTile label="Prohra" value={tLoss} dark valueColor={C.Peach} />}
+        <StatTile label="Remíza" value={tD} dark />
+        {myHome ? <StatTile label="Prohra" value={tLoss} dark valueColor={C.Peach} /> : <StatTile label="Výhra" value={tWin} dark valueColor={C.WinLight} />}
       </TileRow>}
       <ProbBar p={pWin + st.pDraw / 2} reverse={!myHome} />
       {!st.finished && (

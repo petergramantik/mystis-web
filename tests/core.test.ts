@@ -452,6 +452,9 @@ async function main() {
     check("výhoda domácích", hv.adj > 0 && hv.adj <= 30, () => J(hv));
     const cn = Parsers.compNames(`<a href="/druzstvo-1/svaz-420001/rocnik-2026/soutez-77">X B</a> (Muži, <a href="/tabulka/svaz-420001/rocnik-2026/soutez-77">3. liga muži &ndash; B</a>)`);
     check("názvy soutěží z odkazů", cn["420001|2026|77"] === "3. liga muži – B", () => J(cn));
+    const p3 = Stats.pct3(0.054, 0.044, 0.902);
+    check("pct3 součet 100", p3.join() === "5 %,5 %,90 %" || p3.map((x) => parseInt(x)).reduce((a, b) => a + b, 0) === 100, () => J(p3));
+    check("pct3 malé", Stats.pct3(0.003, 0.001, 0.996)[0] === "<1 %", () => J(Stats.pct3(0.003, 0.001, 0.996)));
     check("byName", MatchFormats.byName("3LMB")?.key === "14_8" && MatchFormats.byName("Extraliga žen")?.key === "10_6_dl" && MatchFormats.byName("OS 1") == null);
   }
   // ---------- šance rozehrané hry podle setů

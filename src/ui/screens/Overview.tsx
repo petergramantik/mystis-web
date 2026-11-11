@@ -660,15 +660,16 @@ function ForecastBox({ children }: { children: ReactNode }) {
 }
 
 function MiniOdds({ win, draw, loss, busy }: { win: number; draw: number; loss: number; busy?: boolean }) {
-  const cell = (label: string, v: number, color: string) => (
+  const [pw, pd, pl] = Stats.pct3(win, draw, loss);
+  const cell = (label: string, v: string, color: string) => (
     <div className="col" style={{ flex: 1, alignItems: "center" }}>
       <span style={{ fontSize: 11, color: "#D6E1FA" }}>{label}</span>
-      <span style={{ fontSize: 17, fontWeight: 800, color }}>{Stats.pct(v)}</span>
+      <span style={{ fontSize: 17, fontWeight: 800, color }}>{v}</span>
     </div>
   );
   return (
     <div className="row" style={{ opacity: busy ? 0.6 : 1 }}>
-      {cell("Výhra", win, C.WinLight)}{cell("Remíza", draw, "#fff")}{cell("Prohra", loss, C.Peach)}
+      {cell("Výhra", pw, C.WinLight)}{cell("Remíza", pd, "#fff")}{cell("Prohra", pl, C.Peach)}
     </div>
   );
 }
@@ -705,7 +706,7 @@ function CardForecast({ ctx, oppName, oppRef, oppRoster, home }: {
       <div className="row" style={{ justifyContent: "flex-end", marginBottom: -4 }}><ModelToggle dark /></div>
       <MiniOdds win={f.pWin} draw={f.pDraw} loss={f.pLoss} busy={rs.busy} />
       <div style={{ opacity: rs.busy ? 0.6 : 1 }}><ProbBar p={f.pWin + f.pDraw / 2} /></div>
-      {fBase && <Muted color="#D6E1FA" size={12} text={`STR: výhra ${Stats.pct(fBase.pWin)} · remíza ${Stats.pct(fBase.pDraw)} · prohra ${Stats.pct(fBase.pLoss)}`} style={{ textAlign: "center" }} />}
+      {fBase && <Muted color="#D6E1FA" size={12} text={(() => { const [a, b, c] = Stats.pct3(fBase.pWin, fBase.pDraw, fBase.pLoss); return `STR: výhra ${a} · remíza ${b} · prohra ${c}`; })()} style={{ textAlign: "center" }} />}
       <PredictionText hs={hh} as_={aa} myHome={home} dark center />
       {rs.busy && <T size={11} color="#D6E1FA" center>upřesňuji…</T>}
       {mySingles.length > 0 && (

@@ -159,13 +159,13 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
       <div className="row g8">
         <div className="col w1">
           <T bold>{my > op ? "Predikce: výhra" : my < op ? "Predikce: prohra" : "Predikce: remíza"}</T>
-          <Muted size={12} text={`${home == null ? "vy : soupeř" : "domácí : hosté"} · výhra ${Stats.pct(fc.pWin)}, remíza ${Stats.pct(fc.pDraw)}, prohra ${Stats.pct(fc.pLoss)}`} maxLines={2} />
+          <Muted size={12} text={`${home == null ? "vy : soupeř" : "domácí : hosté"} · výhra ${Stats.pct3(fc.pWin, fc.pDraw, fc.pLoss)[0]}, remíza ${Stats.pct3(fc.pWin, fc.pDraw, fc.pLoss)[1]}, prohra ${Stats.pct3(fc.pWin, fc.pDraw, fc.pLoss)[2]}`} maxLines={2} />
         </div>
         {rs.busy && <Spinner size={18} width={2} />}
         <ModelToggle />
         <BigNumber text={`${hs} : ${as_}`} color={rs.busy ? C.Muted : my > op ? C.Win : my < op ? C.OrangeText : C.Ink} size={26} />
       </div>
-      {fcBase && <Muted size={12} text={`STR: výhra ${Stats.pct(fcBase.pWin)}, remíza ${Stats.pct(fcBase.pDraw)}, prohra ${Stats.pct(fcBase.pLoss)} · ${home === false ? `${fcBase.likely[1]} : ${fcBase.likely[0]}` : `${fcBase.likely[0]} : ${fcBase.likely[1]}`}`} maxLines={2} />}
+      {fcBase && <Muted size={12} text={`STR: výhra ${Stats.pct3(fcBase.pWin, fcBase.pDraw, fcBase.pLoss)[0]}, remíza ${Stats.pct3(fcBase.pWin, fcBase.pDraw, fcBase.pLoss)[1]}, prohra ${Stats.pct3(fcBase.pWin, fcBase.pDraw, fcBase.pLoss)[2]} · ${home === false ? `${fcBase.likely[1]} : ${fcBase.likely[0]}` : `${fcBase.likely[0]} : ${fcBase.likely[1]}`}`} maxLines={2} />}
       {rs.busy && <Muted color={C.Blue} size={12} text={`Upřesňuji sestavy… ${rs.total ? `(načteno ${rs.done} z ${rs.total} hráčů) · ` : ""}předběžný odhad`} />}
       <div style={{ opacity: rs.busy ? 0.55 : 1, transition: "opacity .2s" }}><ProbBar p={fc.expHome + fc.expAway > 0 ? fc.expHome / (fc.expHome + fc.expAway) : 0.5} /></div>
       <Muted text={`Vaše sestava: ${mineP.map(label).join(", ")}`} size={13} maxLines={3} />
@@ -191,7 +191,7 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
         const when = when0 ? when0.charAt(0).toLowerCase() + when0.slice(1) : "";
         const res = my > op ? "výhra" : my < op ? "prohra" : "remíza";
         const text = [`Příští utkání: ${hn} – ${an}${n.round ? ` (${n.round}. kolo)` : ""}${when ? `, ${when}` : ""}`,
-          `Predikce MySTIS: ${res} ${hs}:${as_} · výhra ${Stats.pct(fc.pWin)}, remíza ${Stats.pct(fc.pDraw)}, prohra ${Stats.pct(fc.pLoss)}`,
+          `Predikce MySTIS: ${res} ${hs}:${as_} · výhra ${Stats.pct3(fc.pWin, fc.pDraw, fc.pLoss)[0]}, remíza ${Stats.pct3(fc.pWin, fc.pDraw, fc.pLoss)[1]}, prohra ${Stats.pct3(fc.pWin, fc.pDraw, fc.pLoss)[2]}`,
           `Naše sestava: ${mineP.map(label).join(", ")}`,
           `Soupeř: ${theirsPick.map(label).join(", ")}`].join("\n");
         const ref = ctx.myTeam.ref;
@@ -385,7 +385,7 @@ export function PredictionScreen({ data }: { data: string }) {
           </div>
           <T bold size={17} color="#fff" lines={2} end style={{ flex: 1 }}><span className={team(d.a) ? "clickable" : undefined} onClick={team(d.a)}>{d.a.n}</span></T>
         </div>
-        <Muted text={`výhra domácích ${Stats.pct(fc.pWin)} · remíza ${Stats.pct(fc.pDraw)} · výhra hostů ${Stats.pct(fc.pLoss)}`} color="#fff" size={13} maxLines={2} />
+        <Muted text={`výhra domácích ${Stats.pct3(fc.pWin, fc.pDraw, fc.pLoss)[0]} · remíza ${Stats.pct3(fc.pWin, fc.pDraw, fc.pLoss)[1]} · výhra hostů ${Stats.pct3(fc.pWin, fc.pDraw, fc.pLoss)[2]}`} color="#fff" size={13} maxLines={2} />
         <ProbBar p={fc.pWin + fc.pDraw / 2} />
         <Muted text={loading ? `Načítám aktuální STR hráčů… (${loading})` : "Podle STR hráčů k dnešnímu dni."} color={C.MutedOnNavy} size={12} />
       </NavyHeaderLite>
