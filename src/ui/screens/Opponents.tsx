@@ -173,7 +173,7 @@ export function H2HScreen({ oppKey }: { oppKey: string }) {
             <ProbBar p={p} />
             <Muted size={13} text={`Rozdíl STR ${signedInt(myStr - oppStr)} · výhra +${StrModel.gainIfWin(myStr, oppStr)} · prohra −${-StrModel.lossIfLose(myStr, oppStr)} STR`} />
             {vm.complexOn && (!h2h || !h2h.games) && <Muted size={12} text="STR+: vzájemná korekce je nulová (málo zápasů), šance je stejná jako podle STR." />}
-            {h2h && h2h.games > 0 && pBase != null && <Muted size={12} maxLines={2} text={`Komplexní model: vzájemná korekce ${h2h.adj > 0 ? "+" : h2h.adj < 0 ? "−" : "±"}${Math.abs(h2h.adj)} STR z ${h2h.games} ${h2h.games === 1 ? "zápasu" : "zápasů"} · podle samotného STR ${Stats.pct(pBase)}`} />}
+            {h2h && h2h.games > 0 && pBase != null && <Muted size={12} maxLines={2} text={`STR+: vzájemná korekce ${h2h.adj > 0 ? "+" : h2h.adj < 0 ? "−" : "±"}${Math.abs(h2h.adj)} STR z ${h2h.games} ${h2h.games === 1 ? "zápasu" : "zápasů"} · STR ${Stats.pct(pBase)}`} />}
             {stale && <Muted size={12} text={`STR soupeře po posledním vzájemném zápase${loadingOpp ? ", načítám aktuální…" : ""}`} />}
           </AppCard>
         )}

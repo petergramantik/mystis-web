@@ -203,7 +203,7 @@ export function CompareScreen({ a0, b0 }: { a0: string | null; b0: string | null
                     <T size={14} bold color={C.Blue} style={{ flex: 1 }}>{`${first(pa.name)} ${Stats.pct(p)}`}</T>
                     <T size={14} bold color={C.Orange}>{`${Stats.pct(1 - p)} ${first(pb.name)}`}</T>
                   </div>
-                  {vm.complexOn && <Muted size={12} maxLines={2} text={h2h && h2h.games ? `STR+: vzájemná korekce ${first(pa.name)} ${signedInt(h2h.adj)} STR z ${h2h.games} zápasů · podle samotného STR ${Stats.pct(pBase)} : ${Stats.pct(1 - pBase)}` : "STR+: vzájemná korekce je nulová, šance je stejná jako podle STR."} />}
+                  {vm.complexOn && <Muted size={12} maxLines={2} text={h2h && h2h.games ? `STR+: vzájemná korekce ${first(pa.name)} ${signedInt(h2h.adj)} STR z ${h2h.games} zápasů · STR ${Stats.pct(pBase)} : ${Stats.pct(1 - pBase)}` : "STR+: vzájemná korekce je nulová, šance je stejná jako podle STR."} />}
                   <Muted size={13} maxLines={3} text={`${first(pa.name)}: výhra +${StrModel.gainIfWin(strA, strB)} / prohra −${-StrModel.lossIfLose(strA, strB)} · ${first(pb.name)}: výhra +${StrModel.gainIfWin(strB, strA)} / prohra −${-StrModel.lossIfLose(strB, strA)} STR`} />
                   {pa.id && pb.id && <span className="clickable" style={{ color: C.Blue, fontWeight: 600, fontSize: 14 }} onClick={() => vm.go({ t: "Duel", aId: pa.id, aName: pa.name, bId: pb.id, bName: pb.name })}>{mutual.length ? `Vzájemné zápasy (${w(mutual)}–${mutual.length - w(mutual)}) ›` : "Detail dvojice ›"}</span>}
                 </AppCard>

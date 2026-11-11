@@ -165,7 +165,7 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
         <ModelToggle />
         <BigNumber text={`${hs} : ${as_}`} color={rs.busy ? C.Muted : my > op ? C.Win : my < op ? C.OrangeText : C.Ink} size={26} />
       </div>
-      {fcBase && <Muted size={12} text={`Podle samotného STR: výhra ${Stats.pct(fcBase.pWin)}, remíza ${Stats.pct(fcBase.pDraw)}, prohra ${Stats.pct(fcBase.pLoss)} · ${home === false ? `${fcBase.likely[1]} : ${fcBase.likely[0]}` : `${fcBase.likely[0]} : ${fcBase.likely[1]}`}`} maxLines={2} />}
+      {fcBase && <Muted size={12} text={`STR: výhra ${Stats.pct(fcBase.pWin)}, remíza ${Stats.pct(fcBase.pDraw)}, prohra ${Stats.pct(fcBase.pLoss)} · ${home === false ? `${fcBase.likely[1]} : ${fcBase.likely[0]}` : `${fcBase.likely[0]} : ${fcBase.likely[1]}`}`} maxLines={2} />}
       {rs.busy && <Muted color={C.Blue} size={12} text={`Upřesňuji sestavy… ${rs.total ? `(načteno ${rs.done} z ${rs.total} hráčů) · ` : ""}předběžný odhad`} />}
       <div style={{ opacity: rs.busy ? 0.55 : 1, transition: "opacity .2s" }}><ProbBar p={fc.expHome + fc.expAway > 0 ? fc.expHome / (fc.expHome + fc.expAway) : 0.5} /></div>
       <Muted text={`Vaše sestava: ${mineP.map(label).join(", ")}`} size={13} maxLines={3} />
@@ -207,7 +207,7 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
         ];
         return <ShareSheet opts={opts} onClose={() => setShareOpen(false)} />;
       })()}
-      <Muted size={12} maxLines={4} text={`Sestavy: stabilní hráči (aspoň třetina utkání družstva), doplnění náhradníky s nejvíc utkáními. Pořadí her podle formátu soutěže, pravděpodobnosti podle STR${vm.complexOn ? ` + komplexní model (vzájemné zápasy, výhoda domácích ${(() => { const h = fmt.homeAdv ?? 0; return `${h > 0 ? "+" : h < 0 ? "−" : "±"}${Math.abs(h)} STR`; })()})` : ""}.`} />
+      <Muted size={12} maxLines={4} text={`Sestavy: stabilní hráči (aspoň třetina utkání družstva), doplnění náhradníky s nejvíc utkáními. Pořadí her podle formátu soutěže, pravděpodobnosti podle STR${vm.complexOn ? ` + STR+ (vzájemné zápasy, výhoda domácích ${(() => { const h = fmt.homeAdv ?? 0; return `${h > 0 ? "+" : h < 0 ? "−" : "±"}${Math.abs(h)} STR`; })()})` : ""}.`} />
     </AppCard>
   );
 }

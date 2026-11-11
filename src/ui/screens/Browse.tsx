@@ -47,7 +47,9 @@ function BrowseView() {
     const m = /svaz-(\d+)\/rocnik-(\d{4})\/soutez-(\d+)/.exec(b.query);
     return m ? { svaz: m[1], rocnik: +m[2], soutez: m[3] } : null;
   })();
-  const comps = b.kind === "s" ? vm.knownComps().filter((c) => !b.query.trim() || compFromLink || Stats.fold(c.name).includes(Stats.fold(b.query))) : [];
+  // jen soutěže aktuálního ročníku (starší lze otevřít vloženým odkazem ze STIS)
+  const rocnik = Stis.currentRocnik();
+  const comps = b.kind === "s" ? vm.knownComps().filter((c) => c.rocnik === rocnik && (!b.query.trim() || compFromLink || Stats.fold(c.name).includes(Stats.fold(b.query)))) : [];
   const recent = vm.browseRecent();
   const go = () => {
     if (link?.kind === "player") { openPlayer(link.path, "Hráč"); return; }
@@ -63,7 +65,7 @@ function BrowseView() {
         label={b.kind === "p" ? "Jméno hráče nebo odkaz ze STIS" : b.kind === "o" ? "Název oddílu nebo odkaz ze STIS" : "Název soutěže nebo odkaz ze STIS"} />
       {b.kind !== "s" && <PrimaryButton text={b.loading ? "Hledám…" : "Hledat na STIS"} onClick={go} enabled={!b.loading && b.query.trim().length >= 2} />}
       <ManualNote text={b.kind === "s"
-        ? "Soutěže z vašich družstev, otevřených hráčů a oddílů. Jinou soutěž najdete přes oddíl nebo hráče, nebo vložte odkaz na její stránku na STIS."
+        ? `Soutěže ročníku ${season(rocnik)} z vašich družstev, otevřených hráčů a oddílů. Jinou soutěž najdete přes oddíl nebo hráče, nebo vložte odkaz na její stránku na STIS (i starší ročník).`
         : "Data ze STIS se stahují jen na vyžádání – po hledání a po klepnutí na „Načíst“ u hráče, oddílu nebo soutěže."} />
       {b.err && <ErrorBox text={b.err} onRetry={go} />}
       {b.loading && <Loading text="Hledám na STIS…" />}
