@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { SupportStrip } from "../support";
+import { MatchFormats } from "../../core/live";
 import { vm, S, type LastUtkani } from "../../app/vm";
 import { Clubs, Stis, type LosMatch } from "../../core/models";
 import { Stats, StrModel, sum } from "../../core/stats";
@@ -678,12 +679,21 @@ function CardForecast({ ctx, oppName, oppRef, oppRoster, home }: {
   const theirs = vm.lineupFor(oppName, oppRef, vm.fresh(oppRoster)).map((x) => x[0]);
   const rs = vm.refineState(oppRoster, oppRef);
   if (!mine.length || !theirs.length) return <ForecastBox><Muted text={oppRoster.length ? "Počítám predikci…" : "Soupiska soupeře zatím není k dispozici."} color="#D6E1FA" size={13} /></ForecastBox>;
-  const f = myForecast(mine.map((p) => p.str ?? 1400), theirs.map((p) => p.str ?? 1400), home, vm.format, vm.singlesOrderFor(ctx.myTeam.ref));
+  const fmt = ctx.myTeam.ref ? vm.formatForComp(ctx.myTeam.ref) : vm.format;
+  const order = vm.singlesOrderFor(ctx.myTeam.ref);
+  const f = myForecast(mine.map((p) => p.str ?? 1400), theirs.map((p) => p.str ?? 1400), home, fmt, order);
   // f je z pohledu mého družstva -> výsledek v pořadí domácí : hosté jako na kartě
   const [hh, aa] = home ? f.likely : [f.likely[1], f.likely[0]];
   const meIn = me ? mine.find((p) => p.id === me.id || Stats.fold(p.name) === Stats.fold(me.name)) : undefined;
   const myStr = me?.currentStr ?? meIn?.str ?? null;
-  const mySingles = meIn && myStr != null ? theirs.map((o) => [o.name.split(" ")[0], StrModel.winProbability(myStr, o.str ?? 1400)] as [string, number]) : [];
+  // moji soupeři ve dvouhrách podle pořadí her formátu (sestavy seřazené podle STR jako v predikci)
+  const byStr = <T extends { str: number | null }>(xs: T[]) => [...xs].sort((a, b) => (b.str ?? 1400) - (a.str ?? 1400)).slice(0, fmt.players);
+  const ms = byStr(mine), ts = byStr(theirs);
+  const myPos = meIn ? ms.indexOf(meIn) + 1 : 0;
+  const myOpps = myPos > 0
+    ? MatchFormats.slots(fmt, order).filter((x): x is { h: number; a: number } => "h" in x && (home === false ? x.a : x.h) === myPos).map((x) => ts[(home === false ? x.h : x.a) - 1]).filter((o) => !!o)
+    : theirs;
+  const mySingles = meIn && myStr != null ? myOpps.map((o) => [o.name.split(" ")[0], StrModel.winProbability(myStr, o.str ?? 1400)] as [string, number]) : [];
   return (
     <ForecastBox>
       <MiniOdds win={f.pWin} draw={f.pDraw} loss={f.pLoss} busy={rs.busy} />

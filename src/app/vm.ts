@@ -488,7 +488,14 @@ export class AppVm {
   get format(): MatchFormat {
     if (!this.formatAuto) return MatchFormats.of(prefs.matchFormat);
     const r = this.next[this.nextSelected]?.myTeam.ref ?? this.next[0]?.myTeam.ref;
-    return (r && this.compFormat(r)) ?? MatchFormats.DEFAULT;
+    return r ? this.formatForComp(r) : MatchFormats.DEFAULT;
+  }
+  /** Název soutěže (z mých družstev a načtených hráčů) – pro předvolbu formátu. */
+  compNameFor(c: { svaz: string; soutez: string }): string | null {
+    const same = (r: TeamRef | null | undefined) => !!r && r.svaz === c.svaz && r.soutez === c.soutez;
+    for (const x of this.next) if (same(x.myTeam.ref) && x.myTeam.competition) return x.myTeam.competition;
+    for (const p of [this.me, ...this.players.values()]) for (const t of p?.currentSeason?.teams ?? []) if (same(t.ref) && t.competition) return t.competition;
+    return null;
   }
   changeFormat(f: MatchFormat | null) { prefs.matchFormat = f ? f.key : "auto"; this.emit(); }
   compOfPath(path: string): { svaz: string; rocnik: number; soutez: string } | null {
@@ -521,7 +528,7 @@ export class AppVm {
     if (!this.formatAuto) return MatchFormats.of(prefs.matchFormat);
     const o = c ? this.compFormatOverride(c) : null;
     if (o) return o;
-    return (c && this.compFormat(c)) ?? MatchFormats.DEFAULT;
+    return (c && (this.compFormat(c) ?? MatchFormats.byName(this.compNameFor(c)))) ?? MatchFormats.DEFAULT;
   }
   private compFormats(): Record<string, string> { try { return JSON.parse(prefs.compFormatsJson); } catch { return {}; } }
   /** Ručně zvolený formát soutěže (má přednost před rozpoznaným). */
@@ -551,7 +558,7 @@ export class AppVm {
     const own = this.next.some((x) => x.myTeam.ref && this.compKey(x.myTeam.ref) === k);
     if (this.compLosLoading.has(k) || (!own && !this.compLos.has(k)) || (own && this.loadingNext)) return "loading";
     if (Array.from(this.zapisLoading).some((p) => p.includes(`/svaz-${c.svaz}/`) && p.includes(`/soutez-${c.soutez}/`))) return "loading";
-    return "unknown";
+    return MatchFormats.byName(this.compNameFor(c)) ? "estimate" : "unknown";
   }
   /**
    * Skóre utkání [domácí, hosté]: z her (hlavička online zápisu zaostává), ale u dohraného utkání „do 10“,

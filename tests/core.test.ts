@@ -420,6 +420,29 @@ async function main() {
     const strongAll = mk([...Array(12).fill(true), ...Array(6).fill(false)]);
     check("detect silné všechny", MatchFormats.detectInfo([strongAll, late]).fmt?.key === "18_all" && MatchFormats.detectInfo([strongAll]).certain);
     check("detect 10 her", MatchFormats.detect([ten])?.key === "10_6", () => J(MatchFormats.detect([ten])));
+    // 1.–3. liga: 14 her (2 čtyřhry + 12 dvouher), do 8 / remíza 7:7
+    const L = "ABCD", R = "XYZU";
+    const gn = (no: number, res: boolean | null, tok: string) => tok === "D"
+      ? new ZapisGame(no, ["d1", "d2"], ["e1", "e2"], ["A", "B"], ["X", "Y"], res == null ? [] : [5, 5, 5], res == null ? null : res ? 3 : 0, res == null ? null : res ? 0 : 3)
+      : new ZapisGame(no, ["h" + tok[0]], ["a" + tok[1]], [tok[0]], [tok[1]], res == null ? [] : [5, 5, 5], res == null ? null : res ? 3 : 0, res == null ? null : res ? 0 : 3);
+    const seq14 = MatchFormats.of("14_8").seq!.split(" ");
+    const l14 = new Zapis("/zapis/svaz-1/rocnik-2026/soutez-8/utkani-1", "", "", "H", "A", null, null, "", "", [null, null],
+      seq14.map((t, i) => gn(i + 1, i < 12 ? i % 3 !== 0 : null, t)));
+    const d14 = MatchFormats.detectInfo([l14]);
+    check("detect 3. liga 14 her", d14.fmt?.key === "14_8" && d14.fmt.players === 4, () => J(d14));
+    const sl = MatchFormats.slots(MatchFormats.of("14_8"));
+    check("slots 14_8", sl.length === 14 && "d" in sl[0] && "d" in sl[1] && J(sl[2]) === J({ h: 1, a: 1 }) && J(sl[13]) === J({ h: 2, a: 4 }), () => J(sl));
+    const f14 = matchForecast([1975, 1971, 1866, 1800], [1965, 1965, 1891, 1850], MatchFormats.of("14_8"));
+    check("predikce 14 her", Math.max(...f14.likely) === 8 || (f14.likely[0] === 7 && f14.likely[1] === 7), () => J(f14.likely));
+    // extraliga žen: čtyřhra na konci; extraliga mužů bez čtyřhry
+    const seqE = MatchFormats.of("10_6_dl").seq!.split(" ");
+    const ez = new Zapis("/z", "", "", "H", "A", null, null, "", "", [null, null], seqE.map((t, i) => gn(i + 1, i < 8 ? i % 2 === 0 : null, t)));
+    check("detect extraliga žen", MatchFormats.detect([ez])?.key === "10_6_dl", () => J(MatchFormats.detect([ez])));
+    const em = new Zapis("/z", "", "", "H", "A", null, null, "", "", [null, null], "AX BY CZ AY BX".split(" ").map((t, i) => gn(i + 1, i < 3 ? true : null, t)));
+    check("detect extraliga mužů", MatchFormats.detect([em])?.key === "5s_3", () => J(MatchFormats.detect([em])));
+    const o3 = MatchFormats.singlesOrder([], MatchFormats.of("10_6"));
+    check("SŘ 318.01 pořadí", o3.map(([h, a]) => L[h - 1] + R[a - 1]).join(" ") === "AX BY CZ BX AZ CY BZ CX AY", () => J(o3));
+    check("byName", MatchFormats.byName("3LMB")?.key === "14_8" && MatchFormats.byName("Extraliga žen")?.key === "10_6_dl" && MatchFormats.byName("OS 1") == null);
   }
   // ---------- šance rozehrané hry podle setů
   const q61 = Live.setProb(0.61);

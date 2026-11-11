@@ -15,6 +15,7 @@ import { fmtWhenLong } from "../fmt";
 import { HallCard } from "../hall";
 import { shareLink, predictionLink, decodePred, type SharedPred } from "../share";
 import { ShareSheet, type ShareOpt } from "../shareActions";
+import { FormatBadge } from "./LiveBoard";
 
 /** Rozbor dalšího (ne nejbližšího) budoucího utkání – stejný obsah jako Příští zápas. */
 export function FixtureScreen({ team, round, home, away }: { team: number; round: string; home: string; away: string }) {
@@ -143,6 +144,9 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
   // počítá se se skutečnými domácími a pořadím her soutěže (stejně jako sdílená predikce)
   const fc = myForecast(mine.map((p) => p.str ?? 1400), theirs.map((p) => p.str ?? 1400), home, fmt, vm.singlesOrderFor(ctx?.myTeam.ref ?? theirRef));
   const [my, op] = fc.likely;
+  // dvouhry na hráče podle formátu (u 1.–3. ligy 3 ze 4 soupeřů)
+  const perGames = Math.max(1, Math.round(MatchFormats.singlesCount(fmt) / fmt.players));
+  const fref = ctx?.myTeam.ref ?? theirRef;
   const [hs, as_] = home === false ? [op, my] : [my, op];
   const label = (p: [RosterPlayer, boolean]) => `${p[0].name.split(" ")[0]} ${p[0].str ?? ""}` + (p[1] ? " (náhradník)" : "");
   return (
@@ -156,13 +160,17 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
         <BigNumber text={`${hs} : ${as_}`} color={rs.busy ? C.Muted : my > op ? C.Win : my < op ? C.OrangeText : C.Ink} size={26} />
       </div>
       {rs.busy && <Muted color={C.Blue} size={12} text={`Upřesňuji sestavy… ${rs.total ? `(načteno ${rs.done} z ${rs.total} hráčů) · ` : ""}předběžný odhad`} />}
-      <div style={{ opacity: rs.busy ? 0.55 : 1, transition: "opacity .2s" }}><ProbBar p={exp.my / exp.games} /></div>
+      <div style={{ opacity: rs.busy ? 0.55 : 1, transition: "opacity .2s" }}><ProbBar p={fc.expHome + fc.expAway > 0 ? fc.expHome / (fc.expHome + fc.expAway) : 0.5} /></div>
       <Muted text={`Vaše sestava: ${mineP.map(label).join(", ")}`} size={13} maxLines={3} />
       <Muted text={`Pravděpodobná sestava soupeře: ${theirsPick.map(label).join(", ")}`} size={13} maxLines={3} />
+      <div className="row g6" style={{ flexWrap: "wrap" }}>
+        <Muted text="Formát:" size={13} />
+        {fref ? <FormatBadge c={fref} long /> : <Muted text={fmt.label} size={13} maxLines={2} />}
+      </div>
       {exp.perPlayer.map(([name, w]) => (
         <div className="row" key={name}>
           <Muted text={name} color={C.Ink} size={14} maxLines={1} style={{ flex: 1 }} />
-          <T semi size={14}>{`${Math.round(w)} z ${theirs.length}`}</T>
+          <T semi size={14}>{`${Math.round((w * perGames) / theirs.length)} z ${perGames}`}</T>
         </div>
       ))}
       <div className="row g12" style={{ flexWrap: "wrap", alignItems: "center" }}>
@@ -183,7 +191,7 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
         const side = (l: [RosterPlayer, boolean][]) => l.map(([p]) => [p.id, p.name, p.str] as [string | null, string, number | null]);
         const mineT = { n: ctx.myTeam.name, id: ref?.id ?? null }, oppT = { n: ctx.opponentName, id: ctx.opponentRef?.id ?? null };
         const data: SharedPred | null = ref ? {
-          s: ref.svaz, r: ref.rocnik, c: ref.soutez, cl: ctx.myTeam.competition ?? "", k: n.round, t: n.dateTime, dt: n.dateText, f: { p: fmt.players, g: fmt.games, d: fmt.doubles, t: fmt.target, l: fmt.label },
+          s: ref.svaz, r: ref.rocnik, c: ref.soutez, cl: ctx.myTeam.competition ?? "", k: n.round, t: n.dateTime, dt: n.dateText, f: { p: fmt.players, g: fmt.games, d: fmt.doubles, t: fmt.target, l: fmt.label, ...(fmt.seq ? { q: fmt.seq } : {}) },
           h: ctx.home ? mineT : oppT, a: ctx.home ? oppT : mineT, hp: side(ctx.home ? mineP : theirsPick), ap: side(ctx.home ? theirsPick : mineP),
         } : null;
         const opts: ShareOpt[] = [
@@ -192,7 +200,7 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
         ];
         return <ShareSheet opts={opts} onClose={() => setShareOpen(false)} />;
       })()}
-      <Muted size={12} maxLines={4} text={`Sestavy: stabilní hráči (aspoň třetina utkání družstva), doplnění náhradníky s nejvíc utkáními. Každý s každým (${mine.length}×${theirs.length} dvouher) + ${fmt.doubles} ${fmt.doubles === 1 ? "čtyřhra" : "čtyřhry"}, pravděpodobnosti podle STR.`} />
+      <Muted size={12} maxLines={4} text={`Sestavy: stabilní hráči (aspoň třetina utkání družstva), doplnění náhradníky s nejvíc utkáními. Pořadí her podle formátu soutěže, pravděpodobnosti podle STR.`} />
     </AppCard>
   );
 }
@@ -324,7 +332,7 @@ export function PredictionScreen({ data }: { data: string }) {
     vm.requestPlayers([...d.hp, ...d.ap].map((p) => pathOf(p[0])).filter((x): x is string => !!x));
   }, [data]);
   if (!d || !comp) return <div className="px16"><Empty text="Odkaz na predikci je neplatný nebo poškozený." /></div>;
-  const fmt: MatchFormat = typeof d.f === "object" && d.f ? { key: "shared", label: d.f.l, players: d.f.p, games: d.f.g, doubles: d.f.d, target: d.f.t }
+  const fmt: MatchFormat = typeof d.f === "object" && d.f ? { key: "shared", label: d.f.l, players: d.f.p, games: d.f.g, doubles: d.f.d, target: d.f.t, ...(d.f.q ? { seq: d.f.q } : {}) }
     : MatchFormats.ALL.find((x) => x.key === d.f) ?? MatchFormats.DEFAULT;
   const strNow = (p: [string | null, string, number | null]) => {
     const path = pathOf(p[0]);

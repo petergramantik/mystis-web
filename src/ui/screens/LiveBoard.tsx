@@ -144,25 +144,26 @@ function BoardRow({ c, m, onError }: { c: LiveComp; m: LosMatch; onError: (e: st
 }
 
 /** Formát soutěže: kolečko při zjišťování, „neznámý – zvolit“, nebo popisek; klepnutím výběr formátu. */
-export function FormatBadge({ c }: { c: { svaz: string; rocnik: number; soutez: string } }) {
+export function FormatBadge({ c, long }: { c: { svaz: string; rocnik: number; soutez: string }; long?: boolean }) {
   const [pick, setPick] = useState(false);
-  if (!vm.formatAuto) return <Muted text={`${MatchFormats.short(vm.format)} (Nastavení)`} size={11} />;
+  const fs = long ? 13 : 11;
+  if (!vm.formatAuto) return <Muted text={`${long ? vm.format.label : MatchFormats.short(vm.format)} (Nastavení)`} size={fs} maxLines={2} />;
   const state = vm.compFormatState(c);
   const f = vm.formatForComp(c);
   return (
     <>
       {state === "loading" ? (
-        <div className="row g6"><Spinner size={11} width={2} color={C.Muted} /><Muted text="zjišťuji formát…" size={11} /></div>
+        <div className="row g6"><Spinner size={11} width={2} color={C.Muted} /><Muted text="zjišťuji formát…" size={fs} /></div>
       ) : (
         <span className="clickable" onClick={(e) => { e.stopPropagation(); setPick(true); }}
-          style={{ fontSize: 11, fontWeight: state === "unknown" ? 700 : 500, color: state === "unknown" ? C.OrangeText : C.Muted }}>
-          {state === "unknown" ? "Formát neznámý – zvolit ›" : `${MatchFormats.short(f)}${state === "manual" ? " · ručně" : state === "estimate" ? " (odhad)" : ""} ›`}
+          style={{ fontSize: fs, fontWeight: state === "unknown" ? 700 : 500, color: state === "unknown" ? C.OrangeText : long ? C.Blue : C.Muted }}>
+          {state === "unknown" ? "Formát neznámý – zvolit ›" : `${long ? f.label : MatchFormats.short(f)}${state === "manual" ? " · ručně" : state === "estimate" ? " (odhad)" : ""} ›`}
         </span>
       )}
       {pick && (
         <div style={{ position: "fixed", inset: 0, zIndex: 60 }} onClick={(e) => e.stopPropagation()}>
           <div onClick={() => setPick(false)} style={{ position: "absolute", inset: 0, background: "rgba(14,26,51,0.45)" }} />
-          <div className="col g4" style={{ position: "absolute", left: 0, right: 0, bottom: 0, background: C.Ground, borderRadius: "22px 22px 0 0", padding: "14px 16px 22px" }}>
+          <div className="col g4" style={{ position: "absolute", left: 0, right: 0, bottom: 0, maxHeight: "85vh", overflowY: "auto", background: C.Ground, borderRadius: "22px 22px 0 0", padding: "14px 16px 22px" }}>
             <T bold size={18}>Formát soutěže</T>
             <Muted size={12} maxLines={2} text="Podle formátu se počítají predikce, konec utkání a upozornění." />
             {[{ key: null as string | null, label: "Automaticky (podle zápisů)" }, ...MatchFormats.ALL.map((x) => ({ key: x.key as string | null, label: x.label }))].map((o) => {

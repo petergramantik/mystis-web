@@ -46,7 +46,7 @@ export function matchForecast(home: number[], away: number[], format: MatchForma
   const pos = (ps: typeof h) => new Map(ps.map((p, i) => [i + 1, p] as [number, typeof p]));
   const d2 = format.doubles >= 2;
   const games = Live.manualByPosition(pos(h), pos(a),
-    h.slice(0, 2), d2 ? h.slice(2, 4) : [], a.slice(0, 2), d2 ? a.slice(2, 4) : [], new Map(), n, format.doubles, order);
+    h.slice(0, 2), d2 ? h.slice(2, 4) : [], a.slice(0, 2), d2 ? a.slice(2, 4) : [], new Map(), n, format.doubles, order, format);
   const st = Live.evaluate(games, format);
   return { pWin: st.pHomeWin, pDraw: st.pDraw, pLoss: st.pAwayWin, expHome: st.expHome, expAway: st.expAway, likely: st.likely, likelyP: st.likelyP };
 }
@@ -72,7 +72,7 @@ export function matchOdds(home: number[], away: number[], format: MatchFormat, o
   const pos = (ps: typeof h) => new Map(ps.map((p, i) => [i + 1, p] as [number, typeof p]));
   const d2 = format.doubles >= 2;
   const games = Live.manualByPosition(pos(h), pos(a),
-    h.slice(0, 2), d2 ? h.slice(2, 4) : [], a.slice(0, 2), d2 ? a.slice(2, 4) : [], new Map(), n, format.doubles, order);
+    h.slice(0, 2), d2 ? h.slice(2, 4) : [], a.slice(0, 2), d2 ? a.slice(2, 4) : [], new Map(), n, format.doubles, order, format);
   const st = Live.evaluate(games, format);
   return [st.pHomeWin, st.pDraw, st.pAwayWin, st.expHome - st.expAway];
 }

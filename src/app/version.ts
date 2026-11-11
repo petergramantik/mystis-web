@@ -1,10 +1,21 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.12.1";
+export const APP_VERSION = "2.13";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.13", date: "11. 11. 2026", title: "Všechny formáty soutěží ČAST",
+    items: [
+      "Formáty utkání podle Soutěžního řádu ČAST a rozpisů 2026/27 včetně pořadí her: 317.01, 317.02, 318.01, 318.02, 319",
+      "1.–3. liga mužů: 4 hráči, 14 her, do 8 bodů nebo remíza 7:7 (dřív chybně 3 hráči); play-off 13 her do 7",
+      "Extraliga mužů (5 dvouher do 3), extraliga žen (čtyřhra na konci, do 6), 1.–2. liga žen a jejich play-off",
+      "Formát se rozpozná ze zápisů podle počtu her, čtyřher, jejich pozice a hráčů; ligy se předvolí podle názvu soutěže",
+      "Karta Predikce ukazuje použitý formát – klepnutím ho lze změnit",
+      "Opraveno pořadí dvouher tříčlenných družstev podle SŘ 318.01; u hráče se ukazuje skutečný počet dvouher (např. 2 z 3)",
+    ],
+  },
   {
     version: "2.12.1", date: "11. 11. 2026", title: "Aktuální STR soupeře ve vzájemných zápasech",
     items: [

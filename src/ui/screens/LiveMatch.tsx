@@ -116,7 +116,7 @@ export function LiveScreen({ team }: { team: number }) {
       roster.filter((p) => vm.manualDbl.get(prefix + p.name) === d).sort((a, b) => (b.str ?? 0) - (a.str ?? 0)).slice(0, 2).map(toLp);
     games = Live.manualByPosition(pos(pH, homeRoster), pos(pA, awayRoster),
       dbl(pH, homeRoster, 1), dbl(pH, homeRoster, 2), dbl(pA, awayRoster, 1), dbl(pA, awayRoster, 2),
-      vm.manualResultsFor(tk), vm.format.players, vm.format.doubles, vm.singlesOrderFor(ctx.myTeam.ref));
+      vm.manualResultsFor(tk), vm.format.players, vm.format.doubles, vm.singlesOrderFor(ctx.myTeam.ref), vm.format);
   }
   const st = Live.evaluate(games, z ? vm.fmtOf(z) : vm.format);
   const pending = !!z && lineupsPending(games);
@@ -404,7 +404,7 @@ function PlayersCard({ title, list, finished }: { title: string; list: PlayerLiv
 
 function LineupCard({ prefix, teamName, roster }: { prefix: string; teamName: string; roster: RosterPlayer[] }) {
   const size = vm.format.players;
-  const letters = (prefix.endsWith("H:") ? ["A", "B", "C", "D"] : ["X", "Y", "Z", "W"]).slice(0, size);
+  const letters = (prefix.endsWith("H:") ? ["A", "B", "C", "D"] : ["X", "Y", "Z", "U"]).slice(0, size);
   const dblCount = vm.format.doubles;
   const warnings: string[] = [];
   for (let dd = 1; dd <= dblCount; dd++) {
@@ -421,7 +421,7 @@ function LineupCard({ prefix, teamName, roster }: { prefix: string; teamName: st
   return (
     <AppCard>
       <T bold>{teamName}</T>
-      <Muted size={12} maxLines={3} text={`U každého hráče zvolte čtyřhru (${dblCount >= 2 ? "Č1 / Č2" : "Č1"}) a pozici ve dvouhrách 1–${size} (${letters.join("")}). Podle pozic se určí, kdo s kým hraje.`} />
+      <Muted size={12} maxLines={3} text={`U každého hráče zvolte ${dblCount ? `čtyřhru (${dblCount >= 2 ? "Č1 / Č2" : "Č1"}) a ` : ""}pozici ve dvouhrách 1–${size} (${letters.join("")}). Podle pozic se určí, kdo s kým hraje.`} />
       {!roster.length && <Muted text="Soupiska není k dispozici." size={13} />}
       {[...roster].sort((a, b) => (b.str ?? 0) - (a.str ?? 0)).map((p) => {
         const key = prefix + p.name;
@@ -434,7 +434,7 @@ function LineupCard({ prefix, teamName, roster }: { prefix: string; teamName: st
               <T size={12} color={C.Muted}>STR {p.str ?? "–"}</T>
             </div>
             <div className="row g6" style={{ paddingTop: 4, flexWrap: "wrap" }}>
-              <button className={"mini" + (d === 1 ? " on" : "")} onClick={() => vm.toggleDbl(key, 1)}>Č1</button>
+              {dblCount >= 1 && <button className={"mini" + (d === 1 ? " on" : "")} onClick={() => vm.toggleDbl(key, 1)}>Č1</button>}
               {dblCount >= 2 && <button className={"mini" + (d === 2 ? " on" : "")} onClick={() => vm.toggleDbl(key, 2)}>Č2</button>}
               <span style={{ color: C.Muted }}>·</span>
               {Array.from({ length: size }, (_, i) => i + 1).map((n) => <button key={n} className={"mini" + (ps === n ? " on" : "")} onClick={() => vm.togglePos(key, n)}>{n}</button>)}

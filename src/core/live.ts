@@ -2,39 +2,120 @@
 import { Data, type Zapis } from "./models";
 import { StrModel, Stats, avg } from "./stats";
 
-export interface MatchFormat { key: string; label: string; players: number; games: number; doubles: number; target: number | null }
+/**
+ * Formát utkání družstev. seq = pořadí her: „D“ čtyřhra (číslují se postupně Č1, Č2), dvojice písmen dvouhra
+ * (domácí A–D proti hostům X, Y, Z, U podle SŘ). Bez seq: nejdřív čtyřhry, pak dvouhry „každý s každým“ točením.
+ */
+export interface MatchFormat { key: string; label: string; players: number; games: number; doubles: number; target: number | null; seq?: string }
+
+/** Pozice hry: čtyřhra n (1, 2) nebo dvouhra [domácí, hosté] (1-based). */
+export type Slot = { d: number } | { h: number; a: number };
+
+const HL = "ABCD", AL = "XYZU";
+const S4 = "AX BY CZ DU BX CY DZ AU CX DY AZ BU DX AY BZ CU"; // SŘ 317.01
+const S3 = "AX BY CZ BX AZ CY BZ CX AY"; // SŘ 318.01
+const first = (s: string, n: number) => s.split(" ").slice(0, n).join(" ");
+const F = (key: string, label: string, players: number, seq: string, target: number | null): MatchFormat => {
+  const t = seq.split(" ");
+  return { key, label, players, games: t.length, doubles: t.filter((x) => x === "D").length, target, seq };
+};
 
 export const MatchFormats = {
   ALL: [
-    { key: "18_10", label: "4 hráči · 18 her · do 10 bodů", players: 4, games: 18, doubles: 2, target: 10 },
-    { key: "18_all", label: "4 hráči · 18 her · hrají se všechny", players: 4, games: 18, doubles: 2, target: null },
-    { key: "10_6", label: "3 hráči · 10 her · do 6 bodů", players: 3, games: 10, doubles: 1, target: 6 },
-    { key: "10_all", label: "3 hráči · 10 her · hrají se všechny", players: 3, games: 10, doubles: 1, target: null },
-    { key: "5_3", label: "2 hráči · 4 dvouhry + čtyřhra · do 3 bodů", players: 2, games: 5, doubles: 1, target: 3 },
+    F("18_10", "4 hráči · 18 her · do 10 bodů (SŘ 317.01)", 4, `D D ${S4}`, 10),
+    F("18_all", "4 hráči · 18 her · hrají se všechny (SŘ 317.01)", 4, `D D ${S4}`, null),
+    F("14_8", "4 hráči · 14 her · do 8 bodů, remíza 7:7 (1.–3. liga mužů)", 4, `D D ${first(S4, 12)}`, 8),
+    F("13_7", "4 hráči · 13 her · do 7 bodů (play-off 1.–3. ligy mužů)", 4, `D ${first(S4, 12)}`, 7),
+    F("10_6_4", "4 hráči · 10 her · do 6 bodů (SŘ 317.02)", 4, "D D AY CU BX DZ AX CZ BY DU", 6),
+    F("10_all_4", "4 hráči · 10 her · hrají se všechny (SŘ 317.02)", 4, "D D AY CU BX DZ AX CZ BY DU", null),
+    F("10_6", "3 hráči · 10 her · do 6 bodů (SŘ 318.01)", 3, `D ${S3}`, 6),
+    F("10_all", "3 hráči · 10 her · hrají se všechny (SŘ 318.01, 1.–2. liga žen)", 3, `D ${S3}`, null),
+    F("10_6_dl", "3 hráči · 10 her, čtyřhra na konci · do 6 bodů (extraliga žen)", 3, `${S3} D`, 6),
+    F("9_5", "3 hráči · 9 dvouher · do 5 bodů (play-off 1.–2. ligy žen)", 3, S3, 5),
+    F("7_4", "3 hráči · 7 her · do 4 bodů (SŘ 318.02)", 3, "AY BX CZ D AX CY BZ", 4),
+    F("7_all", "3 hráči · 7 her · hrají se všechny (SŘ 318.02)", 3, "AY BX CZ D AX CY BZ", null),
+    F("5s_3", "3 hráči · 5 dvouher · do 3 bodů (extraliga)", 3, "AX BY CZ AY BX", 3),
+    F("5_3", "2 hráči · čtyřhra + 4 dvouhry · do 3 bodů (SŘ 319 I)", 2, "D AX BY AY BX", 3),
+    F("5_3_ii", "2 hráči · 2 dvouhry, čtyřhra, 2 dvouhry · do 3 bodů (SŘ 319 II)", 2, "AX BY D AY BX", 3),
+    F("5_all", "2 hráči · čtyřhra + 4 dvouhry · hrají se všechny (SŘ 319 I)", 2, "D AX BY AY BX", null),
   ] as MatchFormat[],
   get DEFAULT() { return MatchFormats.ALL[0]; },
   of(key: string | null | undefined): MatchFormat { return MatchFormats.ALL.find((f) => f.key === key) ?? MatchFormats.ALL[0]; },
-  /** Krátký popis formátu („18 her · do 10“). */
+  /** Krátký popis formátu („14 her · do 8“). */
   short(f: MatchFormat): string { return `${f.games} her · ${f.target != null ? `do ${f.target}` : "hrají se všechny"}`; },
+  /** Předvolba podle názvu soutěže (rozpisy ČAST 2026/27), než se načtou zápisy. */
+  byName(name: string | null | undefined): MatchFormat | null {
+    const n = Stats.fold(name ?? "").replace(/\s+/g, " ");
+    if (!n) return null;
+    const women = /zen|zeny|^[12e]l?z\b|^[12]lz|^elz|^exz/.test(n);
+    if (/extraliga|^el[mz]|^ex[mz]/.test(n)) return MatchFormats.of(women ? "10_6_dl" : "5s_3");
+    if (/^[123]\.? ?liga|^[123]\. ?l\b|^[123]l[mz]/.test(n)) return MatchFormats.of(women ? "10_all" : "14_8");
+    return null;
+  },
+  /** Pozice her formátu; order (z klíče soutěže) nahradí pořadí dvouher, když sedí počet. */
+  slots(fmt: MatchFormat, order?: [number, number][] | null): Slot[] {
+    const n = MatchFormats.singlesCount(fmt);
+    const ord = order && order.length === n && order.every(([h, a]) => h >= 1 && h <= fmt.players && a >= 1 && a <= fmt.players) ? order : null;
+    if (fmt.seq) {
+      let d = 0, k = 0;
+      return fmt.seq.split(" ").map((t) => {
+        if (t === "D") return { d: ++d };
+        const pr = ord ? ord[k] : ([HL.indexOf(t[0]) + 1, AL.indexOf(t[1]) + 1] as [number, number]);
+        k++;
+        return { h: pr[0], a: pr[1] };
+      });
+    }
+    const out: Slot[] = Array.from({ length: fmt.doubles }, (_, i) => ({ d: i + 1 }));
+    for (const [h, a] of ord ?? MatchFormats.cyclicOrder(fmt.players)) out.push({ h, a });
+    return out;
+  },
+  singlesCount(fmt: MatchFormat): number { return fmt.seq ? fmt.seq.split(" ").filter((t) => t !== "D").length : fmt.players * fmt.players; },
+  /** Pořadí dvouher formátu (1-based [domácí, hosté]). */
+  defaultOrder(fmt: MatchFormat): [number, number][] {
+    return MatchFormats.slots(fmt).filter((x): x is { h: number; a: number } => "h" in x).map((x) => [x.h, x.a] as [number, number]);
+  },
   /**
-   * Rozpozná formát soutěže z dohraných zápisů podle průběhu: hry se projdou v pořadí; když po dosažení vítězné
-   * hranice (u 18 her 10) následovala odehraná hra, jde o „hrají se všechny“, když zbyly jen nehrané hry, o „do hranice“.
-   * Utkání, kde hranici nikdo nedosáhl nebo ji dosáhl až poslední hrou, nerozhoduje.
-   * certain = aspoň jeden rozhodující zápis a žádný neodporuje.
+   * Rozpozná formát soutěže z dohraných zápisů: struktura (počet her, čtyřher a jejich pozice, hráčů) se porovná
+   * se známými formáty. Hranice: hry se projdou v pořadí; když po dosažení vítězné hranice následovala odehraná hra,
+   * jde o „hrají se všechny“, když zbyly jen nehrané hry, o „do hranice“. Utkání, kde hranici nikdo nedosáhl
+   * nebo ji dosáhl až poslední hrou, nerozhoduje. certain = aspoň jeden rozhodující zápis a žádný neodporuje.
    */
   detectInfo(zs: Zapis[]): { fmt: MatchFormat | null; certain: boolean; votes: number } {
     const done = zs.filter((z) => z.games.length >= 4 && z.games.some((g) => g.result != null));
     if (!done.length) return { fmt: null, certain: false, votes: 0 };
     const games = Math.max(...done.map((z) => z.games.length));
-    const doubles = Math.max(...done.map((z) => z.games.filter((g) => g.doubles).length));
-    const players = Math.max(1, Math.round(Math.sqrt(games - doubles)));
-    const t0 = games === 18 ? 10 : games === 10 ? 6 : games === 5 ? 3 : Math.floor(games / 2) + 1;
+    const full = done.filter((z) => z.games.length === games);
+    const doubles = Math.max(...full.map((z) => z.games.filter((g) => g.doubles).length));
+    const ref = full.find((z) => z.games.filter((g) => g.doubles).length === doubles) ?? full[0];
+    const sorted = (z: Zapis) => [...z.games].sort((a, b) => a.no - b.no);
+    const dpos = sorted(ref).map((g, i) => (g.doubles ? i : -1)).filter((i) => i >= 0).join(",");
+    // počet hráčů: nejčastější počet různých hráčů ve dvouhrách (u extraligy může střídat čtvrtý)
+    const counts = full.map((z) => {
+      const s = z.games.filter((g) => !g.doubles && g.homeNames.length === 1 && g.awayNames.length === 1);
+      return Math.max(new Set(s.map((g) => Stats.fold(g.homeNames[0]))).size, new Set(s.map((g) => Stats.fold(g.awayNames[0]))).size);
+    }).filter((n) => n > 0);
+    const mode = counts.length ? [...counts].sort((a, b) => counts.filter((x) => x === b).length - counts.filter((x) => x === a).length || a - b)[0] : 0;
+    const dposOf = (f: MatchFormat) => MatchFormats.slots(f).map((x, i) => ("d" in x ? i : -1)).filter((i) => i >= 0).join(",");
+    let cands = MatchFormats.ALL.filter((f) => f.games === games && f.doubles === doubles && dposOf(f) === dpos);
+    if (!cands.length) {
+      // zápisy bez nehraných řádků: každé utkání skončilo přesně na hranici delšího známého formátu
+      const pts = done.map((z) => { const h = z.games.filter((g) => g.result === 1).length, a = z.games.filter((g) => g.result === -1).length; return Math.max(h, a); });
+      const cut = MatchFormats.ALL.filter((f) => f.target != null && f.games > games && f.doubles === doubles && dposOf(f) === dpos
+        && pts.every((x) => x === f.target) && (!mode || f.players === mode));
+      if (cut.length) return { fmt: cut[0], certain: true, votes: done.length };
+    }
+    if (new Set(cands.map((f) => f.players)).size > 1 && mode) {
+      const best = Math.min(...cands.map((f) => Math.abs(f.players - mode)));
+      cands = cands.filter((f) => Math.abs(f.players - mode) === best);
+    }
+    const t0 = cands.find((f) => f.target != null)?.target
+      ?? (games === 18 ? 10 : games === 10 ? 6 : games === 5 ? 3 : Math.floor(games / 2) + 1);
     // silné důkazy: „do hranice“ = po dosažení hranice zbyly nehrané hry; „všechny“ = vedoucí družstvo hranici přetáhlo
     // (např. 12:6). Slabý důkaz „všechny“: po dosažení hranice se odehrálo pár her, ale vedoucí už nebodoval
     // (občas se dohrávají jednotlivé zápasy i v soutěžích do 10).
     let all = 0, weakAll = 0, upTo = 0;
     for (const z of done) {
-      const gs = [...z.games].sort((a, b) => a.no - b.no);
+      const gs = sorted(z);
       let h = 0, a = 0, reached = -1;
       gs.forEach((g, i) => {
         if (g.result === 1) h++; else if (g.result === -1) a++;
@@ -52,10 +133,28 @@ export const MatchFormats = {
       if (after.every((g) => g.result == null)) upTo++;
       else weakAll++;
     }
-    const target: number | null = upTo > 0 && upTo >= all ? t0 : all > 0 || weakAll > upTo ? null : t0;
+    let target: number | null = upTo > 0 && upTo >= all ? t0 : all > 0 || weakAll > upTo ? null : t0;
+    // formát jen „do hranice“ (např. 1.–3. liga) – „všechny“ se nerozpozná, bere se známá varianta
+    if (target == null && cands.length && !cands.some((f) => f.target == null)) target = t0;
     const certain = target != null ? upTo > 0 && all === 0 : all > 0 ? upTo === 0 : weakAll >= 2 && upTo === 0;
-    const known = MatchFormats.ALL.find((f) => f.games === games && f.target === target);
-    const fmt = known ?? { key: `auto_${games}_${target ?? "all"}`, label: `${players} hráči · ${games} her · ${target != null ? `do ${target} bodů` : "hrají se všechny"}`, players, games, doubles, target };
+    const known = cands.find((f) => f.target === target);
+    let fmt: MatchFormat;
+    if (known) fmt = known;
+    else {
+      // neznámý formát: pořadí her ze zápisu (písmena podle nástupu hráčů)
+      const hs: string[] = [], as: string[] = [];
+      const toks = sorted(ref).map((g) => {
+        if (g.doubles) return "D";
+        if (g.homeNames.length !== 1 || g.awayNames.length !== 1) return "?";
+        const h = Stats.fold(g.homeNames[0]), a = Stats.fold(g.awayNames[0]);
+        if (!hs.includes(h)) hs.push(h);
+        if (!as.includes(a)) as.push(a);
+        return `${HL[hs.indexOf(h)] ?? "?"}${AL[as.indexOf(a)] ?? "?"}`;
+      });
+      const players = Math.max(1, mode || Math.round(Math.sqrt(games - doubles)));
+      const seq = toks.every((t) => !t.includes("?")) && hs.length === players && as.length === players ? toks.join(" ") : undefined;
+      fmt = { key: `auto_${games}_${target ?? "all"}`, label: `${players} hráči · ${games} her · ${target != null ? `do ${target} bodů` : "hrají se všechny"}`, players, games, doubles, target, ...(seq ? { seq } : {}) };
+    }
     return { fmt, certain, votes: all + weakAll + upTo };
   },
   detect(zs: Zapis[]): MatchFormat | null { return MatchFormats.detectInfo(zs).fmt; },
@@ -64,10 +163,10 @@ export const MatchFormats = {
    * Z dohraného zápisu soutěže (pořadí, v jakém hráči nastupují), jinak standardní klíč.
    */
   singlesKey(zs: Zapis[], fmt: MatchFormat): Map<number, [string, string]> {
-    const HL = "ABCDEF", AL = "XYZWUV";
+    const n = MatchFormats.singlesCount(fmt);
     for (const z of zs) {
       const singles = [...z.games].filter((g) => !g.doubles && g.homeNames.length === 1 && g.awayNames.length === 1).sort((a, b) => a.no - b.no);
-      if (singles.length < fmt.players * fmt.players) continue;
+      if (singles.length < n) continue;
       const hs: string[] = [], as: string[] = [];
       const out = new Map<number, [string, string]>();
       for (const g of singles) {
@@ -78,23 +177,22 @@ export const MatchFormats = {
       }
       if (hs.length === fmt.players && as.length === fmt.players) return out;
     }
-    // standardní točení: domácí ABCD, BCDA, CDAB, DABC proti hostům XYZW v každém kole
+    // pořadí podle SŘ (u 4 hráčů ABCD, BCDA, CDAB, DABC proti XYZU)
     const out = new Map<number, [string, string]>();
-    MatchFormats.cyclicOrder(fmt.players).forEach(([i, j], k) => out.set(fmt.doubles + k + 1, [HL[i - 1], AL[j - 1]]));
+    MatchFormats.slots(fmt).forEach((x, i) => { if ("h" in x) out.set(i + 1, [HL[x.h - 1], AL[x.a - 1]]); });
     return out;
   },
   /** Standardní točení dvouher (1-based [domácí, hosté]): v kole r hraje domácí (k+r) proti hostu k. */
   cyclicOrder(p: number): [number, number][] {
     return Array.from({ length: p }, (_, r) => Array.from({ length: p }, (_, k) => [((k + r) % p) + 1, k + 1] as [number, number])).flat();
   },
-  /** Pořadí dvouher (1-based [domácí, hosté]) podle klíče ze zápisů soutěže, jinak standardní točení. */
+  /** Pořadí dvouher (1-based [domácí, hosté]) podle klíče ze zápisů soutěže, jinak podle SŘ. */
   singlesOrder(zs: Zapis[], fmt: MatchFormat): [number, number][] {
-    const HL = "ABCDEF", AL = "XYZWUV";
     const key = MatchFormats.singlesKey(zs, fmt);
     const order = Array.from(key.entries()).sort((a, b) => a[0] - b[0]).map(([, [h, a]]) => [HL.indexOf(h) + 1, AL.indexOf(a) + 1] as [number, number]);
-    const ok = order.length === fmt.players * fmt.players && order.every(([h, a]) => h > 0 && a > 0)
+    const ok = order.length === MatchFormats.singlesCount(fmt) && order.every(([h, a]) => h > 0 && a > 0)
       && new Set(order.map(([h, a]) => h * 10 + a)).size === order.length;
-    return ok ? order : MatchFormats.cyclicOrder(fmt.players);
+    return ok ? order : MatchFormats.defaultOrder(fmt);
   },
 };
 
@@ -187,23 +285,22 @@ export const Live = {
 
   manualByPosition(homePos: Map<number, LivePlayer>, awayPos: Map<number, LivePlayer>,
     homeD1: LivePlayer[], homeD2: LivePlayer[], awayD1: LivePlayer[], awayD2: LivePlayer[],
-    results: Map<number, number>, teamSize = 4, doublesCount = 2, order?: [number, number][] | null): LiveGame[] {
+    results: Map<number, number>, teamSize = 4, doublesCount = 2, order?: [number, number][] | null, format?: MatchFormat | null): LiveGame[] {
     const out: LiveGame[] = [];
     const r = (n: number) => results.get(n) ?? null;
-    let no = 1;
-    if (homeD1.length && awayD1.length) out.push(new LiveGame(no, homeD1, awayD1, r(no)));
-    no++;
-    if (doublesCount >= 2) {
-      if (homeD2.length && awayD2.length) out.push(new LiveGame(no, homeD2, awayD2, r(no)));
-      no++;
-    }
-    // pořadí dvouher: klíč soutěže, jinak standardní točení (ABCD, BCDA, CDAB, DABC proti XYZW)
-    const pairs = order && order.length === teamSize * teamSize ? order : MatchFormats.cyclicOrder(teamSize);
-    for (const [h, a] of pairs) {
-      const hp = homePos.get(h), ap = awayPos.get(a);
-      if (hp && ap) out.push(new LiveGame(no, [hp], [ap], r(no)));
-      no++;
-    }
+    const fmt = format ?? MatchFormats.ALL.find((f) => f.players === teamSize && f.doubles === doublesCount && !f.seq?.startsWith("A"))
+      ?? { key: "x", label: "", players: teamSize, games: teamSize * teamSize + doublesCount, doubles: doublesCount, target: null };
+    // pořadí her podle formátu (SŘ), dvouhry případně podle klíče soutěže
+    MatchFormats.slots(fmt, order).forEach((x, i) => {
+      const no = i + 1;
+      if ("d" in x) {
+        const [hd, ad] = x.d === 1 ? [homeD1, awayD1] : [homeD2, awayD2];
+        if (hd.length && ad.length) out.push(new LiveGame(no, hd, ad, r(no)));
+      } else {
+        const hp = homePos.get(x.h), ap = awayPos.get(x.a);
+        if (hp && ap) out.push(new LiveGame(no, [hp], [ap], r(no)));
+      }
+    });
     return out;
   },
 

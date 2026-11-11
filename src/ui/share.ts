@@ -15,7 +15,7 @@ export const playerLink = (playerPath: string) => appLink({ h: playerPath });
 export interface SharedPred {
   s: string; r: number; c: string; cl: string; k: string; t: number | null; dt: string;
   /** formát: hráči, hry, čtyřhry, cíl (null = hrají se všechny), popis */
-  f: { p: number; g: number; d: number; t: number | null; l: string } | string;
+  f: { p: number; g: number; d: number; t: number | null; l: string; q?: string } | string;
   h: { n: string; id: string | null }; a: { n: string; id: string | null };
   /** sestavy: [id, jméno, STR při sdílení] */
   hp: [string | null, string, number | null][]; ap: [string | null, string, number | null][];
