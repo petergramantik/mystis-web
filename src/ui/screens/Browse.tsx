@@ -50,7 +50,8 @@ function BrowseView() {
   })();
   // jen soutěže aktuálního ročníku (starší lze otevřít vloženým odkazem ze STIS)
   const rocnik = Stis.currentRocnik();
-  const comps = b.kind === "s" ? vm.knownComps().filter((c) => c.rocnik === rocnik && (!b.query.trim() || compFromLink || Stats.fold(c.name).includes(Stats.fold(b.query)))) : [];
+  const comps0 = vm.knownComps();
+  const comps = b.kind === "s" ? comps0.filter((c) => c.rocnik === rocnik && (!b.query.trim() || compFromLink || Stats.fold(c.name).includes(Stats.fold(b.query)))) : [];
   const recent = vm.browseRecent();
   const go = () => {
     if (link?.kind === "player") { openPlayer(link.path, "Hráč"); return; }
@@ -132,7 +133,7 @@ function BrowseView() {
                   else { const [svaz, rocnik, soutez] = r.id.split("|"); openComp({ svaz, rocnik: +rocnik, soutez, name: r.name }); }
                 }}>
                   <Icon name={r.k === "p" ? "person" : r.k === "o" ? "groups" : "trophy"} size={20} color={C.Muted} />
-                  <T size={14} lines={1} style={{ flex: 1 }}>{r.name}</T>
+                  <T size={14} lines={1} style={{ flex: 1 }}>{r.k === "s" ? (comps0.find((c) => `${c.svaz}|${c.rocnik}|${c.soutez}` === r.id)?.name || r.name) : r.name}</T>
                   <Muted size={11} text={r.k === "p" ? "hráč" : r.k === "o" ? "oddíl" : "soutěž"} />
                 </div>
                 <Divider />

@@ -470,7 +470,9 @@ export const Parsers = {
     const out: Record<string, string> = {};
     for (const m of html.matchAll(/<a[^>]*href="[^"]*\/tabulka\/svaz-(\d+)\/rocnik-(\d{4})\/soutez-(\d+)[^"]*"[^>]*>(.*?)<\/a>/gs)) {
       const name = t(m[4].replace(/<[^>]+>/g, ""));
-      if (name) out[`${m[1]}|${m[2]}|${m[3]}`] = name;
+      // obecné texty odkazů („Tabulka“, „zobrazit“, čísla, ikony) nejsou názvy soutěží
+      if (!name || name.length > 60 || /^(tabulka|tabulky|zobrazit|detail|více|vice|»|›|>|\d+\.?)$/i.test(name)) continue;
+      out[`${m[1]}|${m[2]}|${m[3]}`] = name;
     }
     return out;
   },

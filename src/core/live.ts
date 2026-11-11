@@ -44,6 +44,14 @@ export const MatchFormats = {
   of(key: string | null | undefined): MatchFormat { return MatchFormats.ALL.find((f) => f.key === key) ?? MatchFormats.ALL[0]; },
   /** Krátký popis formátu („14 her · do 8“). */
   short(f: MatchFormat): string { return `${f.games} her · ${f.target != null ? `do ${f.target}` : "hrají se všechny"}`; },
+  /** Zkratka celostátní ligy na plný název (2LMB → „2. liga mužů skupina B“, 1LZA → „1. liga žen skupina A“); jinak beze změny. */
+  fullCompName(code: string): string {
+    const m = /^([123])\.?\s*L([MZŽ])([A-H])?$/i.exec(code.trim());
+    if (m) return `${m[1]}. liga ${/m/i.test(m[2]) ? "mužů" : "žen"}${m[3] ? ` skupina ${m[3].toUpperCase()}` : ""}`;
+    const e = /^E(?:X)?L([MZŽ])$/i.exec(code.trim());
+    if (e) return `Extraliga ${/m/i.test(e[1]) ? "mužů" : "žen"}`;
+    return code;
+  },
   /** Předvolba podle názvu soutěže (rozpisy ČAST 2026/27), než se načtou zápisy. */
   byName(name: string | null | undefined): MatchFormat | null {
     const n = Stats.fold(name ?? "").replace(/\s+/g, " ");

@@ -2,12 +2,19 @@
 import { IS_DEV } from "./channel";
 
 export const PROD_VERSION = "2.14.1";
-export const DEV_VERSION = "2.15-dev.12";
+export const DEV_VERSION = "2.15-dev.13";
 export const APP_VERSION = IS_DEV ? DEV_VERSION : PROD_VERSION;
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.15-dev.13", date: "12. 11. 2026", title: "Plné názvy soutěží",
+    items: [
+      "Plný název soutěže má přednost před zkratkou (3.liga mužů skupina B místo 3LMB); zkratky lig se rozepisují",
+      "Obecné texty odkazů („Tabulka“) se už jako název soutěže nepoužijí; opravené i Naposledy otevřené a katalog",
+    ],
+  },
   {
     version: "2.15-dev.12", date: "12. 11. 2026", title: "Procenta výhra/remíza/prohra",
     items: ["Výhra, remíza a prohra se zaokrouhlují tak, aby dávaly dohromady vždy 100 %"],

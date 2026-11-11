@@ -1516,12 +1516,14 @@ export class AppVm {
   knownComps(): { svaz: string; rocnik: number; soutez: string; name: string }[] {
     const out = new Map<string, { svaz: string; rocnik: number; soutez: string; name: string }>();
     // náhradní názvy (dokud nebyl znám skutečný) se nepočítají
-    const placeholder = (n: string | null | undefined) => !n || /– soutěž$|^Soutěž družstva |^Soutěž( \d+)?$/.test(n.trim());
+    const placeholder = (n: string | null | undefined) => !n || /– soutěž$|^Soutěž družstva |^Soutěž( \d+)?$|^(tabulka|tabulky|zobrazit|detail)$/i.test(n.trim());
+    // plný název („3.liga mužů skupina B“) má přednost před zkratkou („3LMB“)
+    const score = (n: string) => (!n ? 0 : /\s/.test(n) && n.length > 6 ? 2 : 1);
     const add = (r: TeamRef | null | undefined, name0: string | null | undefined) => {
       if (!r?.soutez || !r.svaz) return;
       const name = placeholder(name0) ? "" : name0!.trim();
       const k = this.compKey(r), cur = out.get(k);
-      if (!cur || (!cur.name && name)) out.set(k, { svaz: r.svaz, rocnik: r.rocnik, soutez: r.soutez, name: name || cur?.name || "" });
+      if (!cur || score(name) > score(cur.name)) out.set(k, { svaz: r.svaz, rocnik: r.rocnik, soutez: r.soutez, name: name || cur?.name || "" });
     };
     for (const c of this.next) add(c.myTeam.ref, c.myTeam.competition);
     for (const p of [this.me, ...this.players.values()]) for (const s of p?.seasons ?? []) for (const t of s.teams) add(t.ref, t.competition);
@@ -1538,7 +1540,10 @@ export class AppVm {
     for (const [k, n] of Object.entries(cat.items)) { const [svaz, rocnik, soutez] = k.split("|"); add({ id: "", name: "", svaz, rocnik: +rocnik, soutez }, n); }
     let changed = false;
     for (const c of out.values()) {
-      if (c.rocnik !== cat.rocnik || !c.name) continue;
+      if (!c.name) continue;
+      // zkratky celostátních lig rozepsat: 2LMB → 2. liga mužů skupina B
+      if (score(c.name) < 2) c.name = MatchFormats.fullCompName(c.name);
+      if (c.rocnik !== cat.rocnik) continue;
       const k = `${c.svaz}|${c.rocnik}|${c.soutez}`;
       if (cat.items[k] !== c.name) { cat.items[k] = c.name; changed = true; }
     }
