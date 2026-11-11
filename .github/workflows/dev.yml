@@ -1,0 +1,21 @@
+name: Vývojová verze
+# Push do dev: otestuje dev a spustí nasazení (deploy.yml na main sestaví produkci i /dev/).
+on:
+  push:
+    branches: [dev]
+permissions:
+  contents: read
+  actions: write
+jobs:
+  test-and-trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - name: Testy jádra
+        run: bun tests/core.test.ts
+      - name: Spustit nasazení
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --ref main -R ${{ github.repository }}

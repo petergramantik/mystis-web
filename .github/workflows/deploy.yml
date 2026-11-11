@@ -1,4 +1,6 @@
 name: Nasadit web
+# Produkce (větev main) → /, vývojová verze (větev dev) → /dev/. Sestaví vždy obě větve.
+# Push do dev spustí tenhle workflow přes dev.yml (nasazovat na GitHub Pages smí jen main).
 on:
   push:
     branches: [main]
@@ -18,16 +20,33 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: prod
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          path: devsrc
+        continue-on-error: true
       - uses: oven-sh/setup-bun@v2
-      - name: Instalace
-        run: bun install
-      - name: Testy jádra (parsery STIS, statistiky, živé utkání)
-        run: bun tests/core.test.ts
-      - name: Sestavit web
-        run: ./build.sh
+      - name: Produkce – testy a sestavení
+        working-directory: prod
+        run: |
+          bun install
+          bun tests/core.test.ts
+          ./build.sh
+          mv dist ../site
+      - name: Vývojová verze – testy a sestavení
+        if: hashFiles('devsrc/build.sh') != ''
+        working-directory: devsrc
+        run: |
+          bun install
+          bun tests/core.test.ts
+          CHANNEL=dev ./build.sh
+          mv dist ../site/dev
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: site
       - id: deployment
         uses: actions/deploy-pages@v4

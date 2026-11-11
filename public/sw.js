@@ -1,15 +1,20 @@
 // Service worker: aplikace se načte i bez internetu (data STIS si drží aplikace sama v IndexedDB).
 // Verzi doplní build.sh – každé nasazení tak má vlastní mezipaměť a stará se smaže.
 const VER = "__VER__";
-const CACHE = "mystis-" + VER;
+// produkce (/) a vývojová verze (/dev/) běží na stejné doméně: vlastní mezipaměť, smaže jen svoje staré
+const PREFIX = "mystis-";
+const CACHE = PREFIX + VER;
+const mine = (k) => k.startsWith(PREFIX) && (PREFIX === "mystis-dev-" || !k.startsWith("mystis-dev-"));
 const SHELL = ["./", "index.html", "main.js?v=" + VER, "main.css?v=" + VER, "config.js?v=" + VER, "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-512-maskable.png", "icons/apple-touch-icon.png", "icons/favicon.ico"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}).then(() => self.skipWaiting())); });
 self.addEventListener("activate", (e) => {
-  e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE && mine(k)).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
 });
 self.addEventListener("fetch", (e) => {
   const u = new URL(e.request.url);
   if (e.request.method !== "GET" || u.origin !== location.origin) return;
+  // produkční worker neobsluhuje vývojovou verzi (ta má vlastní worker se scope /dev/)
+  if (PREFIX === "mystis-" && /\/dev\//.test(u.pathname.slice(new URL(self.registration.scope).pathname.length - 1))) return;
   // vždy nejdřív síť (bez HTTP mezipaměti prohlížeče), bez sítě uložená kopie
   e.respondWith(fetch(e.request.url, { cache: "no-cache", credentials: "same-origin" })
     .then((r) => { if (r.ok) { const c = r.clone(); caches.open(CACHE).then((ca) => ca.put(e.request, c)); } return r; })
