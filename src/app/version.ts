@@ -2,12 +2,21 @@
 import { IS_DEV } from "./channel";
 
 export const PROD_VERSION = "2.14.1";
-export const DEV_VERSION = "2.15-dev.5";
+export const DEV_VERSION = "2.15-dev.6";
 export const APP_VERSION = IS_DEV ? DEV_VERSION : PROD_VERSION;
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.15-dev.6", date: "11. 11. 2026", title: "Profil hráče a porovnání",
+    items: [
+      "Profil hráče přeskládaný od nejzajímavějšího: tlačítka Vzájemně / Porovnat / Sdílet hned pod panelem, pak graf, forma, poslední zápasy, soupeři, výhry…",
+      "Porovnání hráčů: predikce vzájemného zápasu (šance, body STR, přepínač STR | STR+)",
+      "Přepínač STR | STR+ má pevné místo, hodnota podle samotného STR je na vlastním řádku",
+      "Oprava: forma na profilu hráče měla obrácené pořadí (nejnovější zápas je vpravo)",
+    ],
+  },
   {
     version: "2.15-dev.5", date: "11. 11. 2026", title: "Přepínač STR | STR+ u predikcí",
     items: [

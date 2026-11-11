@@ -1,6 +1,6 @@
 // Profil hráče: hlavička, kariéra v číslech, graf STR, sezóny s rozbalovacími družstvy (soutěž, tabulka, soupiska).
-import { playerLink, shareLink } from "../share";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { ShareSheet, shareOptions } from "../shareActions";
 import { vm, S } from "../../app/vm";
 import { Stis, type Match, type PlayerPage, type SeasonCard, type TeamMembership } from "../../core/models";
 import { Stats } from "../../core/stats";
@@ -19,6 +19,7 @@ export function ProfileScreen({ path, name, ask = false }: { path: string; name?
   const [go, setGo] = useState(!ask);
   const [switchAsk, setSwitchAsk] = useState(false);
   const [switchErr, setSwitchErr] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
   // z Hledat se profil stahuje až po klepnutí na „Načíst“ (pokud už není v paměti)
   const gated = ask && !go && !isMe && !vm.players.has(path) && vm.loadingPlayers.get(path) !== true;
   useEffect(() => { if (!isMe && !gated) vm.loadPlayer(path); }, [path, isMe, gated]);
@@ -55,6 +56,7 @@ export function ProfileScreen({ path, name, ask = false }: { path: string; name?
   const clubs = Array.from(new Set(p.seasons.map((s) => s.club).filter((x): x is string => !!x)));
   const seasons = [...p.seasons].sort((a, b) => b.year - a.year);
   const newest = seasons[0]?.year ?? null;
+  const sec = profileSections(p);
   const mutual: Match[] = !isMe && p.id ? vm.meWithLive()?.chronological.filter((m) => m.opponentId === p.id) ?? [] : [];
 
   return (
@@ -77,6 +79,19 @@ export function ProfileScreen({ path, name, ask = false }: { path: string; name?
         <a href={Stis.BASE + p.path} target="_blank" rel="noopener" style={{ color: "#AFC3EE", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>Otevřít na STIS ↗</a>
       </NavyHeader>
       <div className="col g12 px16">
+        <div className="row g8">
+          {!isMe && me && mutual.length > 0 && <OButton text={`Vzájemně ${mutual.filter((m) => m.won).length}–${mutual.filter((m) => !m.won).length}`} onClick={() => vm.go({ t: "H2H", key: mutual[mutual.length - 1].opponentKey })} style={{ flex: 1 }} />}
+          {!isMe && me && <OButton text="Porovnat" onClick={() => vm.go({ t: "Compare", a: me.path, b: path })} style={{ flex: 1 }} />}
+          <OButton text="Sdílet" onClick={() => setShareOpen(true)} style={{ flex: isMe ? 1 : "none" }} />
+        </div>
+        {shareOpen && <ShareSheet opts={shareOptions({ t: "Player", path })} onClose={() => setShareOpen(false)} />}
+        <AppCard><StrChart series={[{ color: isMe ? C.Blue : C.Orange, points: strPoints(p, "vse") }]} height={190} /></AppCard>
+        {sec?.forma}
+        <SectionTitle text="Poslední zápasy" />
+        <ListCard>{ch.slice(-10).reverse().map((m, i) => <MatchRow key={i} m={m} onClick={() => {}} />)}</ListCard>
+        <Muted size={11} text={`Sezóna ${seasonLabel(lastSeason)} je nejnovější se zápasy.`} />
+        {sec?.souperi}
+        {sec?.wins}
         <AppCard>
           <T bold>Kariéra v číslech</T>
           <div className="row g8" style={{ flexWrap: "wrap" }}>
@@ -87,27 +102,7 @@ export function ProfileScreen({ path, name, ask = false }: { path: string; name?
           </div>
           {clubs.length > 0 && <Muted size={12} maxLines={3} text={`Oddíly: ${clubs.join(", ")}`} />}
         </AppCard>
-        <AppCard><StrChart series={[{ color: isMe ? C.Blue : C.Orange, points: strPoints(p, "vse") }]} height={190} /></AppCard>
-        <ProfileExtras p={p} />
-        {!isMe && me && (
-          <div className="row g8">
-            {mutual.length > 0 && <OButton text={`Vzájemně ${mutual.filter((m) => m.won).length}–${mutual.filter((m) => !m.won).length}`} onClick={() => vm.go({ t: "H2H", key: mutual[mutual.length - 1].opponentKey })} style={{ flex: 1 }} />}
-            <OButton text="Porovnat se mnou" onClick={() => vm.go({ t: "Compare", a: me.path, b: path })} style={{ flex: 1 }} />
-          </div>
-        )}
-        {!isMe && <OButton text="Přepnout se na tohoto hráče" onClick={() => setSwitchAsk(true)} />}
-        {switchErr && <Muted text={switchErr} size={13} color={C.OrangeText} />}
-        {switchAsk && (
-          <Dialog title="Přepnout profil?" onClose={() => setSwitchAsk(false)} actions={<>
-            <OButton text="Zrušit" onClick={() => setSwitchAsk(false)} />
-            <PrimaryButton text="Přepnout" onClick={() => { setSwitchAsk(false); vm.setProfile(path, (e) => { if (e) setSwitchErr(e); else vm.go(S.Overview); }); }} />
-          </>}>
-            <Muted size={14} maxLines={6} text={`Aplikace se bude chovat, jako byste byl ${p.name}: přehled, družstva, příští zápasy a predikce. Zpět na svůj profil se přepnete ikonou ⇄ na Přehledu.`} />
-          </Dialog>
-        )}
-        <OButton full text="Sdílet profil" onClick={() => shareLink(p.name, `${p.name} – STR ${p.currentStr ?? "–"} (MySTIS)`, playerLink(p.path))} />
-        {!isMe && me && <OButton full enabled={!vm.loadingMe} text={vm.loadingMe ? "Přepínám…" : "Přepnout aplikaci na tohoto hráče"} onClick={() => vm.setProfile(p.path, () => {})} />}
-
+        {isMe ? <>{sec?.rekordy}{sec?.sezony}</> : <>{sec?.sezony}{sec?.rekordy}</>}
         <div className="row clickable" onClick={() => setSeasonsOpen(!seasonsOpen)} style={{ padding: "8px 4px 0" }}>
           <div className="col w1">
             <T bold size={18}>Sezóny a družstva</T>
@@ -117,10 +112,16 @@ export function ProfileScreen({ path, name, ask = false }: { path: string; name?
         </div>
         {seasonsOpen && !seasons.length && <Empty text="STIS neuvádí žádné sezóny." />}
         {seasonsOpen && seasons.map((s) => <SeasonBlock key={s.year} s={s} matches={bySeason.get(s.year) ?? []} newest={s.year === newest} isMe={isMe} />)}
-
-        <SectionTitle text="Poslední zápasy" />
-        <ListCard>{ch.slice(-10).reverse().map((m, i) => <MatchRow key={i} m={m} onClick={() => {}} />)}</ListCard>
-        <Muted size={11} text={`Sezóna ${seasonLabel(lastSeason)} je nejnovější se zápasy.`} />
+        {!isMe && <div style={{ textAlign: "center" }}><span className="clickable" onClick={() => setSwitchAsk(true)} style={{ color: C.Muted, fontSize: 13, fontWeight: 600, textDecoration: "underline" }}>Přepnout aplikaci na tohoto hráče</span></div>}
+        {switchErr && <Muted text={switchErr} size={13} color={C.OrangeText} />}
+        {switchAsk && (
+          <Dialog title="Přepnout profil?" onClose={() => setSwitchAsk(false)} actions={<>
+            <OButton text="Zrušit" onClick={() => setSwitchAsk(false)} />
+            <PrimaryButton text="Přepnout" onClick={() => { setSwitchAsk(false); vm.setProfile(path, (e) => { if (e) setSwitchErr(e); else vm.go(S.Overview); }); }} />
+          </>}>
+            <Muted size={14} maxLines={6} text={`Aplikace se bude chovat, jako byste byl ${p.name}: přehled, družstva, příští zápasy a predikce. Zpět na svůj profil se přepnete ikonou ⇄ na Přehledu.`} />
+          </Dialog>
+        )}
         <div style={{ height: 8 }} />
       </div>
     </div>
@@ -252,8 +253,9 @@ export function biggestJump(pts: [number, number][]): readonly [number, number] 
   return best;
 }
 
-/** Nejcennější výhry, soupeři, síla soupeřů, přehled sezón, rekordy a forma. */
-function ProfileExtras({ p }: { p: PlayerPage }) {
+type Sections = { wins: ReactNode; forma: ReactNode; souperi: ReactNode; sezony: ReactNode; rekordy: ReactNode };
+/** Sekce profilu (nejcennější výhry, forma, soupeři, přehled sezón, rekordy) – pořadí určuje ProfileScreen. */
+function profileSections(p: PlayerPage): Sections | null {
   const ch = p.chronological;
   if (!ch.length) return null;
   const rec0 = Stats.records(p);
@@ -280,8 +282,8 @@ function ProfileExtras({ p }: { p: PlayerPage }) {
       <T bold color={color} style={{ flex: "none" }}>{`${o.record} ›`}</T>
     </div>
   );
-  return (
-    <>
+  return {
+    wins: (<>
       <SectionTitle text="Nejcennější výhry" />
       <ListCard>
         {!wins.length && <Empty text="Zatím žádné výhry se známým STR soupeře." />}
@@ -302,13 +304,15 @@ function ProfileExtras({ p }: { p: PlayerPage }) {
           </div>
         ))}
       </ListCard>
-
+    </>),
+    forma: (<>
       <AppCard>
         <T bold>Forma</T>
-        <FormDots results={last10.map((m) => m.won)} />
+        <FormDots results={[...last10].reverse().map((m) => m.won)} />
         <Muted size={13} text={`Posledních ${last10.length}: ${last10.filter((m) => m.won).length}–${last10.filter((m) => !m.won).length} · aktuální série ${Math.abs(cur)}× ${cur > 0 ? "výhra" : "prohra"}`} />
       </AppCard>
-
+    </>),
+    souperi: (<>
       <AppCard>
         <T bold>Soupeři v číslech</T>
         {opp(rec0.nemesis && rec0.nemesis.losses > rec0.nemesis.wins ? rec0.nemesis : null, "Nejtěžší soupeř (min. 3 zápasy)", C.OrangeText)}
@@ -326,7 +330,8 @@ function ProfileExtras({ p }: { p: PlayerPage }) {
         ))}
         <Muted size={11} maxLines={2} text="Bilance, úspěšnost a o kolik výher víc/méně, než odpovídá STR soupeřů." />
       </AppCard>
-
+    </>),
+    sezony: (<>
       <AppCard>
         <T bold>Přehled sezón</T>
         <div className="row">
@@ -350,7 +355,8 @@ function ProfileExtras({ p }: { p: PlayerPage }) {
           );
         })}
       </AppCard>
-
+    </>),
+    rekordy: (<>
       <AppCard>
         <T bold>Rekordy</T>
         <KeyValue label="Nejdelší série výher" value={rec0.longestWin.length ? `${rec0.longestWin.length} (${rec0.longestWin.from?.dateText ?? ""} – ${rec0.longestWin.to?.dateText ?? ""})` : "–"} />
@@ -365,6 +371,6 @@ function ProfileExtras({ p }: { p: PlayerPage }) {
           </div>
         )}
       </AppCard>
-    </>
-  );
+    </>),
+  };
 }

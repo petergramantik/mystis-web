@@ -291,9 +291,9 @@ export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = f
       </TileRow>}
       <ProbBar p={pWin + st.pDraw / 2} reverse={!myHome} />
       {!st.finished && (
-        <div className="row g8" style={{ flexWrap: "wrap" }}>
-          <ModelToggle dark />
-          {base && vm.complexOn && <Muted color={C.MutedOnNavy} size={12} text={neutral ? `STR: domácí ${Stats.pct(base.pHomeWin)} · hosté ${Stats.pct(base.pAwayWin)}` : `STR: výhra ${Stats.pct(myHome ? base.pHomeWin : base.pAwayWin)}`} />}
+        <div className="col g4">
+          <ModelToggle dark style={{ alignSelf: "flex-start" }} />
+          {base && vm.complexOn && <Muted color={C.MutedOnNavy} size={12} text={neutral ? `Podle samotného STR: domácí ${Stats.pct(base.pHomeWin)} · hosté ${Stats.pct(base.pAwayWin)}` : `Podle samotného STR: výhra ${Stats.pct(myHome ? base.pHomeWin : base.pAwayWin)}`} />}
         </div>
       )}
       {st.finished ? <Muted color={C.MutedOnNavy} size={13} text={neutral ? `Konečný výsledek ${st.home} : ${st.away}` : `Konečný výsledek z pohledu vašeho družstva: ${my} : ${opp}`} />

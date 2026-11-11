@@ -1,7 +1,8 @@
+import { ModelToggle } from "../modelToggle";
 import { useEffect, useState } from "react";
 import { vm, S } from "../../app/vm";
 import { Stis, type PlayerPage, type TeamRoster } from "../../core/models";
-import { Stats } from "../../core/stats";
+import { Stats, StrModel } from "../../core/stats";
 import type { SearchPlayer } from "../../core/search";
 import {
   AppCard, BigNumber, Empty, TextField, C, Chips, Divider, ErrorBox, Legend, ListCard, Loading, Muted, Pill, SectionTitle, StrChart, T, signedInt,
@@ -178,8 +179,34 @@ export function CompareScreen({ a0, b0 }: { a0: string | null; b0: string | null
         const fiveA = pa.chronological.filter((m) => m.fiveSetter), fiveB = pb.chronological.filter((m) => m.fiveSetter);
         const w = (l: { won: boolean }[]) => l.filter((m) => m.won).length;
         const mutual = pa.chronological.filter((m) => m.opponentId && m.opponentId === pb.id);
+        const strA = pa.currentStr, strB = pb.currentStr;
+        const h2h = vm.complexOn && pa.id && pb.id ? vm.pairInfo(pa.id, pb.id) : null;
+        const first = (n: string) => n.split(" ")[0];
         return (
           <>
+            {strA != null && strB != null && (() => {
+              const p = StrModel.winProbability(strA + (h2h?.adj ?? 0), strB), pBase = StrModel.winProbability(strA, strB);
+              const fav = p >= 0.5 ? pa.name : pb.name;
+              return (
+                <AppCard>
+                  <div className="row g8">
+                    <T bold style={{ flex: 1 }}>{Math.abs(p - 0.5) < 0.005 ? "Vzájemný zápas: vyrovnané" : `Vzájemný zápas: favorit ${first(fav)}`}</T>
+                    <ModelToggle />
+                  </div>
+                  <div className="row" style={{ height: 9, borderRadius: 5, overflow: "hidden" }}>
+                    <div style={{ width: `${p * 100}%`, background: C.Blue, height: "100%" }} />
+                    <div style={{ flex: 1, background: C.Orange, opacity: 0.85, height: "100%" }} />
+                  </div>
+                  <div className="row">
+                    <T size={14} bold color={C.Blue} style={{ flex: 1 }}>{`${first(pa.name)} ${Stats.pct(p)}`}</T>
+                    <T size={14} bold color={C.Orange}>{`${Stats.pct(1 - p)} ${first(pb.name)}`}</T>
+                  </div>
+                  {vm.complexOn && <Muted size={12} maxLines={2} text={h2h && h2h.games ? `STR+: vzájemná korekce ${first(pa.name)} ${signedInt(h2h.adj)} STR z ${h2h.games} zápasů · podle samotného STR ${Stats.pct(pBase)} : ${Stats.pct(1 - pBase)}` : "STR+: vzájemná korekce je nulová, šance je stejná jako podle STR."} />}
+                  <Muted size={13} maxLines={3} text={`${first(pa.name)}: výhra +${StrModel.gainIfWin(strA, strB)} / prohra −${-StrModel.lossIfLose(strA, strB)} · ${first(pb.name)}: výhra +${StrModel.gainIfWin(strB, strA)} / prohra −${-StrModel.lossIfLose(strB, strA)} STR`} />
+                  {pa.id && pb.id && <span className="clickable" style={{ color: C.Blue, fontWeight: 600, fontSize: 14 }} onClick={() => vm.go({ t: "Duel", aId: pa.id, aName: pa.name, bId: pb.id, bName: pb.name })}>{mutual.length ? `Vzájemné zápasy (${w(mutual)}–${mutual.length - w(mutual)}) ›` : "Detail dvojice ›"}</span>}
+                </AppCard>
+              );
+            })()}
             <AppCard>
               <Chips options={[["1r", "1 rok"], ["3r", "3 roky"], ["vse", "Vše"]]} selected={period} onSelect={setPeriod} />
               <StrChart series={[{ color: C.Blue, points: strPoints(pa, period) }, { color: C.Orange, points: strPoints(pb, period) }]} />
