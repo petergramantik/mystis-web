@@ -9,7 +9,7 @@ import { matchForecast, myForecast } from "../../core/season";
 import type { NextMatchContext } from "../../core/repository";
 import {
   AppCard, Spinner, Avatar, BigNumber, C, Chips, Divider, Empty, ErrorBox, ErrorWithDiagnostics, FormDots, ListCard, Loading, Muted, OButton,
-  Pill, PrimaryButton, ProbBar, SectionTitle, T, TextField, dec1,
+  Pill, PrimaryButton, ProbBar, SectionTitle, T, TextField,
 } from "../components";
 import { fmtWhenLong } from "../fmt";
 import { HallCard } from "../hall";

@@ -4,7 +4,7 @@ import type { Match } from "../../core/models";
 import { ClubStat, OpponentStat, Stats, StrModel, sum } from "../../core/stats";
 import {
   AppCard, Avatar, BigNumber, C, Chips, DMY, Divider, Empty, HeaderPlayer, ListCard, Loading, Muted, NavyHeader, OButton, Pill, ProbBar,
-  ResultBadge, SectionTitle, Segmented, StatTile, T, TextField, TileRow, dec1, signedInt, Icon,
+  ResultBadge, SectionTitle, Segmented, StatTile, T, TextField, TileRow, signedInt, Icon,
 } from "../components";
 
 export function OpponentsScreen() {

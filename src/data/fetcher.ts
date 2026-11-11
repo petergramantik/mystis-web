@@ -70,10 +70,24 @@ async function idbSize(): Promise<number> {
   });
 }
 
+/** Smaže stránky starší než maxAge (IndexedDB jinak jen roste); spouští se nejvýš jednou denně. */
+async function idbPrune(maxAge: number) {
+  const d = await db();
+  if (!d) return;
+  const limit = Date.now() - maxAge;
+  try {
+    const q = d.transaction(STORE, "readwrite").objectStore(STORE).openCursor();
+    q.onsuccess = () => { const c = q.result; if (!c) return; if (((c.value as Entry).at ?? 0) < limit) c.delete(); c.continue(); };
+  } catch { /* */ }
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Stránek v paměti nejvýš tolik (zbytek je v IndexedDB). */
+const MEM_MAX = 150;
 
 export class WebFetcher implements Fetcher {
   private mem = new Map<string, Entry>();
+  private inflight = new Map<string, Promise<string>>();
   private cookie = "";
   private nextSlot = 0;
   /** Diagnostika posledního hledání (zobrazí se, když hledání nic nenajde). */
@@ -83,6 +97,18 @@ export class WebFetcher implements Fetcher {
 
   constructor() {
     try { this.cookie = sessionStorage.getItem(SP + "cookie") ?? ""; } catch { /* */ }
+    try {
+      const day = new Date().toISOString().slice(0, 10);
+      if (typeof indexedDB !== "undefined" && localStorage.getItem(SP + "prune_day") !== day) {
+        localStorage.setItem(SP + "prune_day", day);
+        setTimeout(() => void idbPrune(60 * 86_400_000), 20_000);
+      }
+    } catch { /* soukromý režim */ }
+  }
+  /** Uloží do paměti s omezením velikosti (nejdéle nepoužité se zahodí). */
+  private remember(path: string, e: Entry) {
+    this.mem.delete(path); this.mem.set(path, e);
+    while (this.mem.size > MEM_MAX) this.mem.delete(this.mem.keys().next().value!);
   }
 
   async cachedAt(path: string): Promise<number | null> {
@@ -96,12 +122,15 @@ export class WebFetcher implements Fetcher {
     // hledání se neukládá do mezipaměti (při přesměrování by se uložila hlavní stránka)
     if (path.startsWith("/hledat")) return this.search(path);
     const e = this.mem.get(path) ?? (await idbGet(path));
-    if (e) this.mem.set(path, e);
+    if (e) this.remember(path, e);
     if (e && maxAgeMs > 0 && Date.now() - e.at < maxAgeMs) return e.html;
     try {
-      const html = await this.download(path);
+      // stejná stránka požadovaná víckrát najednou se stahuje jen jednou
+      let pend = this.inflight.get(path);
+      if (!pend) { pend = this.download(path).finally(() => this.inflight.delete(path)); this.inflight.set(path, pend); }
+      const html = await pend;
       const ne = { html, at: Date.now() };
-      this.mem.set(path, ne);
+      this.remember(path, ne);
       void idbPut(path, ne);
       return html;
     } catch (err) {

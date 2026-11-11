@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { vm, S } from "../../app/vm";
 import type { LosMatch } from "../../core/models";
 import { Stats, groupBy, sum } from "../../core/stats";
-import { LDT_MAX, fmtShort, ldDow, ldtDate, nowLdt, today } from "../../core/dates";
+import { LDT_MAX, fmtShort, ldDow, ldtDate, nowLdt } from "../../core/dates";
 import { C, Chips, Divider, Empty, ListCard, Loading, MatchRow, Muted, Pill, Segmented, T, TextField } from "../components";
 import { fmtMonth, hhmmLdt } from "../fmt";
 import { LiveBoard } from "./LiveBoard";

@@ -6,12 +6,10 @@ import { vm } from "../../app/vm";
 import { Stis, type Match, type PlayerPage, type ZapisGame } from "../../core/models";
 import { Stats, StrModel, sum } from "../../core/stats";
 import { Live } from "../../core/live";
-import { Parsers } from "../../core/parsers";
-import { today } from "../../core/dates";
 import { roundScore } from "../../core/search";
 import { HallCard } from "../hall";
 import {
-  AppCard, BigNumber, C, DMY, Divider, Empty, HeaderPlayer, KeyValue, ListCard, Loading, Muted, NavyHeader, ProbBar, ResultBadge, SectionTitle, T, dec1, signedInt,
+  AppCard, BigNumber, C, DMY, Divider, Empty, HeaderPlayer, KeyValue, ListCard, Loading, Muted, NavyHeader, ResultBadge, SectionTitle, T, signedInt,
   SetsLine, TeamName,
 } from "../components";
 

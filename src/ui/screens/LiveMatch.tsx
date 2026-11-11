@@ -7,7 +7,6 @@ import { LiveModeSwitch } from "./Records";
 import type { RosterPlayer } from "../../core/models";
 import { Stats, maxBy } from "../../core/stats";
 import { Live, MatchFormats, LiveTimeline, lp, type LiveGame, type LivePlayer, type LiveState, type MyLiveGame, type PlayerLive } from "../../core/live";
-import { roundScore } from "../../core/search";
 import { nowLdt } from "../../core/dates";
 import {
   AppCard, BigNumber, C, Divider, Empty, ListCard, Loading, Muted, NavyHeader, OButton, PrimaryButton, ProbBar, SectionTitle, Segmented,

@@ -40,7 +40,6 @@ export function nowLdt(): LDT {
   const n = new Date();
   return ldtOf(n.getFullYear(), n.getMonth() + 1, n.getDate(), n.getHours(), n.getMinutes());
 }
-export const HOURS = 60;
 
 const pad = (n: number) => (n < 10 ? "0" : "") + n;
 export function fmtDate(d: LDate | null | undefined): string {
@@ -59,8 +58,3 @@ export function fmtDT(t: LDT | null | undefined): string {
 }
 export function ldtHour(t: LDT): number { return Math.floor((t - ldtDate(t) * 1440) / 60); }
 export function ldtMinute(t: LDT): number { return (t - ldtDate(t) * 1440) % 60; }
-export function ldtToMs(t: LDT): number {
-  const d = ldtDate(t);
-  const mins = t - d * 1440;
-  return new Date(ldYear(d), ldMonth(d) - 1, ldDay(d), Math.floor(mins / 60), mins % 60).getTime();
-}

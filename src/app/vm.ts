@@ -5,11 +5,11 @@ import { Parsers } from "../core/parsers";
 import { shortTeam, surname } from "../core/names";
 import { StisRepository, HOUR, type NextMatchContext } from "../core/repository";
 import { playSound, soundUnlocked, onSoundUnlock } from "./sound";
-import { Stats, StrModel, LadderEntry, maxBy, minBy, distinct, distinctBy, type SetStats } from "../core/stats";
+import { Stats, StrModel, LadderEntry, minBy, distinct, distinctBy, type SetStats } from "../core/stats";
 import { Live, LiveTimeline, MatchFormats, type MatchFormat, type MyLiveGame } from "../core/live";
 import { Stability, type SearchClub, type SearchPlayer } from "../core/search";
 import { pointsRule, predictSeason, type SeasonPrediction, type SeasonTeam } from "../core/season";
-import { type LDate, LDATE_MIN, LDT_MAX, fmtDT, ldDay, ldMonth, ldYear, ldtDate, ldtHour, ldtMinute, ldtOf, today, nowLdt } from "../core/dates";
+import { type LDate, LDT_MAX, fmtDT, ldDay, ldMonth, ldYear, ldtDate, ldtHour, ldtMinute, ldtOf, today, nowLdt } from "../core/dates";
 import { FetchError, WebFetcher } from "../data/fetcher";
 import { prefs } from "../data/prefs";
 
@@ -1397,7 +1397,7 @@ export class AppVm {
           this.progressLabel = this.clubProgress;
           try {
             const p = await this.repo.player(e.path!, force ? 0 : 24 * HOUR);
-            if (p) { pages.set(e.id!, p); this.players.set(e.path!, p); }
+            if (p) { pages.set(e.id!, p); this.putPlayer(e.path!, p); }
           } catch { /* hráč zůstane s hodnotou ze soupisky */ }
           this.stepDone(); pendingSteps--;
           if (i % 4 === 3 || i === todo.length - 1) this.club = new ClubState(name, teams, rosters, Stats.refreshLadder(ladder, pages, m, this.season()));
@@ -1527,6 +1527,18 @@ export class AppVm {
     })();
   }
 
+  /** Profilů hráčů v paměti nejvýš tolik; nejstarší se zahodí (při dalším otevření se rychle načtou z mezipaměti). */
+  private static PLAYERS_MAX = 120;
+  private putPlayer(path: string, p: PlayerPage) {
+    this.players.delete(path); this.players.set(path, p);
+    if (this.players.size <= AppVm.PLAYERS_MAX) return;
+    const keep = new Set([this.me?.path, ...this.next.flatMap((c) => c.myRoster.map((r) => r.path))]);
+    for (const k of this.players.keys()) {
+      if (this.players.size <= AppVm.PLAYERS_MAX) break;
+      if (keep.has(k)) continue;
+      this.players.delete(k); this.requested.delete(k); this.loadingPlayers.delete(k);
+    }
+  }
   loadPlayer(path: string, force = false) {
     if (this.loadingPlayers.get(path)) return;
     if (!force && this.players.has(path)) return;
@@ -1534,7 +1546,7 @@ export class AppVm {
     (async () => {
       try {
         const p = await this.repo.player(path, force ? 0 : 24 * HOUR);
-        if (p) this.players.set(path, p);
+        if (p) this.putPlayer(path, p);
       } catch {
         // stránky hráčů se většinou načítají na pozadí (STR soupeřů, změny STR) – chyba se nehlásí globálně;
         // obrazovka profilu ukáže vlastní „nepodařilo se načíst“
@@ -1827,7 +1839,8 @@ export class AppVm {
     }
   }
 
-  private soundHook = onSoundUnlock(() => this.emit());
+  /** odemčení zvuku překreslí aplikaci (odběr se drží po celou dobu běhu) */
+  readonly soundHook = onSoundUnlock(() => this.emit());
   /** Další notifikace mají jít potichu (zvuk obstará MP3 v aplikaci). */
   private notifySilent = false;
   private async post(tag: string, title: string, body: string, live = false, liveTeam = 0, livePath = "") {

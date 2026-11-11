@@ -4,12 +4,12 @@ import { SupportStrip } from "../support";
 import { MatchFormats } from "../../core/live";
 import { vm, S, type LastUtkani } from "../../app/vm";
 import { Clubs, Stis, type LosMatch } from "../../core/models";
-import { Stats, StrModel, sum } from "../../core/stats";
-import { matchForecast, myForecast } from "../../core/season";
+import { Stats, sum } from "../../core/stats";
+import { myForecast } from "../../core/season";
 import { Live } from "../../core/live";
 import { nowLdt } from "../../core/dates";
 import type { NextMatchContext } from "../../core/repository";
-import { roundScore, type SearchPlayer } from "../../core/search";
+import { type SearchPlayer } from "../../core/search";
 import {
   AppCard, Avatar, BigNumber, C, Chips, Marquee, Dialog, Empty, ErrorBox, ErrorWithDiagnostics, FormDots, Icon, ListCard, Loading, MatchRow,
   Muted, NavyHeader, Pill, PredictionText, shortTeam, PrimaryButton, ProbBar, ResultBadge, SectionTitle, Sparkline, Spinner, StatTile, T, TextField, TileRow, dec1, f0, signedInt,
@@ -82,12 +82,8 @@ export function OverviewScreen() {
   const live = vm.myLiveGames();
   let provisional: number | null = null;
   for (let i = live.length - 1; i >= 0; i--) if (live[i].strAfter != null) { provisional = Math.round(live[i].strAfter!); break; }
-  const running = vm.lastUtkani()?.running === true;
-  const wins = seasonMatches.filter((m) => m.won).length;
 
   // Pořadí: celý oddíl, nebo družstvo zvolené ve voliči
-  // úspěšnost a bilance: všechny soutěže sezóny, případně včetně neoficiálních výsledků z online zápisu
-  const scopeSub = seasonMatches.some((m) => m.unofficial) ? "vč. neoficiálních ›" : "všechny soutěže ›";
 
   const myTeams = Array.from(new Set(meL.chronological.filter((m) => m.season === season).map((m) => m.myTeam).filter((t) => t.trim())));
   const recent = meL.chronological.filter((m) => vm.recentTeam === "all" || Stats.fold(m.myTeam) === Stats.fold(vm.recentTeam)).slice(-6).reverse();

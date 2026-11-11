@@ -1,17 +1,15 @@
 import { useEffect, useState } from "react";
 import { vm, S } from "../../app/vm";
-import type { Match } from "../../core/models";
 import { Stats, maxBy } from "../../core/stats";
 import { MatchFormats } from "../../core/live";
 import { WebFetcher } from "../../data/fetcher";
 import {
-  AppCard, BigNumber, C, Empty, Icon, KeyValue, ListCard, Loading, MatchRow, Muted, NavyHeader, OButton, PrimaryButton, SectionTitle,
-  StatTile, StrChart, T, TextField, TileRow, Avatar, dec1, signedInt, Segmented, Spinner,
+  AppCard, C, Icon, KeyValue, ListCard, Loading, MatchRow, Muted, OButton, PrimaryButton, SectionTitle,
+  StatTile, T, TextField, TileRow, dec1, signedInt, Segmented, Spinner,
 } from "../components";
 import { DevCard, ProfileInput } from "./Overview";
 import { IS_DEV } from "../../app/channel";
 import { InstallCard } from "../install";
-import { strPoints } from "./StrScreen";
 import { APP_VERSION } from "../../app/version";
 import { statsKey } from "./AdminStats";
 
@@ -293,55 +291,6 @@ function ProxyRow() {
     <div className="row g8" style={{ padding: "0 4px" }}>
       <Muted text={`Připojení ke STIS: ${vm.prefs.proxyUrl.replace(/^https?:\/\//, "")}`} size={12} maxLines={2} style={{ flex: 1 }} />
       <button className="textbtn" style={{ fontSize: 12, padding: "6px 8px" }} onClick={() => setEdit(true)}>Změnit</button>
-    </div>
-  );
-}
-
-export function PlayerScreen({ path }: { path: string }) {
-  useEffect(() => { vm.loadPlayer(path); }, [path]);
-  const p = vm.players.get(path);
-  const me = vm.me;
-  if (!p) return <div style={{ padding: 16 }}>{vm.loadingPlayers.get(path) ? <Loading /> : <Empty text="Profil hráče se nepodařilo načíst." />}</div>;
-  const season = p.matches.length ? Math.max(...p.matches.map((m) => m.season)) : null;
-  const sm = p.chronological.filter((m) => m.season === season);
-  const f = Stats.form(p);
-  const mutual: Match[] = p.id ? vm.meWithLive()?.chronological.filter((m) => m.opponentId === p.id) ?? [] : [];
-  const w = sm.filter((m) => m.won).length;
-  return (
-    <div className="col g12">
-      <NavyHeader>
-        <div className="row g12">
-          <Avatar text={p.name} color={C.Orange} size={48} />
-          <div className="col w1">
-            <T size={20} bold color="#fff">{p.name}</T>
-            <Muted text={[p.clubName, p.birthYear != null ? `nar. ${p.birthYear}` : null].filter((x) => x).join(" · ")} color={C.MutedOnNavy} size={14} />
-          </div>
-        </div>
-        <div className="rowb">
-          <BigNumber text={`${p.currentStr ?? "–"}`} color="#fff" size={56} />
-          <Muted text="  STR" color={C.MutedOnNavy} size={16} style={{ whiteSpace: "pre", paddingBottom: 8 }} />
-        </div>
-        <TileRow>
-          <StatTile label="Sezóna" value={`${w}–${sm.length - w}`} dark />
-          <StatTile label="Forma" value={`${f.wins}–${f.losses}`} dark />
-          <StatTile label="Nejvyšší" value={`${p.ster.peak ?? "–"}`} dark />
-        </TileRow>
-      </NavyHeader>
-      <div className="col g12 px16">
-        <AppCard><StrChart series={[{ color: C.Orange, points: strPoints(p, "1r") }]} /></AppCard>
-        {me && (
-          <>
-            <div className="row g8">
-              {mutual.length > 0 && <OButton text={`Vzájemně ${mutual.filter((m) => m.won).length}–${mutual.filter((m) => !m.won).length}`} onClick={() => vm.go({ t: "H2H", key: mutual[mutual.length - 1].opponentKey })} style={{ flex: 1 }} />}
-              <OButton text="Porovnat se mnou" onClick={() => vm.go({ t: "Compare", a: me.path, b: path })} style={{ flex: 1 }} />
-            </div>
-            <OButton full enabled={!vm.loadingMe} text={vm.loadingMe ? "Přepínám…" : "Přepnout aplikaci na tohoto hráče"} onClick={() => vm.setProfile(p.path, () => {})} />
-          </>
-        )}
-        <SectionTitle text="Poslední zápasy" />
-        <ListCard>{p.chronological.slice(-10).reverse().map((m, i) => <MatchRow key={i} m={m} onClick={() => {}} />)}</ListCard>
-        <div style={{ height: 8 }} />
-      </div>
     </div>
   );
 }

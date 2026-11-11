@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { vm, S } from "../../app/vm";
 import { Stis, type PlayerPage, type TeamRoster } from "../../core/models";
-import { Stats, distinctBy } from "../../core/stats";
+import { Stats } from "../../core/stats";
 import type { SearchPlayer } from "../../core/search";
 import {
-  AppCard, BigNumber, Empty, TextField, C, Chips, Divider, ErrorBox, Field, Legend, ListCard, Loading, Muted, Pill, SectionTitle, StrChart, T, signedInt,
+  AppCard, BigNumber, Empty, TextField, C, Chips, Divider, ErrorBox, Legend, ListCard, Loading, Muted, Pill, SectionTitle, StrChart, T, signedInt,
 } from "../components";
 import { strPoints } from "./StrScreen";
 import { TeamForecast } from "./NextMatch";

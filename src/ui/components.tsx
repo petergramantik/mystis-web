@@ -53,9 +53,6 @@ export function initials(name: string): string {
   const r = name.split(/\s+/).filter((w) => w && /\p{L}/u.test(w[0])).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
   return r || "?";
 }
-/** Zkrácení zleva: "TJ Vlast Ježov B" -> "…Vlast Ježov B". */
-export const leftEllipsis = (text: string, max: number) => (text.length <= max ? text : "…" + text.slice(-(max - 1)).trimStart());
-
 // ---------------------------------------------------------------- základní prvky
 export function BigNumber({ text, color = C.Ink, size = 28, style }: { text: string; color?: string; size?: number; style?: CSSProperties }) {
   return <div className="big" style={{ color, fontSize: size, ...style }}>{text}</div>;
@@ -115,32 +112,6 @@ export function useWidth<T extends HTMLElement>(): [React.RefObject<T>, number] 
     return () => ro.disconnect();
   }, []);
   return [ref, w];
-}
-
-let measureCtx: CanvasRenderingContext2D | null = null;
-function textWidth(t: string, font: string): number {
-  measureCtx ??= document.createElement("canvas").getContext("2d");
-  if (!measureCtx) return t.length * 7;
-  measureCtx.font = font;
-  return measureCtx.measureText(t).width;
-}
-
-/** Text zkrácený zleva podle skutečné šířky (u družstev zůstane vidět rozlišující písmeno). */
-export function LeftEllipsisText({ text, color, size, bold, center }: { text: string; color: string; size: number; bold?: boolean; center?: boolean }) {
-  const [ref, w] = useWidth<HTMLDivElement>();
-  const [font, setFont] = useState("");
-  useLayoutEffect(() => { if (ref.current) { const cs = getComputedStyle(ref.current); setFont(`${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`); } }, [size, bold]);
-  let shown = text;
-  const maxPx = w - 4;
-  if (font && maxPx > 0 && textWidth(text, font) > maxPx) {
-    let lo = 0, hi = text.length;
-    while (lo < hi) {
-      const mid = Math.floor((lo + hi + 1) / 2);
-      if (textWidth("…" + text.slice(text.length - mid).trimStart(), font) <= maxPx) lo = mid; else hi = mid - 1;
-    }
-    shown = "…" + text.slice(text.length - lo).trimStart();
-  }
-  return <div ref={ref} style={{ color, fontSize: size, fontWeight: bold ? 700 : 400, whiteSpace: "nowrap", overflow: "hidden", width: "100%", textAlign: center ? "center" : undefined, lineHeight: 1.35 }}>{shown}</div>;
 }
 
 /**
