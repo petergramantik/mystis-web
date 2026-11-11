@@ -30,7 +30,9 @@ export type Screen =
   | { t: "Overview" } | { t: "Ladder" } | { t: "Str" } | { t: "Matches" } | { t: "Opponents" }
   | { t: "Club"; name: string } | { t: "H2H"; key: string } | { t: "NextMatch" } | { t: "Captain" }
   | { t: "Compare"; a: string | null; b: string | null } | { t: "Records" } | { t: "Settings" }
-  | { t: "Player"; path: string } | { t: "Live"; team: number }
+  | { t: "Player"; path: string; name?: string; ask?: boolean } | { t: "Live"; team: number }
+  | { t: "BrowseClub"; path: string; name: string }
+  | { t: "BrowseComp"; svaz: string; rocnik: number; soutez: string; name: string }
   | { t: "Duel"; aId: string; aName: string; bId: string; bName: string; pA?: number }
   | { t: "ZapisDetail"; path: string; myTeam: string }
   | { t: "Fixture"; team: number; round: string; home: string; away: string }
@@ -165,6 +167,13 @@ export class AppVm {
     else if (h && h.startsWith("/hrac-")) s = { t: "Player", path: h };
     else if (pr) s = { t: "Prediction", data: pr };
     else if (q.has("m")) s = { t: "Model", section: q.get("m") || null };
+    else if (q.get("s")) {
+      const [id, ...nm] = q.get("s")!.split("~"); const [svaz, rocnik, soutez] = id.split(".");
+      if (svaz && rocnik && soutez) s = { t: "BrowseComp", svaz, rocnik: +rocnik, soutez, name: nm.join("~") || "Soutěž" };
+    } else if (q.get("o")?.startsWith("/oddil-")) {
+      const [path, ...nm] = q.get("o")!.split("~");
+      s = { t: "BrowseClub", path, name: nm.join("~") || "Oddíl" };
+    }
     else if (d) {
       const [ap, an, bp, bn] = d.split("~");
       if (ap && bp) s = { t: "Duel", aId: idOf(ap), aName: an ?? "", bId: idOf(bp), bName: bn ?? "" };
@@ -1481,6 +1490,68 @@ export class AppVm {
   }
 
   // ---------- vyhledávání na STIS
+  // ---------- karta Hráči → Hledat (nic se nenačítá samo)
+  playersTab: "mine" | "search" = "mine";
+  compView: "tab" | "los" = "tab";
+  browse: { kind: "p" | "o" | "s"; query: string; players: SearchPlayer[] | null; clubs: SearchClub[] | null; loading: boolean; err: string | null } =
+    { kind: "p", query: "", players: null, clubs: null, loading: false, err: null };
+  browseSearch() {
+    const b = this.browse, q = b.query.trim();
+    if (b.kind === "s" || q.length < 2) return;
+    b.loading = true; b.err = null; this.emit();
+    const done = (e: string | null) => { b.loading = false; b.err = e; this.emit(); };
+    if (b.kind === "p") this.repo.searchPlayers(q).then((r) => { b.players = r; done(null); }, (e) => done(err(e)));
+    else this.repo.searchClubs(q).then((r) => { b.clubs = r; done(null); }, (e) => done(err(e)));
+  }
+  /** Soutěže známé z načtených dat (moje družstva, profily hráčů, načtené oddíly a soupeři). */
+  knownComps(): { svaz: string; rocnik: number; soutez: string; name: string }[] {
+    const out = new Map<string, { svaz: string; rocnik: number; soutez: string; name: string }>();
+    const add = (r: TeamRef | null | undefined, name: string | null | undefined) => {
+      if (!r?.soutez || !r.svaz) return;
+      const k = this.compKey(r), cur = out.get(k);
+      if (!cur || (!cur.name && name)) out.set(k, { svaz: r.svaz, rocnik: r.rocnik, soutez: r.soutez, name: name ?? cur?.name ?? "" });
+    };
+    for (const c of this.next) add(c.myTeam.ref, c.myTeam.competition);
+    for (const p of [this.me, ...this.players.values()]) for (const s of p?.seasons ?? []) for (const t of s.teams) add(t.ref, t.competition);
+    for (const r of this.browseRecent()) if (r.k === "s") { const [svaz, rocnik, soutez] = r.id.split("|"); add({ id: "", name: "", svaz, rocnik: +rocnik, soutez }, r.name); }
+    return Array.from(out.values()).sort((a, b) => b.rocnik - a.rocnik || a.name.localeCompare(b.name, "cs"));
+  }
+  /** Naposledy otevřené (hráči, oddíly, soutěže) – rychlé odkazy v Hledat. */
+  browseRecent(): { k: "p" | "o" | "s"; id: string; name: string }[] {
+    try { return JSON.parse(prefs.browseRecentJson || "[]"); } catch { return []; }
+  }
+  addBrowseRecent(k: "p" | "o" | "s", id: string, name: string) {
+    const list = [{ k, id, name }, ...this.browseRecent().filter((x) => !(x.k === k && x.id === id))].slice(0, 12);
+    prefs.browseRecentJson = JSON.stringify(list);
+  }
+  clubPages = new Map<string, ClubPage>();
+  clubPageLoading = new Set<string>();
+  clubPageErr = new Map<string, string>();
+  loadClubPage(path: string, force = false) {
+    if (this.clubPageLoading.has(path) || (!force && this.clubPages.has(path))) return;
+    this.clubPageLoading.add(path); this.clubPageErr.delete(path); this.emit();
+    this.repo.club(path, force ? 0 : 24 * HOUR).then((c) => { this.clubPages.set(path, c); }, (e) => { this.clubPageErr.set(path, err(e)); })
+      .finally(() => { this.clubPageLoading.delete(path); this.emit(); });
+  }
+  clubBrowseRosters = new Map<string, TeamRoster[]>();
+  clubRosterLoading = new Set<string>();
+  /** Soupisky všech družstev oddílu → žebříček hráčů oddílu podle STR. */
+  loadClubRosters(path: string) {
+    const c = this.clubPages.get(path);
+    if (!c || this.clubRosterLoading.has(path)) return;
+    this.clubRosterLoading.add(path); this.emit();
+    this.repo.clubRosters(c.teams).then((r) => { this.clubBrowseRosters.set(path, r); }, (e) => { this.clubPageErr.set(path, err(e)); })
+      .finally(() => { this.clubRosterLoading.delete(path); this.emit(); });
+  }
+  /** Data soutěže (tabulka + rozpis) jsou načtená. */
+  compBrowseLoaded(c: { svaz: string; rocnik: number; soutez: string }): boolean {
+    return this.tabulky.has(Stis.tabulka(c.svaz, c.rocnik, c.soutez)) || this.compLos.has(this.compKey(c));
+  }
+  loadCompBrowse(c: { svaz: string; rocnik: number; soutez: string }, force = false) {
+    this.loadTabulka(c.svaz, c.rocnik, c.soutez, force);
+    this.loadCompLos(c, force);
+  }
+
   searchPlayers(query: string, onResult: (r: SearchPlayer[] | null, e: string | null) => void) {
     this.repo.searchPlayers(query).then((r) => onResult(r, null), (e) => onResult(null, err(e)));
   }

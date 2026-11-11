@@ -66,6 +66,8 @@ export const prefs = {
   get remindedMatch() { return get("reminded_match"); },
   set remindedMatch(v: string | null) { set("reminded_match", v); },
   /** Naposledy použité profily: [cesta, jméno], nejnovější první. */
+  get browseRecentJson() { return get("browse_recent") ?? ""; },
+  set browseRecentJson(v: string) { set("browse_recent", v); },
   get recentProfiles(): [string, string][] {
     return (get("recent_profiles") ?? "").split("\n").filter((x) => x.includes("|"))
       .map((x) => [x.substring(0, x.indexOf("|")), x.substring(x.indexOf("|") + 1)] as [string, string]);

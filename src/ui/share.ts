@@ -11,6 +11,9 @@ export function appLink(params: Record<string, string> = {}): string {
 }
 export const matchLink = (zapisPath: string) => appLink({ z: zapisPath });
 export const playerLink = (playerPath: string) => appLink({ h: playerPath });
+/** Soutěž (?s=svaz.ročník.soutěž~název) a oddíl (?o=cesta~název). */
+export const compLink = (c: { svaz: string; rocnik: number; soutez: string; name: string }) => appLink({ s: `${c.svaz}.${c.rocnik}.${c.soutez}~${c.name}` });
+export const clubLink = (path: string, name: string) => appLink({ o: `${path}~${name}` });
 /** Sdílená predikce utkání (vše potřebné k jejímu přepočtu u příjemce). */
 export interface SharedPred {
   s: string; r: number; c: string; cl: string; k: string; t: number | null; dt: string;

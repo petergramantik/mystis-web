@@ -2,12 +2,22 @@
 import { IS_DEV } from "./channel";
 
 export const PROD_VERSION = "2.14";
-export const DEV_VERSION = "2.15-dev.2";
+export const DEV_VERSION = "2.15-dev.3";
 export const APP_VERSION = IS_DEV ? DEV_VERSION : PROD_VERSION;
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.15-dev.3", date: "11. 11. 2026", title: "Karta Hráči – hledání kohokoli",
+    items: [
+      "Karta Soupeři se jmenuje Hráči a má dvě záložky: Moji soupeři a Hledat",
+      "Hledat: hráči a oddíly na STIS, soutěže z vašich družstev, hráčů a oddílů nebo z vloženého odkazu ze STIS",
+      "Nic se nestahuje samo: hráč, oddíl i soutěž mají tlačítko „Načíst“",
+      "Soutěž: tabulka (i s predikcí po sezóně) a rozpis s výsledky po kolech; oddíl: družstva a hráči oddílu podle STR",
+      "U cizího hráče: Přepnout se na tohoto hráče; naposledy otevřené položky; sdílení odkazu na soutěž a oddíl",
+    ],
+  },
   {
     version: "2.15-dev.2", date: "11. 11. 2026", title: "Audit a vyčištění",
     items: [

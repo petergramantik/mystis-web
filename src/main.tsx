@@ -1,3 +1,4 @@
+import { BrowseClubScreen, BrowseCompScreen, PlayersScreen } from "./ui/screens/Browse";
 import { IS_DEV, SP } from "./app/channel";
 import { AdminStatsScreen } from "./ui/screens/AdminStats";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -8,7 +9,7 @@ import { OnboardingScreen, OverviewScreen } from "./ui/screens/Overview";
 import { LadderScreen } from "./ui/screens/Ladder";
 import { StrScreen } from "./ui/screens/StrScreen";
 import { MatchesScreen } from "./ui/screens/Matches";
-import { ClubScreen, H2HScreen, OpponentsScreen } from "./ui/screens/Opponents";
+import { ClubScreen, H2HScreen } from "./ui/screens/Opponents";
 import { FixtureScreen, NextMatchScreen, PredictionScreen } from "./ui/screens/NextMatch";
 import { LiveScreen, LiveTopRing } from "./ui/screens/LiveMatch";
 import { OtherTeamScreen, TeamScreen } from "./ui/screens/Team";
@@ -29,7 +30,7 @@ const TABS: [Screen, string, string][] = [
   [S.Ladder, "Žebříčky", "leaderboard"],
   [S.Str, "STR", "chart"],
   [S.Matches, "Utkání", "list"],
-  [S.Opponents, "Soupeři", "search"],
+  [S.Opponents, "Hráči", "search"],
 ];
 
 function title(s: Screen): string {
@@ -38,7 +39,9 @@ function title(s: Screen): string {
     case "Ladder": return "Žebříčky";
     case "Str": return "Vývoj STR";
     case "Matches": return "Utkání";
-    case "Opponents": return "Soupeři";
+    case "Opponents": return "Hráči";
+    case "BrowseClub": return "Oddíl";
+    case "BrowseComp": return "Soutěž";
     case "Club": return s.name;
     case "H2H": return "Vzájemné zápasy";
     case "NextMatch": return "Příští zápas";
@@ -68,7 +71,9 @@ function Body({ s }: { s: Screen }) {
     case "Ladder": return <LadderScreen />;
     case "Str": return <StrScreen />;
     case "Matches": return <MatchesScreen />;
-    case "Opponents": return <OpponentsScreen />;
+    case "Opponents": return <PlayersScreen />;
+    case "BrowseClub": return <BrowseClubScreen path={s.path} name={s.name} />;
+    case "BrowseComp": return <BrowseCompScreen c={s} />;
     case "Club": return <ClubScreen club={s.name} />;
     case "H2H": return <H2HScreen oppKey={s.key} />;
     case "NextMatch": return <NextMatchScreen />;
@@ -76,7 +81,7 @@ function Body({ s }: { s: Screen }) {
     case "Compare": return <CompareScreen a0={s.a} b0={s.b} />;
     case "Records": return <RecordsScreen />;
     case "Settings": return <SettingsScreen />;
-    case "Player": return <ProfileScreen path={s.path} />;
+    case "Player": return <ProfileScreen path={s.path} name={s.name} ask={s.ask} />;
     case "Team": return <TeamScreen team={s.team} />;
     case "Watch": return <WatchScreen k={s.key} />;
     case "About": return <AboutScreen />;
@@ -232,7 +237,7 @@ navigator.serviceWorker?.addEventListener("message", (e: MessageEvent) => {
 // by se jinak adresa bez parametrů otevřela na úvodní obrazovce.
 (() => {
   let q = new URLSearchParams(location.search);
-  const has = (x: URLSearchParams) => x.has("z") || x.has("h") || x.has("d") || x.has("pr") || x.has("m");
+  const has = (x: URLSearchParams) => x.has("z") || x.has("h") || x.has("d") || x.has("pr") || x.has("m") || x.has("s") || x.has("o");
   try {
     if (has(q)) sessionStorage.setItem(SP + "share", JSON.stringify({ q: q.toString(), t: Date.now() }));
     else {

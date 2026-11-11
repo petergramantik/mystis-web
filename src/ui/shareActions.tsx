@@ -5,7 +5,7 @@ import { Live } from "../core/live";
 import { Stis, type Match, type PlayerPage, type Zapis } from "../core/models";
 import { Stats } from "../core/stats";
 import { C, Muted, T, Icon, PrimaryButton, OButton } from "./components";
-import { appBase, appLink, duelLink, matchLink, playerLink, shareImage, shareLink } from "./share";
+import { appBase, appLink, clubLink, compLink, duelLink, matchLink, playerLink, shareImage, shareLink } from "./share";
 import { qrSvg } from "./qr";
 import { zapisStrInfo } from "./screens/Duel";
 import { strPoints } from "./screens/StrScreen";
@@ -32,6 +32,8 @@ export function shareOptions(s: Screen): ShareOpt[] {
     case "Shared": case "ZapisDetail": return matchOpts(s.path);
     case "Model": return [{ label: "Odkaz na popis modelu", sub: "Jak MySTIS počítá predikce – otevře ho kdokoli", icon: "share", run: () => shareLink("Jak MySTIS počítá predikce", "Jak MySTIS počítá predikce", appLink(s.section ? { m: s.section } : { m: "" })) }];
     case "Prediction": return [{ label: "Odkaz na predikci", sub: "Otevře ji i člověk bez nastavené aplikace", icon: "share", run: () => shareLink("Predikce utkání", "Predikce utkání (MySTIS)", appLink({ pr: s.data })) }];
+    case "BrowseComp": return [{ label: "Odkaz na soutěž", sub: "Tabulka a rozpis soutěže v aplikaci", icon: "share", run: () => shareLink(s.name, `${s.name} (MySTIS)`, compLink(s)) }];
+    case "BrowseClub": return [{ label: "Odkaz na oddíl", sub: "Družstva a hráči oddílu v aplikaci", icon: "share", run: () => shareLink(s.name, `${s.name} (MySTIS)`, clubLink(s.path, s.name)) }];
     case "Player": {
       const p = vm.me?.path === s.path ? vm.meWithLive() : vm.players.get(s.path);
       return p ? playerOpts(p) : [];

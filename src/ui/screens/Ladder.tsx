@@ -22,7 +22,7 @@ export function LadderScreen() {
   );
 }
 
-interface Comp { svaz: string; rocnik: number; soutez: string; label: string; teams: string[] }
+export interface Comp { svaz: string; rocnik: number; soutez: string; label: string; teams: string[] }
 
 /** Soutěže, ve kterých hráč hrál, podle sezón (z karet sezón na stránce hráče). */
 function competitions(): Map<number, Comp[]> {
@@ -97,7 +97,7 @@ function CompetitionView({ kind }: { kind: "tabulka" | "stis" }) {
 
 const myClubFold = () => Stats.fold(Clubs.clubName(vm.me?.clubName ?? vm.club.name ?? ""));
 
-function StandingsTable({ comp, rows, loading, current }: { comp: Comp; rows: StandingRow[] | undefined; loading: boolean; current: boolean }) {
+export function StandingsTable({ comp, rows, loading, current }: { comp: Comp; rows: StandingRow[] | undefined; loading: boolean; current: boolean }) {
   if (!rows) return loading ? <Loading text="Načítám tabulku soutěže…" /> : <Empty text="Tabulka zatím není načtená." />;
   if (!rows.length) return <Empty text="Tabulka soutěže je prázdná nebo ji STIS zatím nezveřejnil." />;
   const club = myClubFold();

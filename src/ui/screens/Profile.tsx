@@ -5,19 +5,41 @@ import { vm, S } from "../../app/vm";
 import { Stis, type Match, type PlayerPage, type SeasonCard, type TeamMembership } from "../../core/models";
 import { Stats } from "../../core/stats";
 import {
-  AppCard, Avatar, BigNumber, C, Divider, Empty, FormDots, KeyValue, ListCard, Loading, MatchRow, Muted, NavyHeader, OButton, SectionTitle, StatTile, StrChart, T, TileRow, signedInt,
+  AppCard, Avatar, BigNumber, C, Divider, Empty, FormDots, KeyValue, ListCard, Loading, MatchRow, Muted, NavyHeader, OButton, PrimaryButton, Dialog, SectionTitle, StatTile, StrChart, T, TileRow, signedInt,
 } from "../components";
 import { strPoints } from "./StrScreen";
 
 const seasonLabel = (y: number) => `${y}/${String((y + 1) % 100).padStart(2, "0")}`;
 const rec = (ms: Match[]) => { const w = ms.filter((m) => m.won).length; return { w, l: ms.length - w, pct: ms.length ? w / ms.length : null }; };
 
-export function ProfileScreen({ path }: { path: string }) {
+export function ProfileScreen({ path, name, ask = false }: { path: string; name?: string; ask?: boolean }) {
   const me = vm.me;
   const isMe = !!me && me.path === path;
   const [seasonsOpen, setSeasonsOpen] = useState(false);
-  useEffect(() => { if (!isMe) vm.loadPlayer(path); }, [path, isMe]);
+  const [go, setGo] = useState(!ask);
+  const [switchAsk, setSwitchAsk] = useState(false);
+  const [switchErr, setSwitchErr] = useState<string | null>(null);
+  // z Hledat se profil stahuje až po klepnutí na „Načíst“ (pokud už není v paměti)
+  const gated = ask && !go && !isMe && !vm.players.has(path) && vm.loadingPlayers.get(path) !== true;
+  useEffect(() => { if (!isMe && !gated) vm.loadPlayer(path); }, [path, isMe, gated]);
   const p: PlayerPage | null | undefined = isMe ? vm.meWithLive() : vm.players.get(path);
+  if (gated) return (
+    <div className="col g12">
+      <NavyHeader>
+        <div className="row g12">
+          <Avatar text={name ?? "?"} color={C.Orange} size={52} />
+          <div className="col w1"><T size={20} bold color="#fff" lines={2}>{name ?? "Hráč"}</T><Muted color={C.MutedOnNavy} size={13} text={`ID ${/hrac-(\d+)/.exec(path)?.[1] ?? "–"}`} /></div>
+        </div>
+      </NavyHeader>
+      <div className="col g12 px16">
+        <AppCard>
+          <T bold>Profil zatím není načtený</T>
+          <Muted size={13} maxLines={4} text="Načte se celá historie hráče ze STIS: STR a graf, zápasy po sezónách, forma, bilance a vzájemné zápasy s vámi." />
+          <PrimaryButton text="Načíst profil a statistiky" onClick={() => setGo(true)} />
+        </AppCard>
+      </div>
+    </div>
+  );
   if (!p) return <div style={{ padding: 16 }}>{vm.loadingPlayers.get(path) !== false ? <Loading /> : <Empty text="Profil hráče se nepodařilo načíst." />}</div>;
 
   const ch = p.chronological;
@@ -72,6 +94,16 @@ export function ProfileScreen({ path }: { path: string }) {
             {mutual.length > 0 && <OButton text={`Vzájemně ${mutual.filter((m) => m.won).length}–${mutual.filter((m) => !m.won).length}`} onClick={() => vm.go({ t: "H2H", key: mutual[mutual.length - 1].opponentKey })} style={{ flex: 1 }} />}
             <OButton text="Porovnat se mnou" onClick={() => vm.go({ t: "Compare", a: me.path, b: path })} style={{ flex: 1 }} />
           </div>
+        )}
+        {!isMe && <OButton text="Přepnout se na tohoto hráče" onClick={() => setSwitchAsk(true)} />}
+        {switchErr && <Muted text={switchErr} size={13} color={C.OrangeText} />}
+        {switchAsk && (
+          <Dialog title="Přepnout profil?" onClose={() => setSwitchAsk(false)} actions={<>
+            <OButton text="Zrušit" onClick={() => setSwitchAsk(false)} />
+            <PrimaryButton text="Přepnout" onClick={() => { setSwitchAsk(false); vm.setProfile(path, (e) => { if (e) setSwitchErr(e); else vm.go(S.Overview); }); }} />
+          </>}>
+            <Muted size={14} maxLines={6} text={`Aplikace se bude chovat, jako byste byl ${p.name}: přehled, družstva, příští zápasy a predikce. Zpět na svůj profil se přepnete ikonou ⇄ na Přehledu.`} />
+          </Dialog>
         )}
         <OButton full text="Sdílet profil" onClick={() => shareLink(p.name, `${p.name} – STR ${p.currentStr ?? "–"} (MySTIS)`, playerLink(p.path))} />
         {!isMe && me && <OButton full enabled={!vm.loadingMe} text={vm.loadingMe ? "Přepínám…" : "Přepnout aplikaci na tohoto hráče"} onClick={() => vm.setProfile(p.path, () => {})} />}
