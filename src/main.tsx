@@ -1,10 +1,13 @@
 import { BrowseClubScreen, BrowseCompScreen, PlayersScreen } from "./ui/screens/Browse";
 import { IS_DEV, SP } from "./app/channel";
 import { AdminStatsScreen } from "./ui/screens/AdminStats";
+import { followChannelChoice, switchChannel } from "./app/switch";
+// aplikace z plochy otevře naposledy zvolenou verzi (běžná / vývojová)
+const redirecting = followChannelChoice();
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { vm, S, type Screen } from "./app/vm";
-import { Icon } from "./ui/components";
+import { Dialog, Icon, Muted, OButton, PrimaryButton } from "./ui/components";
 import { OnboardingScreen, OverviewScreen } from "./ui/screens/Overview";
 import { LadderScreen } from "./ui/screens/Ladder";
 import { StrScreen } from "./ui/screens/StrScreen";
@@ -134,7 +137,7 @@ function Root() {
   useSyncExternalStore(vm.subscribe, vm.getVersion);
   useBackHandler();
   const [menu, setMenu] = useState(false);
-  const [sheet, setSheet] = useState<"share" | "app" | "support" | null>(null);
+  const [sheet, setSheet] = useState<"share" | "app" | "support" | "dev" | null>(null);
   const toast = vm.toastText && <div className="toast">{vm.toastText}</div>;
   if (vm.onboarding && !vm.guest) return <><OnboardingScreen />{toast}</>;
   const screen = vm.current;
@@ -152,7 +155,7 @@ function Root() {
         {canBack() ? <button className="iconbtn" onClick={goBack} aria-label="Zpět"><Icon name="back" /></button> : screen.t === "Overview" ? <div style={{ width: 8 }} /> : <div className="spacer44" />}
         {screen.t === "Overview" && <button onClick={() => vm.go({ t: "About" })} aria-label="O aplikaci" style={{ background: "none", border: 0, padding: 0, marginLeft: 4, display: "flex", cursor: "pointer" }}><img src="icons/icon-192.png" alt="" width={28} height={28} style={{ borderRadius: 7, display: "block" }} /></button>}
         {opts.length === 0 && screen.t !== "Overview" && <div className="spacer44" />}
-        <div className="title" style={opts.length || screen.t === "Overview" ? { textAlign: "left", paddingLeft: screen.t === "Overview" ? 10 : 8 } : undefined}>{title(screen)}{IS_DEV && <span className="devtag">DEV</span>}</div>
+        <div className="title" style={opts.length || screen.t === "Overview" ? { textAlign: "left", paddingLeft: screen.t === "Overview" ? 10 : 8 } : undefined}>{title(screen)}{IS_DEV && <span className="devtag clickable" onClick={(e) => { e.stopPropagation(); setSheet("dev"); }}>DEV</span>}</div>
         {opts.length > 0 ? <button className="iconbtn" onClick={() => { if (opts.length === 1) void opts[0].run(); else setSheet("share"); }} aria-label="Sdílet"><Icon name="share" /></button> : null}
         {(() => {
           const refresh = guest ? <div className="spacer44" /> : <button className="iconbtn" onClick={() => vm.refreshAll()} aria-label="Obnovit data"><Icon name="refresh" /></button>;
@@ -182,6 +185,14 @@ function Root() {
       {sheet === "share" && <ShareSheet opts={opts} onClose={() => setSheet(null)} />}
       {sheet === "app" && <AppShareSheet onClose={() => setSheet(null)} />}
       {sheet === "support" && <SupportMenuSheet onClose={() => setSheet(null)} />}
+      {sheet === "dev" && (
+        <Dialog title={`Vývojová verze ${APP_VERSION}`} onClose={() => setSheet(null)} actions={<>
+          <OButton text="Zůstat" onClick={() => setSheet(null)} />
+          <PrimaryButton text="Přejít na běžnou verzi" onClick={() => switchChannel("prod")} />
+        </>}>
+          <Muted size={14} maxLines={6} text="Zkušební verze s novými funkcemi. Běžná verze má vlastní data a nastavení; aplikace z plochy si zapamatuje, kterou verzi jste zvolili. Do vývojové verze se vrátíte v O aplikaci." />
+        </Dialog>
+      )}
       {toast}
       {guest ? <GuestBar /> : <nav className="bottombar">
         <div className="inner">
@@ -197,7 +208,7 @@ function Root() {
   );
 }
 
-createRoot(document.getElementById("app")!).render(<Root />);
+if (!redirecting) createRoot(document.getElementById("app")!).render(<Root />);
 
 if ("serviceWorker" in navigator && location.protocol === "https:") {
   // nová verze aplikace převezme řízení -> jednou obnovit stránku, aby běžel nový kód

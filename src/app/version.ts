@@ -1,13 +1,17 @@
 // Verze aplikace a „Co je nového“. Produkce: PROD_VERSION; vývojová verze (/dev/): DEV_VERSION (např. 2.15-dev.3).
 import { IS_DEV } from "./channel";
 
-export const PROD_VERSION = "2.14";
-export const DEV_VERSION = "2.15-dev.3";
+export const PROD_VERSION = "2.14.1";
+export const DEV_VERSION = "2.15-dev.4";
 export const APP_VERSION = IS_DEV ? DEV_VERSION : PROD_VERSION;
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.15-dev.4", date: "11. 11. 2026", title: "Přepínač verzí",
+    items: ["Klepnutím na štítek DEV v záhlaví se vrátíte do běžné verze; aplikace z plochy si volbu pamatuje"],
+  },
   {
     version: "2.15-dev.3", date: "11. 11. 2026", title: "Karta Hráči – hledání kohokoli",
     items: [
@@ -33,6 +37,10 @@ export const RELEASES: Release[] = [
       "Oddělená data a nastavení od běžné verze; v Nastavení lze převzít nastavení z běžné verze",
       "Vlastní ikona „MySTIS DEV“, takže jdou mít na ploše obě verze",
     ],
+  },
+  {
+    version: "2.14.1", date: "11. 11. 2026", title: "Přepínání na vývojovou verzi",
+    items: ["O aplikaci → Vývojová verze (zkušební): přechod do verze s novými funkcemi; aplikace z plochy si volbu pamatuje"],
   },
   {
     version: "2.14", date: "11. 11. 2026", title: "Komplexní model predikcí",
