@@ -154,7 +154,14 @@ globalThis.fetch = ((input: any, init?: any) => {
   const url = typeof input === "string" ? input : input.url;
   return realFetch(url.replace("https://stis.ping-pong.cz", "http://localhost:9001"), init);
 }) as typeof fetch;
-Bun.serve({ port: 8787, fetch: (req) => (worker as any).fetch(req) });
+// KV v paměti pro počítadlo (/__hit, /__stats s klíčem „test“)
+const kvMem = new Map<string, { v: string; m: any }>([["u:demo1", { v: "1", m: { f: Date.now() - 3 * 864e5, l: Date.now(), v: "2.13" } }], ["u:demo2", { v: "1", m: { f: Date.now() - 864e5, l: Date.now() - 864e5, v: "2.12" } }]]);
+const kv = {
+  async getWithMetadata(k: string) { const x = kvMem.get(k); return { value: x?.v ?? null, metadata: x?.m ?? null }; },
+  async put(k: string, v: string, o?: { metadata?: any }) { kvMem.set(k, { v, m: o?.metadata ?? null }); },
+  async list(o: { prefix: string }) { return { keys: [...kvMem].filter(([k]) => k.startsWith(o.prefix)).map(([name, x]) => ({ name, metadata: x.m })), list_complete: true }; },
+};
+Bun.serve({ port: 8787, fetch: (req) => (worker as any).fetch(req, { MYSTIS_KV: kv, STATS_KEY: "test" }) });
 
 // ---------------------------------------------------------------- web
 const DIST = new URL("../dist/", import.meta.url).pathname;

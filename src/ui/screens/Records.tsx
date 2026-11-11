@@ -12,6 +12,7 @@ import { ProfileInput } from "./Overview";
 import { InstallCard } from "../install";
 import { strPoints } from "./StrScreen";
 import { APP_VERSION } from "../../app/version";
+import { statsKey } from "./AdminStats";
 
 /** "1 výhra", "3 výhry", "5 výher" / "1 prohra", "2 prohry", "6 proher" */
 function streakText(s: number): string {
@@ -250,6 +251,17 @@ export function SettingsScreen() {
           <T bold color={C.Blue}>›</T>
         </div>
       </AppCard>
+      {statsKey() && (
+        <AppCard>
+          <div className="row clickable" onClick={() => vm.go({ t: "AdminStats" })}>
+            <div className="col w1">
+              <T bold>Statistiky (správce)</T>
+              <Muted size={13} text="Počet zařízení, aktivita a verze aplikace" />
+            </div>
+            <T bold color={C.Blue}>›</T>
+          </div>
+        </AppCard>
+      )}
       {vm.prefs.proxyUrl && <ProxyRow />}
       <div style={{ height: 8 }} />
     </div>

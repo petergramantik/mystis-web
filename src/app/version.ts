@@ -1,10 +1,17 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.13";
+export const APP_VERSION = "2.13.1";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.13.1", date: "11. 11. 2026", title: "Statistiky uživatelů pro správce",
+    items: [
+      "Skrytá obrazovka se statistikami anonymních zařízení (celkem, aktivní 24 h / 7 / 30 dní, posledních 14 dní, verze)",
+      "Odemčení: O aplikaci → 5× klepnout na verzi a zadat klíč; pak je položka v Nastavení",
+    ],
+  },
   {
     version: "2.13", date: "11. 11. 2026", title: "Všechny formáty soutěží ČAST",
     items: [

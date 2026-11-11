@@ -36,6 +36,7 @@ export type Screen =
   | { t: "Team"; team: number }
   | { t: "Watch"; key: string }
   | { t: "About" }
+  | { t: "AdminStats" }
   | { t: "Shared"; path: string }
   | { t: "OtherTeam"; ref: TeamRef; comp: string }
   | { t: "Prediction"; data: string }

@@ -1,3 +1,4 @@
+import { AdminStatsScreen } from "./ui/screens/AdminStats";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { vm, S, type Screen } from "./app/vm";
@@ -48,6 +49,7 @@ function title(s: Screen): string {
     case "Team": return "Družstvo";
     case "Watch": return "Živé utkání";
     case "About": return "O aplikaci";
+    case "AdminStats": return "Statistiky uživatelů";
     case "Live": return "Živé utkání";
     case "Duel": return "Vzájemné zápasy";
     case "ZapisDetail": return "Zápis o utkání";
@@ -77,6 +79,7 @@ function Body({ s }: { s: Screen }) {
     case "Team": return <TeamScreen team={s.team} />;
     case "Watch": return <WatchScreen k={s.key} />;
     case "About": return <AboutScreen />;
+    case "AdminStats": return <AdminStatsScreen />;
     case "Live": return <LiveScreen team={s.team} />;
     case "Duel": return <PairScreen aId0={s.aId} aName0={s.aName} bId0={s.bId} bName0={s.bName} pA0={s.pA} />;
     case "ZapisDetail": return <ZapisDetailScreen path={s.path} myTeam={s.myTeam} />;

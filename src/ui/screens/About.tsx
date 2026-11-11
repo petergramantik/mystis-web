@@ -5,6 +5,7 @@ import { useState } from "react";
 import { APP_VERSION, AUTHOR, RELEASES } from "../../app/version";
 import { AppCard, C, Muted, OButton, SectionTitle, T } from "../components";
 import { AppShareCard } from "../shareActions";
+import { StatsUnlock } from "./AdminStats";
 
 declare const __BUILD__: string;
 const buildText = () => (typeof __BUILD__ !== "undefined" ? __BUILD__.replace(/^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d).*/, "$3. $2. $1 $4:$5 UTC") : "vývojová");
@@ -30,6 +31,7 @@ async function checkUpdate(set: (m: string) => void) {
 export function AboutScreen() {
   const [open, setOpen] = useState<string>(RELEASES[0].version);
   const [msg, setMsg] = useState<string | null>(null);
+  const [taps, setTaps] = useState(0);
   const mail = `mailto:${AUTHOR.email}?subject=${encodeURIComponent(`MySTIS ${APP_VERSION}`)}&body=${encodeURIComponent(`\n\n---\nVerze ${APP_VERSION} (${buildText()})\n${navigator.userAgent}`)}`;
   return (
     <div className="col g12 px16" style={{ paddingTop: 4 }}>
@@ -38,7 +40,7 @@ export function AboutScreen() {
           <img src="icons/icon-192.png" alt="" width={56} height={56} style={{ borderRadius: 14 }} />
           <div className="col w1">
             <T bold size={22}>MySTIS</T>
-            <Muted size={13} text={`Verze ${APP_VERSION} · sestavení ${buildText()}`} />
+            <div onClick={() => setTaps(taps + 1)} style={{ userSelect: "none" }}><Muted size={13} text={`Verze ${APP_VERSION} · sestavení ${buildText()}`} /></div>
           </div>
         </div>
         <div className="row g8">
@@ -46,6 +48,7 @@ export function AboutScreen() {
         </div>
         {msg && <Muted text={msg} size={13} color={C.Ink} />}
       </AppCard>
+      {taps >= 5 && <StatsUnlock onDone={() => setTaps(0)} />}
 
       <AppCard onClick={() => vm.go({ t: "Model" })}>
         <T bold>Jak počítáme predikce ›</T>
