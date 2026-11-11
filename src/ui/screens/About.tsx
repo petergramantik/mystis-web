@@ -3,8 +3,9 @@ import { vm } from "../../app/vm";
 import { SupportStrip } from "../support";
 import { useState } from "react";
 import { APP_VERSION, AUTHOR, RELEASES } from "../../app/version";
-import { AppCard, C, Muted, OButton, SectionTitle, T } from "../components";
+import { AppCard, C, Dialog, Muted, OButton, PrimaryButton, SectionTitle, T } from "../components";
 import { AppShareCard } from "../shareActions";
+import { inDevBuild, switchChannel } from "../../app/switch";
 import { StatsUnlock } from "./AdminStats";
 
 declare const __BUILD__: string;
@@ -57,6 +58,8 @@ export function AboutScreen() {
 
       <SupportStrip always />
 
+      <ChannelCard />
+
       <AppCard>
         <T bold>Sdílet aplikaci</T>
         <AppShareCard />
@@ -102,5 +105,27 @@ export function AboutScreen() {
       </AppCard>
       <div style={{ height: 8 }} />
     </div>
+  );
+}
+
+/** Běžná verze: přechod do vývojové (zkušební) verze s potvrzením. */
+function ChannelCard() {
+  const [ask, setAsk] = useState(false);
+  if (inDevBuild()) return null;
+  return (
+    <>
+      <AppCard onClick={() => setAsk(true)}>
+        <T bold>Vývojová verze (zkušební) ›</T>
+        <Muted size={13} maxLines={3} text="Nové funkce ještě před vydáním. Může obsahovat chyby; data a nastavení má oddělená." />
+      </AppCard>
+      {ask && (
+        <Dialog title="Přejít na vývojovou verzi?" onClose={() => setAsk(false)} actions={<>
+          <OButton text="Zrušit" onClick={() => setAsk(false)} />
+          <PrimaryButton text="Přejít" onClick={() => switchChannel("dev")} />
+        </>}>
+          <Muted size={14} maxLines={6} text="Aplikace si volbu zapamatuje – i ikona na ploše pak otevře vývojovou verzi. Zpět se vrátíte klepnutím na štítek DEV v záhlaví." />
+        </Dialog>
+      )}
+    </>
   );
 }

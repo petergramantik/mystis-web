@@ -1,4 +1,7 @@
 import { AdminStatsScreen } from "./ui/screens/AdminStats";
+import { followChannelChoice } from "./app/switch";
+// aplikace z plochy otevře naposledy zvolenou verzi (běžná / vývojová)
+const redirecting = followChannelChoice();
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { vm, S, type Screen } from "./app/vm";
@@ -191,7 +194,7 @@ function Root() {
   );
 }
 
-createRoot(document.getElementById("app")!).render(<Root />);
+if (!redirecting) createRoot(document.getElementById("app")!).render(<Root />);
 
 if ("serviceWorker" in navigator && location.protocol === "https:") {
   // nová verze aplikace převezme řízení -> jednou obnovit stránku, aby běžel nový kód
