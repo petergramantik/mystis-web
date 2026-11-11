@@ -73,6 +73,8 @@ export class ClubState {
 
 export interface LastUtkani {
   title: string; unofficial: boolean; live: MyLiveGame[]; official: Match[]; zapisPath: string; myTeam: string; running: boolean;
+  /** datum utkání (text) a kolo, pokud je známé */
+  dateText: string; round: string | null;
 }
 
 function err(e: unknown): string {
@@ -853,7 +855,8 @@ export class AppVm {
       const live = this.myLiveGames(team);
       const running = !this.finished(pending);
       const myTeam = this.next.find((c) => this.zapisBelongs(pending, c))?.myTeam.name ?? (live[0]?.home === true ? pending.home : pending.away);
-      return { title: running ? "Probíhající utkání" : "Poslední utkání", unofficial: true, live, official: [], zapisPath: pending.path, myTeam, running };
+      return { title: running ? "Moje probíhající utkání" : "Moje poslední utkání", unofficial: true, live, official: [], zapisPath: pending.path, myTeam, running,
+        dateText: pending.dateText.split(" ")[0] ?? "", round: pending.round.trim() || null };
     }
     const ch = m.chronological;
     let last: Match | null = null;
@@ -862,7 +865,10 @@ export class AppVm {
     const keyOf = (x: Match) => x.zapisPath || x.dateText + x.myTeam;
     const key = keyOf(last);
     const games = ch.filter((x) => keyOf(x) === key);
-    return { title: `Poslední utkání · ${last.dateText}`, unofficial: false, live: [], official: games, zapisPath: last.zapisPath, myTeam: last.myTeam, running: false };
+    const z = last.zapisPath ? this.zapisy.get(last.zapisPath) : undefined;
+    const ctx = this.next.find((c) => Stats.fold(c.myTeam.name) === Stats.fold(last!.myTeam));
+    const round = z?.round.trim() || ctx?.los.find((x) => x.zapisPath && x.zapisPath === last!.zapisPath)?.round || null;
+    return { title: "Moje poslední utkání", unofficial: false, live: [], official: games, zapisPath: last.zapisPath, myTeam: last.myTeam, running: false, dateText: last.dateText, round };
   }
 
   // ---------- žebříčky soutěží (tabulka družstev a oficiální žebříček STR)

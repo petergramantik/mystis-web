@@ -444,7 +444,7 @@ function PreviousCard({ ctx, prev, back, total, onHome }: { ctx: NextMatchContex
         <BigNumber text={score} color="#fff" size={30} style={{ padding: "0 8px", whiteSpace: "nowrap" }} />
         <T bold color="#fff" lines={2} end style={{ flex: 1 }}>{awayName}</T>
       </div>
-      <Muted text={[m?.dateTime != null ? fmtDMYdt(m.dateTime) : m?.dateText, m?.round ? `${m.round}. kolo` : null].filter((x) => x).join(" · ")} color={muted} size={12} />
+      <Muted text={[m?.dateTime != null ? fmtDMYdt(m.dateTime) : m?.dateText, m?.round ? `${m.round}. kolo` : null].filter((x) => x).join(" · ")} color={muted} size={12} style={{ textAlign: "center" }} />
       {!z ? <Muted text={!path ? "Zápis o utkání není k dispozici." : "Načítám zápis…"} color={muted} size={13} /> : stats.map((p, i) => (
         <div className="row" key={i}>
           <T size={14} color="#fff" lines={1} style={{ flex: 1 }}>
@@ -502,10 +502,11 @@ function LastUtkaniCard() {
             <T bold size={14} color="#fff" lines={2} style={{ flex: 1 }}>{shortTeam(last.myTeam)}</T>
             <div className="col" style={{ alignItems: "center", flex: "none" }}>
               <BigNumber text={info.score ? `${info.score[0]} : ${info.score[1]}` : "–"} color={scoreColor} size={26} style={{ whiteSpace: "nowrap" }} />
-              <Muted text={(last.running ? "probíhá · " : "") + info.comp} size={11} color={C.MutedOnNavy} maxLines={1} />
             </div>
             <T bold size={14} color="#fff" lines={2} end style={{ flex: 1 }}>{info.opp ? shortTeam(info.opp) : ""}</T>
           </div>
+          <Muted text={[last.running ? "probíhá" : last.dateText.replace(/^(\d+)\.\s*(\d+)\.\s*(\d{4}).*$/, "$1. $2. $3"), last.round ? `${last.round}. kolo` : null, info.comp || null].filter((x) => x).join(" · ")}
+            size={12} color={C.MutedOnNavy} maxLines={1} style={{ textAlign: "center", marginTop: -4 }} />
           {last.unofficial && <Muted text="Výsledky a STR jsou odhad podle online zápisu – oficiálně je přepočítá STIS." color={C.Peach} size={12} maxLines={3} />}
           {last.unofficial ? last.live.map((g, i) => (
             <div className="row g10" key={i}>
