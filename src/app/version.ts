@@ -2,12 +2,19 @@
 import { IS_DEV } from "./channel";
 
 export const PROD_VERSION = "2.14.1";
-export const DEV_VERSION = "2.15-dev.9";
+export const DEV_VERSION = "2.15-dev.10";
 export const APP_VERSION = IS_DEV ? DEV_VERSION : PROD_VERSION;
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.15-dev.10", date: "12. 11. 2026", title: "Katalog soutěží",
+    items: [
+      "Hledat → Soutěže si pamatuje všechny soutěže aktuálního ročníku, na které aplikace narazila (i po restartu)",
+      "Nápověda: „8. STR+: Komplexní model (volitelný)“",
+    ],
+  },
   {
     version: "2.15-dev.9", date: "12. 11. 2026", title: "Názvy soutěží u oddílu",
     items: ["Načtený oddíl ukazuje u družstev skutečné názvy soutěží (ze STIS), stejně tak detail soutěže"],

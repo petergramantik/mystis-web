@@ -1524,7 +1524,23 @@ export class AppVm {
     for (const p of [this.me, ...this.players.values()]) for (const s of p?.seasons ?? []) for (const t of s.teams) add(t.ref, t.competition);
     for (const c of this.clubPages.values()) for (const [k, n] of Object.entries(c.comps ?? {})) { const [svaz, rocnik, soutez] = k.split("|"); add({ id: "", name: "", svaz, rocnik: +rocnik, soutez }, n); }
     for (const r of this.browseRecent()) if (r.k === "s") { const [svaz, rocnik, soutez] = r.id.split("|"); add({ id: "", name: "", svaz, rocnik: +rocnik, soutez }, r.name); }
+    // trvalý katalog soutěží aktuálního ročníku: co aplikace jednou potkala, zůstane i po restartu
+    const cat = this.compCatalog();
+    for (const [k, n] of Object.entries(cat.items)) { const [svaz, rocnik, soutez] = k.split("|"); add({ id: "", name: "", svaz, rocnik: +rocnik, soutez }, n); }
+    let changed = false;
+    for (const c of out.values()) {
+      if (c.rocnik !== cat.rocnik || !c.name) continue;
+      const k = `${c.svaz}|${c.rocnik}|${c.soutez}`;
+      if (cat.items[k] !== c.name) { cat.items[k] = c.name; changed = true; }
+    }
+    if (changed) prefs.compCatalogJson = JSON.stringify(cat);
     return Array.from(out.values()).sort((a, b) => b.rocnik - a.rocnik || a.name.localeCompare(b.name, "cs"));
+  }
+  /** Katalog soutěží aktuálního ročníku (nový ročník = prázdný katalog). */
+  private compCatalog(): { rocnik: number; items: Record<string, string> } {
+    const rocnik = Stis.currentRocnik();
+    try { const c = JSON.parse(prefs.compCatalogJson || "null"); if (c && c.rocnik === rocnik && c.items) return c; } catch { /* */ }
+    return { rocnik, items: {} };
   }
   /** Naposledy otevřené (hráči, oddíly, soutěže) – rychlé odkazy v Hledat. */
   browseRecent(): { k: "p" | "o" | "s"; id: string; name: string }[] {
@@ -1540,7 +1556,7 @@ export class AppVm {
   loadClubPage(path: string, force = false) {
     if (this.clubPageLoading.has(path) || (!force && this.clubPages.has(path))) return;
     this.clubPageLoading.add(path); this.clubPageErr.delete(path); this.emit();
-    this.repo.club(path, force ? 0 : 24 * HOUR).then((c) => { this.clubPages.set(path, c); }, (e) => { this.clubPageErr.set(path, err(e)); })
+    this.repo.club(path, force ? 0 : 24 * HOUR).then((c) => { this.clubPages.set(path, c); this.knownComps(); }, (e) => { this.clubPageErr.set(path, err(e)); })
       .finally(() => { this.clubPageLoading.delete(path); this.emit(); });
   }
   clubBrowseRosters = new Map<string, TeamRoster[]>();
@@ -1612,6 +1628,7 @@ export class AppVm {
   private static PLAYERS_MAX = 120;
   private putPlayer(path: string, p: PlayerPage) {
     this.players.delete(path); this.players.set(path, p);
+    this.knownComps(); // soutěže z profilu do trvalého katalogu
     if (this.players.size <= AppVm.PLAYERS_MAX) return;
     const keep = new Set([this.me?.path, ...this.next.flatMap((c) => c.myRoster.map((r) => r.path))]);
     for (const k of this.players.keys()) {

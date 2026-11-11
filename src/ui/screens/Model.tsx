@@ -76,7 +76,7 @@ export function ModelScreen({ section }: { section?: string | null }) {
         <P>Změna STR se počítá podle pravidel eSTeR: výhra nad stejně silným soupeřem +6, proti silnějšímu víc, proti slabšímu méně (až 0); poražený ztratí tolik, kolik vítěz získá. Ověřeno na 5 080 skutečných zápasech: 72 % změn přesně, průměrná odchylka 0,3 bodu. Neoficiální výsledky jsou odhad, dokud je STIS nepřepočítá.</P>
         <P><b>Výkon</b> = o kolik zápasů hráč vyhrál víc (nebo méně), než odpovídá šancím podle STR. Kladné číslo znamená, že hraje nad své STR.</P>
       </Sec>
-      <Sec id="complex" title="8. Komplexní model (volitelný)">
+      <Sec id="complex" title="8. STR+: Komplexní model (volitelný)">
         <P>Zapíná se v Nastavení{vm.complexOn ? " – teď je zapnutý" : " – teď je vypnutý"}. K samotnému STR přidává:</P>
         <P><b>Vzájemné zápasy.</b> U každého předchozího zápasu dvojice se spočítá, o kolik dopadl jinak, než čekalo tehdejší STR. Novější zápasy mají větší váhu (poločas {Math.round(Complex.H2H_HALF_LIFE / 365)} roky) a zápasy, od kterých se rozdíl STR hráčů hodně změnil, se počítají méně. Výsledek se stáhne k nule (malý vzorek nic nedokazuje) a omezí na ±{Complex.H2H_CAP} STR. Platí pro šanci v jedné hře i pro všechny dvouhry v predikci utkání (u spoluhráčů se kvůli tomu načítají jejich profily).</P>
         <P><b>Výhoda domácích.</b> Ze všech odehraných dvouher soutěže se spočítá, o kolik domácí hrají lépe, než říká STR. Opět staženo k nule a omezeno na ±{Complex.HOME_CAP} STR.</P>
