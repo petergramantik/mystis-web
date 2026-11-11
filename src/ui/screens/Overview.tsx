@@ -1,4 +1,5 @@
 import { IS_DEV, copyProdSettings, prodHasProfile } from "../../app/channel";
+import { switchChannel } from "../../app/switch";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { SupportStrip } from "../support";
 import { MatchFormats } from "../../core/live";
@@ -765,6 +766,7 @@ export function DevCard({ dark = true }: { dark?: boolean }) {
       <Muted size={13} maxLines={6} text="Zkušební verze s novými funkcemi – může obsahovat chyby. Nastavení a data má oddělená od běžné aplikace, ta zůstane beze změny." />
       {prodHasProfile() && <OButton text="Převzít nastavení z běžné verze" onClick={() => { const n = copyProdSettings(); setMsg(`Převzato ${n} položek, načítám…`); setTimeout(() => location.reload(), 600); }} />}
       {msg && <Muted size={13} text={msg} color={dark ? C.Ink : C.Ink} />}
+      <OButton text="Přejít na běžnou verzi" onClick={() => switchChannel("prod")} />
     </AppCard>
   );
 }
