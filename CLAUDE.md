@@ -14,5 +14,6 @@
 - Větev `dev` = vývojová verze na `…/mystis-web/dev/` (oranžový štítek DEV, vlastní úložiště `mystis-dev.*`, vlastní service worker). Větev `main` = produkce.
 - Nové funkce jdou nejdřív do `dev`: zvyšuje se `DEV_VERSION` (2.15-dev.1 → 2.15-dev.2) a položka „Co je nového“ s verzí `2.15-dev.N`.
 - Vydání („Vydej“): sloučit `dev` do `main`, nastavit `PROD_VERSION` (např. 2.15), dev položky RELEASES sloučit do jedné produkční; `DEV_VERSION` posunout na další (2.16-dev.1).
+- Produkční „Co je nového“ obsahuje jen změny relevantní pro uživatele – nikdy zmínky o dev verzi, jejím zavedení, štítku DEV, přepínání verzí ani interní audit/úklid kódu (ten jen jako „rychlejší a úspornější aplikace“, pokud je znát).
 - Opravy produkce (hotfix) přímo do `main` (zvýšit `PROD_VERSION`), pak `main` sloučit do `dev`.
 - Nasazení: `deploy.yml` (push do `main`) sestaví obě větve – produkce do `/`, dev do `/dev/`. Push do `dev` spustí `dev.yml` (testy) a ten pustí `deploy.yml` na `main` (Pages smí nasazovat jen `main`).
