@@ -1,7 +1,7 @@
 // Sdílené prvky vzhledu (přepis Components.kt).
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { Match } from "../core/models";
-import type { Forecast } from "../core/stats";
+import type { FormInfo, Forecast } from "../core/stats";
 import { type LDate, fmtDate, fmtShort, ldDay, ldMonth, ldYear } from "../core/dates";
 
 export const C = {
@@ -546,3 +546,16 @@ export function TeamName({ name, end = false, bold = true }: { name: string; end
   return <T bold={bold} color="#fff" size={size} lines={3} end={end} style={{ flex: 1, wordBreak: "break-word" }}>{n}</T>;
 }
 
+
+/** Výkon ve formě: „5–3 · očekáváno 3,1 → +1,9“ (bilance a rozdíl proti šancím podle STR soupeřů). */
+export function FormPerf({ f, size = 13, dark = false, prefix = true }: { f: FormInfo; size?: number; dark?: boolean; prefix?: boolean }) {
+  const n = f.last.length;
+  const d1 = (x: number) => Math.abs(x).toFixed(1).replace(".", ",");
+  const muted = dark ? C.MutedOnNavy : C.Muted;
+  return (
+    <div style={{ fontSize: size, color: muted, lineHeight: 1.35 }}>
+      {prefix ? `Posledních ${n}: ` : ""}{`${f.wins}–${f.losses}`}
+      {f.lastRated > 0 && <>{` · očekáváno ${d1(f.lastExpected)} → `}<b style={{ color: f.lastOver >= 0 ? C.Win : C.OrangeText }}>{(f.lastOver >= 0 ? "+" : "−") + d1(f.lastOver)}</b></>}
+    </div>
+  );
+}

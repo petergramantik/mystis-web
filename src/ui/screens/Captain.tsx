@@ -150,6 +150,8 @@ function PlayerPick({ label, value, name, onPick, offerMe }: { label: string; va
   );
 }
 
+const signedDec = (x: number) => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(1).replace(".", ",");
+
 export function CompareScreen({ a0, b0 }: { a0: string | null; b0: string | null }) {
   const me = vm.me;
   const [a, setA] = useState(a0 ?? me?.path ?? "");
@@ -224,7 +226,8 @@ export function CompareScreen({ a0, b0 }: { a0: string | null; b0: string | null
               <CompareRow label="Sezóna" a={`${w(sa)}–${sa.length - w(sa)}`} b={`${w(sb)}–${sb.length - w(sb)}`} better={cmp(rate(w(sa), sa.length), rate(w(sb), sb.length))} />
               <CompareRow label="Kariéra" a={`${ra.wins}–${ra.losses}`} b={`${rb.wins}–${rb.losses}`} better={cmp(rate(ra.wins, ra.totalMatches), rate(rb.wins, rb.totalMatches))} />
               <CompareRow label="Nejdelší série výher" a={`${ra.longestWin.length}`} b={`${rb.longestWin.length}`} better={cmp(ra.longestWin.length, rb.longestWin.length)} />
-              <CompareRow label="Forma (posl. 5)" a={`${fa.wins}–${fa.losses}`} b={`${fb.wins}–${fb.losses}`} better={cmp(fa.wins, fb.wins)} />
+              <CompareRow label="Forma (posl. 8)" a={`${fa.wins}–${fa.losses}`} b={`${fb.wins}–${fb.losses}`} better={cmp(fa.wins, fb.wins)} />
+              <CompareRow label="Výkon ve formě" a={fa.lastRated ? signedDec(fa.lastOver) : "–"} b={fb.lastRated ? signedDec(fb.lastOver) : "–"} better={cmp(fa.lastRated ? fa.lastOver : null, fb.lastRated ? fb.lastOver : null)} />
               <CompareRow label="Pětisetové" a={`${w(fiveA)}–${fiveA.length - w(fiveA)}`} b={`${w(fiveB)}–${fiveB.length - w(fiveB)}`} better={cmp(rate(w(fiveA), fiveA.length), rate(w(fiveB), fiveB.length))} />
             </AppCard>
             {mutual.length > 0 && (

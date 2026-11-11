@@ -5,7 +5,7 @@ import { vm, S } from "../../app/vm";
 import { Stis, type Match, type PlayerPage, type SeasonCard, type TeamMembership } from "../../core/models";
 import { Stats } from "../../core/stats";
 import {
-  AppCard, Avatar, BigNumber, C, Divider, Empty, FormDots, KeyValue, ListCard, Loading, MatchRow, Muted, NavyHeader, OButton, PrimaryButton, Dialog, SectionTitle, StatTile, StrChart, T, TileRow, signedInt,
+  AppCard, Avatar, BigNumber, C, Divider, Empty, FormDots, FormPerf, KeyValue, ListCard, Loading, MatchRow, Muted, NavyHeader, OButton, PrimaryButton, Dialog, SectionTitle, StatTile, StrChart, T, TileRow, signedInt,
 } from "../components";
 import { strPoints } from "./StrScreen";
 
@@ -23,7 +23,9 @@ export function ProfileScreen({ path, name, ask = false }: { path: string; name?
   // z Hledat se profil stahuje až po klepnutí na „Načíst“ (pokud už není v paměti)
   const gated = ask && !go && !isMe && !vm.players.has(path) && vm.loadingPlayers.get(path) !== true;
   useEffect(() => { if (!isMe && !gated) vm.loadPlayer(path); }, [path, isMe, gated]);
-  const p: PlayerPage | null | undefined = isMe ? vm.meWithLive() : vm.players.get(path);
+  const raw = isMe ? null : vm.players.get(path);
+  // i u cizího hráče se počítají neoficiální výsledky z online zápisů (stejně jako v porovnání a u mě)
+  const p: PlayerPage | null | undefined = isMe ? vm.meWithLive() : raw ? vm.withLive(raw) : raw;
   if (gated) return (
     <div className="col g12">
       <NavyHeader>
@@ -272,6 +274,7 @@ function profileSections(p: PlayerPage): Sections | null {
   const seasons = Stats.seasons(p);
   const five = ch.filter((m) => m.fiveSetter), fiveW = five.filter((m) => m.won).length;
   const last10 = ch.slice(-8);
+  const fi = Stats.form(p);
   const cur = rec0.currentStreak;
   const opp = (o: { name: string; id: string; record: string; matches: Match[] } | null, label: string, color: string) => o && (
     <div className="row clickable" style={{ padding: "4px 0" }} onClick={() => duel(o.id, o.name)}>
@@ -309,7 +312,8 @@ function profileSections(p: PlayerPage): Sections | null {
       <AppCard>
         <T bold>Forma</T>
         <FormDots results={[...last10].reverse().map((m) => m.won)} />
-        <Muted size={13} text={`Posledních ${last10.length}: ${last10.filter((m) => m.won).length}–${last10.filter((m) => !m.won).length} · aktuální série ${Math.abs(cur)}× ${cur > 0 ? "výhra" : "prohra"}`} />
+        <FormPerf f={fi} />
+        <Muted size={13} text={`Aktuální série ${Math.abs(cur)}× ${cur > 0 ? "výhra" : "prohra"}`} />
       </AppCard>
     </>),
     souperi: (<>

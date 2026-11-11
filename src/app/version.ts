@@ -2,12 +2,20 @@
 import { IS_DEV } from "./channel";
 
 export const PROD_VERSION = "2.14.1";
-export const DEV_VERSION = "2.15-dev.6";
+export const DEV_VERSION = "2.15-dev.7";
 export const APP_VERSION = IS_DEV ? DEV_VERSION : PROD_VERSION;
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.15-dev.7", date: "11. 11. 2026", title: "Forma z 8 zápasů s výkonem",
+    items: [
+      "Forma je všude z posledních 8 zápasů (i v porovnání hráčů a rozboru soupeřů)",
+      "U formy výkon proti očekávání: kolik výher odpovídalo STR soupeřů a o kolik hráč hrál líp nebo hůř",
+      "Profil cizího hráče počítá i neoficiální výsledky z online zápisů (stejně jako porovnání)",
+    ],
+  },
   {
     version: "2.15-dev.6", date: "11. 11. 2026", title: "Profil hráče a porovnání",
     items: [

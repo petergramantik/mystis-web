@@ -31,7 +31,11 @@ export interface Forecast {
   /** body pro graf: datum → [střed, dolní, horní] */
   path: [LDate, [number, number, number]][];
 }
-export interface FormInfo { last: Match[]; wins: number; losses: number; overExpected: number; sample: number }
+export interface FormInfo {
+  last: Match[]; wins: number; losses: number; overExpected: number; sample: number;
+  /** výkon v zápasech formy (last): očekávané výhry podle STR, rozdíl a počet zápasů se známým STR */
+  lastExpected: number; lastOver: number; lastRated: number;
+}
 
 export class Split {
   constructor(readonly label: string, readonly wins: number, readonly losses: number, readonly expectedWins: number) {}
@@ -158,14 +162,20 @@ export const Stats = {
     const r = rated(ms);
     return { over: sum(r.map((m) => (m.won ? 1 : 0) - wp(m))), sample: r.length };
   },
-  form(page: PlayerPage, lastN = 5, sampleN = 20, season: number | null = null): FormInfo {
+  /** Forma = posledních 8 zápasů (zhruba dvě utkání družstev). */
+  form(page: PlayerPage, lastN = 8, sampleN = 20, season: number | null = null): FormInfo {
     const ch = page.chronological;
     const last = ch.slice(Math.max(0, ch.length - lastN)).reverse();
     // posledních sampleN zápasů se známým STR obou hráčů (nejdřív filtr, pak výběr -> stabilní počet)
     const known = ch.filter((m) => m.strBefore != null && m.oppStrBefore != null && (season == null || m.season === season));
     const sample = known.slice(Math.max(0, known.length - sampleN));
     const over = sum(sample.map((m) => (m.won ? 1 : 0) - wp(m)));
-    return { last, wins: last.filter((m) => m.won).length, losses: last.filter((m) => !m.won).length, overExpected: over, sample: sample.length };
+    const lr = rated(last);
+    const lastExpected = sum(lr.map(wp));
+    return {
+      last, wins: last.filter((m) => m.won).length, losses: last.filter((m) => !m.won).length, overExpected: over, sample: sample.length,
+      lastExpected, lastOver: lr.filter((m) => m.won).length - lastExpected, lastRated: lr.length,
+    };
   },
 
   singlesPerTeamMatch(page: PlayerPage, season: number): number {

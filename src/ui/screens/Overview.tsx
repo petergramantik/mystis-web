@@ -16,7 +16,7 @@ import { type SearchPlayer } from "../../core/search";
 import {
   AppCard, Avatar, BigNumber, C, Chips, Marquee, Dialog, Empty, ErrorBox, ErrorWithDiagnostics, FormDots, Icon, ListCard, Loading, MatchRow,
   Muted, NavyHeader, Pill, PredictionText, shortTeam, PrimaryButton, ProbBar, ResultBadge, SectionTitle, Sparkline, Spinner, StatTile, T, TextField, TileRow, dec1, f0, signedInt,
-  OButton,
+  OButton, FormPerf,
 } from "../components";
 import { fmtDMYdt, fmtWhenShort, hhmmLdt } from "../fmt";
 import { ProxySetup } from "./Records";
@@ -230,6 +230,7 @@ export function OverviewScreen() {
         <AppCard onClick={() => vm.tab(S.Str)}>
           <Muted text="Forma · posledních 8" size={13} />
           <FormDots results={form.last.map((m) => m.won)} />
+          <FormPerf f={form} prefix={false} />
           <div className="rowb" style={{ gap: 0 }}>
             <Muted text="Konec sezóny (odhad): " size={14} style={{ whiteSpace: "pre" }} />
             {fc != null ? (

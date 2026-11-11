@@ -11,7 +11,7 @@ import { matchForecast, myForecast } from "../../core/season";
 import type { NextMatchContext } from "../../core/repository";
 import {
   AppCard, Spinner, Avatar, BigNumber, C, Chips, Divider, Empty, ErrorBox, ErrorWithDiagnostics, FormDots, ListCard, Loading, Muted, OButton,
-  Pill, PrimaryButton, ProbBar, SectionTitle, T, TextField,
+  Pill, PrimaryButton, ProbBar, SectionTitle, T, TextField, FormPerf,
 } from "../components";
 import { fmtWhenLong } from "../fmt";
 import { HallCard } from "../hall";
@@ -237,7 +237,7 @@ export function ScoutSection({ me, roster, title }: { me: PlayerPage; roster: Ro
                   <Muted maxLines={2} text={[s.player.str != null ? `STR ${s.player.str}` : null,
                     s.player.bilance && s.player.played > 0 ? `sezóna ${s.player.bilance}` : null,
                     s.h2h ? `vzájemně ${s.h2h.record}` : "zatím jste nehráli"].filter((x) => x).join(" · ")} />
-                  {page ? <FormDots results={Stats.form(page).last.map((m) => m.won)} /> : loading ? <Muted text="načítám formu…" size={12} /> : null}
+                  {page ? <>{(() => { const f = Stats.form(page); return <><FormDots results={f.last.map((m) => m.won)} /><FormPerf f={f} size={12} prefix={false} /></>; })()}</> : loading ? <Muted text="načítám formu…" size={12} /> : null}
                 </div>
                 <div className="col" style={{ alignItems: "flex-end" }}>
                   {s.winProb != null && (() => { const wp = myStr != null && s.player.str != null ? vm.myWinProb(s.player.id, myStr, s.player.str) : s.winProb; return <BigNumber text={Stats.pct(wp)} color={wp >= 0.5 ? C.Win : C.OrangeText} size={20} />; })()}
