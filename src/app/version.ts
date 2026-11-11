@@ -1,10 +1,17 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.10";
+export const APP_VERSION = "2.11";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.11", date: "11. 11. 2026", title: "Jak počítáme predikce",
+    items: [
+      "Nová obrazovka „Jak počítáme predikce“ (menu ⋮ a O aplikaci) se srozumitelným popisem modelu; u každé predikce odkaz „Jak se to počítá? ›“; popis lze sdílet odkazem",
+      "Predikce konce sezóny počítá s hráči, kteří za družstvo opravdu nastupují (na začátku sezóny s nejsilnějšími); sestava je vidět po klepnutí na družstvo",
+    ],
+  },
   {
     version: "2.10", date: "10. 11. 2026", title: "Sdílená predikce",
     items: [

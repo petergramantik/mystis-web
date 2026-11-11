@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ModelLink } from "./Model";
 import { SupportStrip } from "../support";
 import { useZapisRefresh } from "../zapis";
 import { vm } from "../../app/vm";
@@ -95,6 +96,7 @@ export function PairScreen({ aId0, aName0, bId0, bName0, pA0 }: { aId0: string; 
                 <T size={13} bold color={colB}>{`${pct(1 - p)} ${first(bName)}`}</T>
               </div>
               <Muted size={13} maxLines={3} text={`${first(aName)}: výhra +${StrModel.gainIfWin(strA, strB)} / prohra −${-StrModel.lossIfLose(strA, strB)} · ${first(bName)}: výhra +${StrModel.gainIfWin(strB, strA)} / prohra −${-StrModel.lossIfLose(strB, strA)} STR`} />
+              <ModelLink section="hra" />
             </AppCard>
           );
         })()}
@@ -376,6 +378,7 @@ function PredictionCard({ path, myHome, isMe }: { path: string; myHome: boolean;
           </div>
         )}
         <Muted size={11} maxLines={3} text={strs.official ? "Šance her podle STR hráčů před utkáním (STIS)." : "Šance her podle aktuálního STR hráčů (utkání STIS ještě nezapočítal)."} />
+        <ModelLink section="utkani" />
       </AppCard>
     </>
   );

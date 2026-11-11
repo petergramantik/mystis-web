@@ -19,7 +19,11 @@ export interface TeamPrediction {
   /** pravděpodobnost každého umístění (index 0 = 1. místo) */
   posProb: number[];
 }
-export interface SeasonPrediction { teams: TeamPrediction[]; matches: MatchOdds[]; rule: [number, number, number]; sims: number }
+export interface SeasonPrediction {
+  teams: TeamPrediction[]; matches: MatchOdds[]; rule: [number, number, number]; sims: number;
+  /** sestava, se kterou se u družstva počítá: [jméno, STR], active = podle hráčů, kteří nastupují */
+  lineups?: Record<string, { players: [string, number][]; active: boolean }>;
+}
 
 /** Body za výhru, remízu a prohru odvozené ze skutečné tabulky (STIS obvykle 3 / 2 / 1). */
 export function pointsRule(rows: StandingRow[]): [number, number, number] {

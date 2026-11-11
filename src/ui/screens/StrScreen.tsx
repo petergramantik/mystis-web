@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ModelLink } from "./Model";
 import type { SearchPlayer } from "../../core/search";
 import { vm } from "../../app/vm";
 import { Stis, type PlayerPage } from "../../core/models";
@@ -122,6 +123,7 @@ export function StrScreen() {
         <Chips options={[["3m", "3 měsíce"], ["sez", "Sezóna"], ["1r", "1 rok"], ["3r", "3 roky"], ["vse", "Vše"]]} selected={period} onSelect={setPeriod} />
         {period === "vse" || period === "3r" ? <StrChart series={[{ color: C.Blue, points: pts }]} /> : <StrTimelineChart history={pts} live={livePts} forecast={fc} />}
         <Legend items={[[C.Blue, "oficiální STR"], ...(livePts.length ? [[C.Live, "probíhající utkání (odhad)"] as [string, string]] : []), [forecastColor(fc), "predikce a 80% pásmo"]]} />
+        {fc && <ModelLink section="str" />}
         {livePts.length > 0 && <Muted text="Fialová část je odhad z online zápisu – STIS ji oficiálně přepočítá po skončení utkání." color={C.Live} size={12} />}
       </AppCard>
       {fc && (

@@ -38,7 +38,8 @@ export type Screen =
   | { t: "About" }
   | { t: "Shared"; path: string }
   | { t: "OtherTeam"; ref: TeamRef; comp: string }
-  | { t: "Prediction"; data: string };
+  | { t: "Prediction"; data: string }
+  | { t: "Model"; section?: string | null };
 
 export const S = {
   Overview: { t: "Overview" } as Screen, Ladder: { t: "Ladder" } as Screen, Str: { t: "Str" } as Screen,
@@ -159,6 +160,7 @@ export class AppVm {
     if (z && z.startsWith("/zapis/")) s = { t: "Shared", path: z };
     else if (h && h.startsWith("/hrac-")) s = { t: "Player", path: h };
     else if (pr) s = { t: "Prediction", data: pr };
+    else if (q.has("m")) s = { t: "Model", section: q.get("m") || null };
     else if (d) {
       const [ap, an, bp, bn] = d.split("~");
       if (ap && bp) s = { t: "Duel", aId: idOf(ap), aName: an ?? "", bId: idOf(bp), bName: bn ?? "" };
@@ -927,13 +929,23 @@ export class AppVm {
         }
         this.predProgress = "Odhaduji sestavy…"; this.emit();
         const teams: SeasonTeam[] = [];
+        const lineups: Record<string, { players: [string, number][]; active: boolean }> = {};
+        const size = this.formatForComp({ svaz, soutez }).players;
         for (const r of rows) {
           let players = rosters.find((x) => Stats.fold(x.name) === Stats.fold(r.name))?.players ?? [];
           if (!players.length) {
             const ref = refs.find((x) => Stats.fold(x.name) === Stats.fold(r.name));
             if (ref) { try { players = (await this.repo.teamRoster(ref)).players; } catch { /* bez soupisky */ } }
           }
-          const lineup = Stats.suggestLineup(this.fresh(players), this.formatForComp({ svaz, soutez }).players).map((p) => p.str ?? 0).filter((x) => x > 0);
+          // sestava z hráčů, kteří za družstvo opravdu nastupují (podle bilance dvouher na soupisce STIS):
+          // počet utkání ≈ dvouhry / velikost sestavy; stabilní = aspoň ⅓ utkání družstva; na začátku sezóny nejsilnější hráči
+          const fresh = this.fresh(players);
+          const utk = (p: RosterPlayer) => { const g = (p.wins ?? 0) + (p.losses ?? 0); return g > 0 ? Math.max(1, Math.round(g / size)) : 0; };
+          const active = r.played >= 2 && fresh.some((p) => utk(p) > 0);
+          const picked = active ? Stability.lineup(fresh, size, (p) => utk(p) * 3 >= r.played, utk).map((x) => x[0]) : Stats.suggestLineup(fresh, size);
+          const withStr = picked.filter((p) => (p.str ?? 0) > 0);
+          lineups[r.name] = { players: withStr.map((p) => [p.name, p.str!] as [string, number]), active };
+          const lineup = withStr.map((p) => p.str!);
           const [a, b] = r.score.split(":").map((x) => parseInt(x, 10));
           teams.push({ name: r.name, points: r.points, played: r.played, wins: r.wins, draws: r.draws, losses: r.losses, diff: (a || 0) - (b || 0), lineup });
         }
@@ -943,7 +955,7 @@ export class AppVm {
         for (const t of teams) if (!t.lineup.length) t.lineup = [avgStr];
         this.predProgress = `Simuluji ${future.size} zbývajících utkání…`; this.emit();
         await new Promise((r) => setTimeout(r, 30));
-        this.predictions.set(key, predictSeason(teams, Array.from(future.values()), pointsRule(rows), this.formatForComp({ svaz, soutez })));
+        this.predictions.set(key, { ...predictSeason(teams, Array.from(future.values()), pointsRule(rows), this.formatForComp({ svaz, soutez })), lineups });
       } catch (e) {
         this.predErrors.set(key, err(e));
       } finally {

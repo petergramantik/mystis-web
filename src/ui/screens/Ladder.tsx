@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ModelLink } from "./Model";
 import { vm, S } from "../../app/vm";
 import { Clubs, Stis, type StandingRow, type StrLadder, type StrLadderRow } from "../../core/models";
 import { Stats, avg, maxBy, type LadderEntry } from "../../core/stats";
@@ -266,6 +267,7 @@ function OfficialLadder({ comp, data, loading }: { comp: Comp; data: StrLadder |
 
 function PredictionView({ comp, pred, mine }: { comp: Comp; pred: SeasonPrediction; mine: (r: { name: string }) => boolean }) {
   const my = pred.teams.filter(mine);
+  const [open, setOpen] = useState<string | null>(null);
   const remaining = pred.matches.length;
   return (
     <>
@@ -302,9 +304,10 @@ function PredictionView({ comp, pred, mine }: { comp: Comp; pred: SeasonPredicti
         {pred.teams.map((t, i) => {
           const m = mine(t);
           const p = t.posProb[i] ?? 0;
+          const lu = pred.lineups?.[t.name];
           return (
             <div key={t.name}>
-              <div className="row" style={{ background: m ? C.Tint : "#fff", padding: "10px 14px" }}>
+              <div className={"row" + (lu ? " clickable" : "")} style={{ background: m ? C.Tint : "#fff", padding: "10px 14px" }} onClick={lu ? () => setOpen(open === t.name ? null : t.name) : undefined}>
                 <BigNumber text={`${i + 1}`} size={18} color={i < 3 ? C.Orange : C.Ink} style={{ width: 28, flex: "none" }} />
                 <div className="col w1">
                   <T semi={!m} bold={m} size={15} lines={2}>{t.name}</T>
@@ -314,12 +317,19 @@ function PredictionView({ comp, pred, mine }: { comp: Comp; pred: SeasonPredicti
                 <BigNumber text={f0(t.expPoints)} size={18} style={{ width: 50, flex: "none", textAlign: "center" }} />
                 <T size={13} end color={C.Muted} style={{ width: 50, flex: "none" }}>{Stats.pct(p)}</T>
               </div>
+              {open === t.name && lu && (
+                <div style={{ background: m ? C.Tint : "#fff", padding: "0 14px 10px 42px" }}>
+                  <Muted size={12} maxLines={4} color={C.Ink} text={`Sestava: ${lu.players.map(([n, s]) => `${n.split(" ")[0]} ${s}`).join(", ") || "neznámá – průměr soutěže"}`} />
+                  <Muted size={11} maxLines={2} text={lu.active ? "hráči, kteří za družstvo nastupují (aspoň ⅓ utkání), doplnění nejčastějšími náhradníky" : "začátek sezóny: nejsilnější hráči soupisky"} />
+                </div>
+              )}
               <Divider />
             </div>
           );
         })}
       </ListCard>
-      <Muted size={12} maxLines={6} text={`Odhad z ${remaining} zbývajících utkání: každé utkání podle STR pravděpodobných sestav (nejsilnější hráči soupisky, každý s každým + čtyřhry), sezóna nasimulovaná ${pred.sims}×. Body za výhru/remízu/prohru ${pred.rule.join("/")}. ŠANCE = pravděpodobnost, že družstvo skončí přesně na tomto místě.`} />
+      <Muted size={12} maxLines={6} text={`Odhad z ${remaining} zbývajících utkání: každé utkání podle STR pravděpodobných sestav (hráči, kteří za družstvo nastupují; na začátku sezóny nejsilnější ze soupisky – klepnutím na družstvo ji uvidíte), sezóna nasimulovaná ${pred.sims}×. Body za výhru/remízu/prohru ${pred.rule.join("/")}. ŠANCE = pravděpodobnost, že družstvo skončí přesně na tomto místě.`} />
+      <ModelLink section="sezona" />
     </>
   );
 }

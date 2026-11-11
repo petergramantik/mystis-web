@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ModelLink } from "./Model";
 import { SupportStrip } from "../support";
 import { SoundUnlockBar } from "../soundbar";
 import { vm } from "../../app/vm";
@@ -288,6 +289,7 @@ export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = f
       {st.finished ? <Muted color={C.MutedOnNavy} size={13} text={neutral ? `Konečný výsledek ${st.home} : ${st.away}` : `Konečný výsledek z pohledu vašeho družstva: ${my} : ${opp}`} />
         : <div className="row g8" style={{ flexWrap: "wrap" }}><PredictionText hs={a} as_={b} myHome={neutral ? null : myHome} dark /><Muted color={C.MutedOnNavy} size={13} text={`· odehráno ${st.played} z ${st.games.length}`} /></div>}
       </>}
+      {!st.finished && <ModelLink section="zive" dark />}
     </NavyHeader>
     </div>
     </>

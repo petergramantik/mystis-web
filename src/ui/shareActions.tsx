@@ -30,6 +30,7 @@ export function shareOptions(s: Screen): ShareOpt[] {
       return path ? matchOpts(path) : [];
     }
     case "Shared": case "ZapisDetail": return matchOpts(s.path);
+    case "Model": return [{ label: "Odkaz na popis modelu", sub: "Jak MySTIS počítá predikce – otevře ho kdokoli", icon: "share", run: () => shareLink("Jak MySTIS počítá predikce", "Jak MySTIS počítá predikce", appLink(s.section ? { m: s.section } : { m: "" })) }];
     case "Prediction": return [{ label: "Odkaz na predikci", sub: "Otevře ji i člověk bez nastavené aplikace", icon: "share", run: () => shareLink("Predikce utkání", "Predikce utkání (MySTIS)", appLink({ pr: s.data })) }];
     case "Player": {
       const p = vm.me?.path === s.path ? vm.meWithLive() : vm.players.get(s.path);

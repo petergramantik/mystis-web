@@ -1,4 +1,5 @@
 // O aplikaci: verze, autor, novinky po verzích, zdroj dat, soukromí, zvuky, kontrola aktualizace.
+import { vm } from "../../app/vm";
 import { SupportStrip } from "../support";
 import { useState } from "react";
 import { APP_VERSION, AUTHOR, RELEASES } from "../../app/version";
@@ -44,6 +45,11 @@ export function AboutScreen() {
           <OButton text="Zkontrolovat aktualizaci" onClick={() => checkUpdate(setMsg)} style={{ flex: 1 }} />
         </div>
         {msg && <Muted text={msg} size={13} color={C.Ink} />}
+      </AppCard>
+
+      <AppCard onClick={() => vm.go({ t: "Model" })}>
+        <T bold>Jak počítáme predikce ›</T>
+        <Muted size={13} maxLines={3} text="Srozumitelný popis modelu: šance ve hře, utkání, sestavy, živé utkání, konec sezóny a odhad STR." />
       </AppCard>
 
       <SupportStrip always />

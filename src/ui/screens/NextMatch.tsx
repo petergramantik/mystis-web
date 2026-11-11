@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { ModelLink } from "./Model";
 import { vm } from "../../app/vm";
 import { RosterPlayer, Stis, type PlayerPage, type TeamRef } from "../../core/models";
 import { Stats } from "../../core/stats";
@@ -163,7 +164,10 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
           <T semi size={14}>{`${Math.round(w)} z ${theirs.length}`}</T>
         </div>
       ))}
-      {ctx?.next && <button className="textbtn" style={{ alignSelf: "flex-start" }} onClick={() => setShareOpen(true)}>Sdílet predikci ›</button>}
+      <div className="row g12" style={{ flexWrap: "wrap", alignItems: "center" }}>
+        {ctx?.next && <button className="textbtn" onClick={() => setShareOpen(true)}>Sdílet predikci ›</button>}
+        <ModelLink section="utkani" style={{ alignSelf: "center" }} />
+      </div>
       {ctx?.next && shareOpen && (() => {
         const n = ctx.next!;
         const [hn, an] = ctx.home ? [ctx.myTeam.name, ctx.opponentName] : [ctx.opponentName, ctx.myTeam.name];
@@ -375,6 +379,7 @@ export function PredictionScreen({ data }: { data: string }) {
         {lineup(`Domácí: ${d.h.n}`, d.hp, hs)}
         {lineup(`Hosté: ${d.a.n}`, d.ap, as_)}
         <Muted size={12} maxLines={4} text={`Formát: ${fmt.label}. Sestavy podle toho, kdo predikci sdílel; šance se počítají ze STR systémem eSTeR.`} />
+        <ModelLink section="utkani" />
         <div style={{ height: 8 }} />
       </div>
     </div>

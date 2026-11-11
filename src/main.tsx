@@ -10,6 +10,7 @@ import { ClubScreen, H2HScreen, OpponentsScreen } from "./ui/screens/Opponents";
 import { FixtureScreen, NextMatchScreen, PredictionScreen } from "./ui/screens/NextMatch";
 import { LiveScreen, LiveTopRing } from "./ui/screens/LiveMatch";
 import { OtherTeamScreen, TeamScreen } from "./ui/screens/Team";
+import { ModelScreen } from "./ui/screens/Model";
 import { WatchScreen } from "./ui/screens/LiveBoard";
 import { AboutScreen } from "./ui/screens/About";
 import { ProfileScreen } from "./ui/screens/Profile";
@@ -54,6 +55,7 @@ function title(s: Screen): string {
     case "Shared": return "Utkání";
     case "OtherTeam": return "Družstvo";
     case "Prediction": return "Predikce utkání";
+    case "Model": return "Model predikcí";
   }
 }
 
@@ -81,6 +83,7 @@ function Body({ s }: { s: Screen }) {
     case "Fixture": return <FixtureScreen team={s.team} round={s.round} home={s.home} away={s.away} />;
     case "OtherTeam": return <OtherTeamScreen tref={s.ref} comp={s.comp} />;
     case "Prediction": return <PredictionScreen data={s.data} />;
+    case "Model": return <ModelScreen section={s.section ?? null} />;
     case "Shared": {
       const z = vm.zapisy.get(s.path);
       return z && vm.finished(z) ? <ZapisDetailScreen path={s.path} myTeam="" /> : <WatchScreen k="" shared={s.path} />;
@@ -155,6 +158,7 @@ function Root() {
               {item("Nastavení", "settings", S.Settings)}
               <button onClick={() => { setMenu(false); setSheet("app"); }}><Icon name="share" />Sdílet aplikaci</button>
               <button onClick={() => { setMenu(false); setSheet("support"); }}><span style={{ width: 22, textAlign: "center", fontSize: 18 }}>☕</span>Podpořit vývoj</button>
+              {item("Jak počítáme predikce", "chart", { t: "Model" })}
               {item("O aplikaci", "info", { t: "About" })}
             </div>
           </>
@@ -221,7 +225,7 @@ navigator.serviceWorker?.addEventListener("message", (e: MessageEvent) => {
 // by se jinak adresa bez parametrů otevřela na úvodní obrazovce.
 (() => {
   let q = new URLSearchParams(location.search);
-  const has = (x: URLSearchParams) => x.has("z") || x.has("h") || x.has("d") || x.has("pr");
+  const has = (x: URLSearchParams) => x.has("z") || x.has("h") || x.has("d") || x.has("pr") || x.has("m");
   try {
     if (has(q)) sessionStorage.setItem("mystis_share", JSON.stringify({ q: q.toString(), t: Date.now() }));
     else {
