@@ -5,7 +5,7 @@ import { RosterPlayer, Stis, type PlayerPage, type TeamRef } from "../../core/mo
 import { Stats } from "../../core/stats";
 import { MatchFormats, type MatchFormat } from "../../core/live";
 import { type SearchClub } from "../../core/search";
-import { matchForecast } from "../../core/season";
+import { matchForecast, myForecast } from "../../core/season";
 import type { NextMatchContext } from "../../core/repository";
 import {
   AppCard, Spinner, Avatar, BigNumber, C, Chips, Divider, Empty, ErrorBox, ErrorWithDiagnostics, FormDots, ListCard, Loading, Muted, OButton,
@@ -140,7 +140,8 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
   if (!mine.length || !theirs.length) return null;
   const exp = Stats.expectedTeamScore(mine.map((p) => [p.name, p.str ?? 0]), theirs.map((p) => p.str ?? 0), fmt.doubles);
   // nejpravděpodobnější konečný výsledek (hraje se do cíle, proto ne zaokrouhlený součet všech her)
-  const fc = matchForecast(mine.map((p) => p.str ?? 1400), theirs.map((p) => p.str ?? 1400), fmt);
+  // počítá se se skutečnými domácími a pořadím her soutěže (stejně jako sdílená predikce)
+  const fc = myForecast(mine.map((p) => p.str ?? 1400), theirs.map((p) => p.str ?? 1400), home, fmt, vm.singlesOrderFor(ctx?.myTeam.ref ?? theirRef));
   const [my, op] = fc.likely;
   const [hs, as_] = home === false ? [op, my] : [my, op];
   const label = (p: [RosterPlayer, boolean]) => `${p[0].name.split(" ")[0]} ${p[0].str ?? ""}` + (p[1] ? " (náhradník)" : "");
@@ -332,7 +333,7 @@ export function PredictionScreen({ data }: { data: string }) {
   };
   const loading = [...d.hp, ...d.ap].filter((p) => { const x = pathOf(p[0]); return x && !vm.players.has(x) && vm.loadingPlayers.get(x) !== false && vm.me?.id !== p[0]; }).length;
   const hs = d.hp.map(strNow), as_ = d.ap.map(strNow);
-  const fc = matchForecast(hs.map((x) => x ?? 1400), as_.map((x) => x ?? 1400), fmt);
+  const fc = matchForecast(hs.map((x) => x ?? 1400), as_.map((x) => x ?? 1400), fmt, vm.singlesOrderFor(comp));
   const [lh, la] = fc.likely;
   // stav utkání podle rozpisu soutěže
   const los = vm.compLos.get(vm.compKey(comp)) ?? [];

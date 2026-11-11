@@ -3,7 +3,7 @@ import { SupportStrip } from "../support";
 import { vm, S, type LastUtkani } from "../../app/vm";
 import { Clubs, Stis, type LosMatch } from "../../core/models";
 import { Stats, StrModel, sum } from "../../core/stats";
-import { matchForecast } from "../../core/season";
+import { matchForecast, myForecast } from "../../core/season";
 import { Live } from "../../core/live";
 import { nowLdt } from "../../core/dates";
 import type { NextMatchContext } from "../../core/repository";
@@ -677,7 +677,7 @@ function CardForecast({ ctx, oppName, oppRef, oppRoster, home }: {
   const theirs = vm.lineupFor(oppName, oppRef, vm.fresh(oppRoster)).map((x) => x[0]);
   const rs = vm.refineState(oppRoster, oppRef);
   if (!mine.length || !theirs.length) return <ForecastBox><Muted text={oppRoster.length ? "Počítám predikci…" : "Soupiska soupeře zatím není k dispozici."} color="#D6E1FA" size={13} /></ForecastBox>;
-  const f = matchForecast(mine.map((p) => p.str ?? 1400), theirs.map((p) => p.str ?? 1400), vm.format);
+  const f = myForecast(mine.map((p) => p.str ?? 1400), theirs.map((p) => p.str ?? 1400), home, vm.format, vm.singlesOrderFor(ctx.myTeam.ref));
   // f je z pohledu mého družstva -> výsledek v pořadí domácí : hosté jako na kartě
   const [hh, aa] = home ? f.likely : [f.likely[1], f.likely[0]];
   const meIn = me ? mine.find((p) => p.id === me.id || Stats.fold(p.name) === Stats.fold(me.name)) : undefined;

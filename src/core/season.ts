@@ -35,7 +35,7 @@ export function pointsRule(rows: StandingRow[]): [number, number, number] {
 
 /** Pravděpodobnost výhry domácích, remízy a výhry hostů v jednom utkání družstev. */
 /** Predikce utkání ze STR sestav (domácí = první): šance a očekávané body. */
-export function matchForecast(home: number[], away: number[], format: MatchFormat): { pWin: number; pDraw: number; pLoss: number; expHome: number; expAway: number; likely: [number, number]; likelyP: number } {
+export function matchForecast(home: number[], away: number[], format: MatchFormat, order?: [number, number][] | null): { pWin: number; pDraw: number; pLoss: number; expHome: number; expAway: number; likely: [number, number]; likelyP: number } {
   const n = format.players;
   const mk = (strs: number[], prefix: string) => {
     const s = [...strs].sort((a, b) => b - a).slice(0, n);
@@ -46,12 +46,22 @@ export function matchForecast(home: number[], away: number[], format: MatchForma
   const pos = (ps: typeof h) => new Map(ps.map((p, i) => [i + 1, p] as [number, typeof p]));
   const d2 = format.doubles >= 2;
   const games = Live.manualByPosition(pos(h), pos(a),
-    h.slice(0, 2), d2 ? h.slice(2, 4) : [], a.slice(0, 2), d2 ? a.slice(2, 4) : [], new Map(), n, format.doubles);
+    h.slice(0, 2), d2 ? h.slice(2, 4) : [], a.slice(0, 2), d2 ? a.slice(2, 4) : [], new Map(), n, format.doubles, order);
   const st = Live.evaluate(games, format);
   return { pWin: st.pHomeWin, pDraw: st.pDraw, pLoss: st.pAwayWin, expHome: st.expHome, expAway: st.expAway, likely: st.likely, likelyP: st.likelyP };
 }
 
-export function matchOdds(home: number[], away: number[], format: MatchFormat): [number, number, number, number] {
+/**
+ * Predikce z pohledu mého družstva, spočítaná se skutečnými domácími (pořadí her závisí na tom, kdo je doma).
+ * [myHome] null = neznámé → jako domácí.
+ */
+export function myForecast(mine: number[], theirs: number[], myHome: boolean | null, format: MatchFormat, order?: [number, number][] | null) {
+  if (myHome !== false) return matchForecast(mine, theirs, format, order);
+  const f = matchForecast(theirs, mine, format, order);
+  return { pWin: f.pLoss, pDraw: f.pDraw, pLoss: f.pWin, expHome: f.expAway, expAway: f.expHome, likely: [f.likely[1], f.likely[0]] as [number, number], likelyP: f.likelyP };
+}
+
+export function matchOdds(home: number[], away: number[], format: MatchFormat, order?: [number, number][] | null): [number, number, number, number] {
   const n = format.players;
   const mk = (strs: number[], prefix: string) => {
     const s = [...strs].sort((a, b) => b - a).slice(0, n);
@@ -62,7 +72,7 @@ export function matchOdds(home: number[], away: number[], format: MatchFormat): 
   const pos = (ps: typeof h) => new Map(ps.map((p, i) => [i + 1, p] as [number, typeof p]));
   const d2 = format.doubles >= 2;
   const games = Live.manualByPosition(pos(h), pos(a),
-    h.slice(0, 2), d2 ? h.slice(2, 4) : [], a.slice(0, 2), d2 ? a.slice(2, 4) : [], new Map(), n, format.doubles);
+    h.slice(0, 2), d2 ? h.slice(2, 4) : [], a.slice(0, 2), d2 ? a.slice(2, 4) : [], new Map(), n, format.doubles, order);
   const st = Live.evaluate(games, format);
   return [st.pHomeWin, st.pDraw, st.pAwayWin, st.expHome - st.expAway];
 }
@@ -73,14 +83,14 @@ function rng(seed: number) {
   return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
 }
 
-export function predictSeason(teams: SeasonTeam[], matches: FutureMatch[], rule: [number, number, number], format: MatchFormat, sims = 5000): SeasonPrediction {
+export function predictSeason(teams: SeasonTeam[], matches: FutureMatch[], rule: [number, number, number], format: MatchFormat, sims = 5000, gameOrder?: [number, number][] | null): SeasonPrediction {
   const idx = new Map(teams.map((t, i) => [t.name, i]));
   const odds: MatchOdds[] = [];
   const games: [number, number, number, number][] = [];
   for (const m of matches) {
     const hi = idx.get(m.home), ai = idx.get(m.away);
     if (hi == null || ai == null) continue;
-    const [pH, pD, pA, ed] = matchOdds(teams[hi].lineup, teams[ai].lineup, format);
+    const [pH, pD, pA, ed] = matchOdds(teams[hi].lineup, teams[ai].lineup, format, gameOrder);
     odds.push({ home: m.home, away: m.away, pHome: pH, pDraw: pD, pAway: pA, expDiff: ed });
     games.push([hi, ai, pH, pH + pD]);
   }

@@ -7,7 +7,7 @@ import { Parsers } from "../src/core/parsers";
 import { Clubs, Match, PlayerPage, Stis, RosterPlayer, Zapis, ZapisGame, teamRef, type TeamMembership } from "../src/core/models";
 import { Stats, StrModel, sum } from "../src/core/stats";
 import { StisRepository, type Fetcher } from "../src/core/repository";
-import { matchForecast } from "../src/core/season";
+import { matchForecast, myForecast } from "../src/core/season";
 import { Live, LiveGame, LiveTimeline, MatchFormats, lp } from "../src/core/live";
 import { Search, Stability, roundScore } from "../src/core/search";
 import { ldOf, ldtOf } from "../src/core/dates";
@@ -283,6 +283,18 @@ async function main() {
   check("zapis online flag", zl.online);
   const zn = Parsers.zapis('<table class="zapis_H"><tr><td>x</td></tr></table><table class="zapis"><tr><td>6.</td><td>Novák Jan</td><td>-</td><td>Dvořák Petr</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>', "/z")!;
   check("zapis no links", zn.games.length === 1 && J(zn.games[0].homeNames) === J(["Novák Jan"]) && zn.games[0].result == null, () => J(zn.games));
+  // pořadí dvouher: standardní točení ABCD/BCDA/CDAB/DABC proti XYZW, všechny kombinace právě jednou
+  const cyc = MatchFormats.cyclicOrder(4);
+  check("cyclic order", J(cyc.slice(0, 8)) === J([[1, 1], [2, 2], [3, 3], [4, 4], [2, 1], [3, 2], [4, 3], [1, 4]]) && new Set(cyc.map(([a, b]) => a * 10 + b)).size === 16, () => J(cyc));
+  const mbp = Live.manualByPosition(new Map([1, 2, 3, 4].map((i) => [i, lp("h" + i, "H" + i, 1500)])), new Map([1, 2, 3, 4].map((i) => [i, lp("a" + i, "A" + i, 1500)])), [], [], [], [], new Map(), 4, 2);
+  check("manual order", mbp[0].no === 3 && mbp[0].home[0].name === "H1" && mbp[4].home[0].name === "H2" && mbp[4].away[0].name === "A1", () => J(mbp.slice(0, 6).map((g) => [g.no, g.home[0].name, g.away[0].name])));
+  // predikce z mého pohledu = stejná jako se skutečnými domácími
+  {
+    const F = MatchFormats.ALL.find((f) => f.target != null && f.players === 4) ?? MatchFormats.DEFAULT;
+    const mineS = [1600, 1550, 1500, 1450], theirS = [1580, 1520, 1480, 1400];
+    const a = myForecast(mineS, theirS, false, F), b = matchForecast(theirS, mineS, F);
+    check("myForecast away", Math.abs(a.pWin - b.pLoss) < 1e-9 && a.likely[0] === b.likely[1] && a.likely[1] === b.likely[0], () => J([a, b]));
+  }
   // kontumace (WO) a sloupec Body
   const zw = Parsers.zapis('<table class="zapis_H"><tr><td>x</td></tr></table><table class="zapis">'
     + '<tr><td>1.</td><td><a data-id="1">Zalewska Julia</a></td><td></td><td></td><td></td><td>WO</td><td></td><td></td><td></td><td></td><td>3</td><td>0</td><td>1</td><td>0</td></tr>'
@@ -320,7 +332,7 @@ async function main() {
   const pg = Live.manualByPosition(pos(hp), pos(ap), [hp[0], hp[1]], [hp[2], hp[3]], [ap[0], ap[1]], [ap[2], ap[3]], new Map([[3, 1]]));
   check("pos 18 games", pg.length === 18 && J(pg.map((x) => x.no)) === J(Array.from({ length: 18 }, (_, i) => i + 1)));
   check("pos pairs unique", new Set(pg.filter((x) => !x.doubles).map((x) => x.home[0].id! + x.away[0].id)).size === 16);
-  check("pos first singles", pg[2].home[0].id === "h1" && pg[2].away[0].id === "a1" && pg[2].result === 1 && pg[6].home[0].id === "h1" && pg[6].away[0].id === "a2");
+  check("pos first singles", pg[2].home[0].id === "h1" && pg[2].away[0].id === "a1" && pg[2].result === 1 && pg[6].home[0].id === "h2" && pg[6].away[0].id === "a1");
   const partial = Live.manualByPosition(new Map([[1, hp[0]], [2, hp[1]]]), pos(ap), [], [], [], [], E);
   check("pos partial keeps numbers", partial.length === 8 && partial[0].no === 3, () => J(partial.map((x) => x.no)));
 

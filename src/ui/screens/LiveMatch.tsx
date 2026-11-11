@@ -116,7 +116,7 @@ export function LiveScreen({ team }: { team: number }) {
       roster.filter((p) => vm.manualDbl.get(prefix + p.name) === d).sort((a, b) => (b.str ?? 0) - (a.str ?? 0)).slice(0, 2).map(toLp);
     games = Live.manualByPosition(pos(pH, homeRoster), pos(pA, awayRoster),
       dbl(pH, homeRoster, 1), dbl(pH, homeRoster, 2), dbl(pA, awayRoster, 1), dbl(pA, awayRoster, 2),
-      vm.manualResultsFor(tk), vm.format.players, vm.format.doubles);
+      vm.manualResultsFor(tk), vm.format.players, vm.format.doubles, vm.singlesOrderFor(ctx.myTeam.ref));
   }
   const st = Live.evaluate(games, z ? vm.fmtOf(z) : vm.format);
   const pending = !!z && lineupsPending(games);

@@ -505,6 +505,11 @@ export class AppVm {
       && (c.rocnik == null || z.path.includes(`/rocnik-${c.rocnik}/`)))
       .filter((z) => { const d = Parsers.date(z.dateText); return d == null || d < td; });
   }
+  /** Pořadí dvouher soutěže (1-based [domácí, hosté]) z odehraných zápisů, jinak standardní točení. */
+  singlesOrderFor(c: { svaz: string; soutez: string; rocnik?: number } | null | undefined): [number, number][] {
+    const fmt = c ? this.formatForComp(c) : this.format;
+    return MatchFormats.singlesOrder(c ? this.compPastZapisy(c) : [], fmt);
+  }
   /** Klíč pořadí dvouher pro zápis (z dohraných zápisů soutěže, jinak standardní). */
   singlesKeyFor(z: Zapis): Map<number, [string, string]> {
     const c = this.compOfPath(z.path);
@@ -961,7 +966,7 @@ export class AppVm {
         for (const t of teams) if (!t.lineup.length) t.lineup = [avgStr];
         this.predProgress = `Simuluji ${future.size} zbývajících utkání…`; this.emit();
         await new Promise((r) => setTimeout(r, 30));
-        this.predictions.set(key, { ...predictSeason(teams, Array.from(future.values()), pointsRule(rows), this.formatForComp({ svaz, soutez })), lineups });
+        this.predictions.set(key, { ...predictSeason(teams, Array.from(future.values()), pointsRule(rows), this.formatForComp({ svaz, soutez }), 5000, this.singlesOrderFor({ svaz, soutez, rocnik })), lineups });
       } catch (e) {
         this.predErrors.set(key, err(e));
       } finally {

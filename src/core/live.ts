@@ -78,14 +78,23 @@ export const MatchFormats = {
       }
       if (hs.length === fmt.players && as.length === fmt.players) return out;
     }
-    // standardní klíč (4 hráči: AX BY CZ DW AY BX CW DZ AZ BW CX DY AW BZ CY DX), jinak kolový
-    const p = fmt.players;
-    const pairs: [number, number][] = p === 4
-      ? [[0, 0], [1, 1], [2, 2], [3, 3], [0, 1], [1, 0], [2, 3], [3, 2], [0, 2], [1, 3], [2, 0], [3, 1], [0, 3], [1, 2], [2, 1], [3, 0]]
-      : Array.from({ length: p }, (_, r) => Array.from({ length: p }, (_, i) => [i, (i + r) % p] as [number, number])).flat();
+    // standardní točení: domácí ABCD, BCDA, CDAB, DABC proti hostům XYZW v každém kole
     const out = new Map<number, [string, string]>();
-    pairs.forEach(([i, j], k) => out.set(fmt.doubles + k + 1, [HL[i], AL[j]]));
+    MatchFormats.cyclicOrder(fmt.players).forEach(([i, j], k) => out.set(fmt.doubles + k + 1, [HL[i - 1], AL[j - 1]]));
     return out;
+  },
+  /** Standardní točení dvouher (1-based [domácí, hosté]): v kole r hraje domácí (k+r) proti hostu k. */
+  cyclicOrder(p: number): [number, number][] {
+    return Array.from({ length: p }, (_, r) => Array.from({ length: p }, (_, k) => [((k + r) % p) + 1, k + 1] as [number, number])).flat();
+  },
+  /** Pořadí dvouher (1-based [domácí, hosté]) podle klíče ze zápisů soutěže, jinak standardní točení. */
+  singlesOrder(zs: Zapis[], fmt: MatchFormat): [number, number][] {
+    const HL = "ABCDEF", AL = "XYZWUV";
+    const key = MatchFormats.singlesKey(zs, fmt);
+    const order = Array.from(key.entries()).sort((a, b) => a[0] - b[0]).map(([, [h, a]]) => [HL.indexOf(h) + 1, AL.indexOf(a) + 1] as [number, number]);
+    const ok = order.length === fmt.players * fmt.players && order.every(([h, a]) => h > 0 && a > 0)
+      && new Set(order.map(([h, a]) => h * 10 + a)).size === order.length;
+    return ok ? order : MatchFormats.cyclicOrder(fmt.players);
   },
 };
 
@@ -178,7 +187,7 @@ export const Live = {
 
   manualByPosition(homePos: Map<number, LivePlayer>, awayPos: Map<number, LivePlayer>,
     homeD1: LivePlayer[], homeD2: LivePlayer[], awayD1: LivePlayer[], awayD2: LivePlayer[],
-    results: Map<number, number>, teamSize = 4, doublesCount = 2): LiveGame[] {
+    results: Map<number, number>, teamSize = 4, doublesCount = 2, order?: [number, number][] | null): LiveGame[] {
     const out: LiveGame[] = [];
     const r = (n: number) => results.get(n) ?? null;
     let no = 1;
@@ -188,16 +197,9 @@ export const Live = {
       if (homeD2.length && awayD2.length) out.push(new LiveGame(no, homeD2, awayD2, r(no)));
       no++;
     }
-    const rounds: [number, number][][] =
-      teamSize === 2 ? [[[1, 1], [2, 2]], [[1, 2], [2, 1]]]
-        : teamSize === 3 ? [[[1, 1], [2, 2], [3, 3]], [[1, 2], [2, 3], [3, 1]], [[1, 3], [2, 1], [3, 2]]]
-          : [
-            [[1, 1], [2, 2], [3, 3], [4, 4]],
-            [[1, 2], [2, 1], [3, 4], [4, 3]],
-            [[1, 3], [2, 4], [3, 1], [4, 2]],
-            [[1, 4], [2, 3], [3, 2], [4, 1]],
-          ];
-    for (const rd of rounds) for (const [h, a] of rd) {
+    // pořadí dvouher: klíč soutěže, jinak standardní točení (ABCD, BCDA, CDAB, DABC proti XYZW)
+    const pairs = order && order.length === teamSize * teamSize ? order : MatchFormats.cyclicOrder(teamSize);
+    for (const [h, a] of pairs) {
       const hp = homePos.get(h), ap = awayPos.get(a);
       if (hp && ap) out.push(new LiveGame(no, [hp], [ap], r(no)));
       no++;

@@ -1,10 +1,17 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.11.1";
+export const APP_VERSION = "2.11.2";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.11.2", date: "11. 11. 2026", title: "Pořadí dvouher a sdílená predikce",
+    items: [
+      "Pořadí dvouher podle klíče ze zápisů soutěže, jinak standardní točení (ABCD, BCDA, CDAB, DABC proti hostům) – v predikcích i ruční predikci",
+      "Predikce příštího zápasu se počítá se skutečnými domácími – shoduje se se sdílenou predikcí",
+    ],
+  },
   {
     version: "2.11.1", date: "11. 11. 2026", title: "Karty utkání",
     items: ["Přehled: „Moje poslední utkání“ s datem, kolem a soutěží pod výsledkem; u předchozího utkání datum a kolo na střed"],
