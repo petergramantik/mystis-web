@@ -134,7 +134,9 @@ function Root() {
   const screen = vm.current;
   const guest = vm.guest;
   const dark = ["Overview", "Club", "H2H", "Player", "Live", "Duel", "ZapisDetail", "Team", "Watch", "Shared", "OtherTeam", "Prediction"].includes(screen.t);
-  const opts = shareOptions(screen);
+  const own = shareOptions(screen);
+  // na obrazovkách se sdílením i „Sdílet aplikaci“ (sheet se otevře až po zavření nabídky)
+  const opts = own.length ? [...own, { label: "Sdílet aplikaci", sub: "Odkaz a QR kód na MySTIS", icon: "share", run: () => { setTimeout(() => setSheet("app"), 0); } }] : own;
   const item = (text: string, icon: string, s: Screen) => (
     <button onClick={() => { setMenu(false); vm.go(s); }}><Icon name={icon} />{text}</button>
   );
