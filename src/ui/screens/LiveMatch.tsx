@@ -257,7 +257,7 @@ export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = f
     <>
     {compact && (
       <div className="row g8 clickable" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        style={{ position: "fixed", top: 56, left: 0, right: 0, zIndex: 19, background: C.Navy, color: "#fff", padding: "8px 16px", boxShadow: "0 4px 12px rgba(0,0,0,0.25)", overflow: "hidden" }}>
+        style={{ position: "fixed", top: "calc(56px + env(safe-area-inset-top, 0px))", left: 0, right: 0, zIndex: 19, background: C.Navy, color: "#fff", padding: "8px 16px", boxShadow: "0 4px 12px rgba(0,0,0,0.25)", overflow: "hidden" }}>
         <FlashOverlay f={barFlash} />
         <T bold size={13} color="#fff" lines={1} style={{ flex: 1, textAlign: "right" }}>{shortTeam(homeName)}</T>
         <T bold size={20} color="#fff" style={{ whiteSpace: "nowrap", flex: "none" }}>{`${st.home} : ${st.away}`}</T>

@@ -1,10 +1,14 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.13.2";
+export const APP_VERSION = "2.13.3";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.13.3", date: "11. 11. 2026", title: "Oprava horní lišty na iPhonu",
+    items: ["iPhone (aplikace z plochy): horní lišta už není schovaná pod stavovým řádkem; totéž pro menu ⋮, živý pruh utkání a úvodní obrazovku"],
+  },
   {
     version: "2.13.2", date: "11. 11. 2026", title: "Sdílet aplikaci z nabídky sdílení",
     items: ["Nabídka sdílení v horní liště nabízí i „Sdílet aplikaci“ (odkaz a QR kód)"],

@@ -5,6 +5,7 @@
   --chip-bg: #E6E9EE; --soft: #F0F2F5; --div: #EEF0F3;
   --font: Roboto, "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; background: var(--ground); color: var(--ink); font-family: var(--font); font-size: 14px; }
@@ -13,14 +14,16 @@ button { font-family: inherit; }
 #app { max-width: 560px; margin: 0 auto; min-height: 100vh; background: var(--ground); position: relative; }
 
 /* horní lišta */
-.topbar { position: sticky; top: 0; z-index: 20; height: 56px; display: flex; align-items: center; padding: 0 4px; background: var(--ground); color: var(--ink); }
+.topbar { position: sticky; top: 0; z-index: 20; box-sizing: border-box; height: calc(56px + var(--safe-top)); display: flex; align-items: center; padding: var(--safe-top) 4px 0;
+  /* iPhone z plochy: pod průhledným stavovým řádkem tmavý pruh (bílý text hodin a baterie) */
+  background: linear-gradient(var(--navy) 0 var(--safe-top), var(--ground) var(--safe-top)); color: var(--ink); }
 .topbar.dark { background: var(--navy); color: #fff; }
 .topbar .title { flex: 1; text-align: center; font-weight: 700; font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; }
 .iconbtn { width: 44px; height: 44px; border: 0; background: transparent; color: inherit; border-radius: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex: none; }
 .iconbtn:active { background: rgba(127,127,127,.18); }
 .iconbtn svg { width: 24px; height: 24px; fill: currentColor; }
 .spacer44 { width: 44px; flex: none; }
-.menu { position: absolute; right: 8px; top: 52px; background: #fff; color: var(--ink); border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.18); padding: 8px 0; min-width: 230px; z-index: 40; }
+.menu { position: absolute; right: 8px; top: calc(52px + var(--safe-top)); background: #fff; color: var(--ink); border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.18); padding: 8px 0; min-width: 230px; z-index: 40; }
 .menu button { display: flex; align-items: center; gap: 14px; width: 100%; padding: 12px 16px; border: 0; background: transparent; font-size: 15px; text-align: left; cursor: pointer; color: var(--ink); }
 .menu button:active { background: var(--soft); }
 .menu svg { width: 22px; height: 22px; fill: var(--muted); }
@@ -136,7 +139,7 @@ button { font-family: inherit; }
 .switch.on { background: var(--blue); border-color: var(--blue); }
 .switch.on::after { width: 24px; height: 24px; top: 2px; left: 22px; background: #fff; }
 .chart text { font-family: var(--font); }
-.onboard { background: var(--navy); min-height: 100vh; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+.onboard { background: var(--navy); min-height: 100vh; padding: calc(24px + var(--safe-top)) 24px 24px; display: flex; flex-direction: column; gap: 16px; }
 
 .homebtn { border: 1px solid rgba(255,255,255,.55); background: rgba(255,255,255,.12); color: #fff; border-radius: 16px; padding: 6px 14px; font-weight: 700; font-size: 13px; cursor: pointer; margin-top: 2px; }
 .homebtn:active { background: rgba(255,255,255,.25); }
