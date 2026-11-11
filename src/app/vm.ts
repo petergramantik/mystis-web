@@ -1522,6 +1522,7 @@ export class AppVm {
     };
     for (const c of this.next) add(c.myTeam.ref, c.myTeam.competition);
     for (const p of [this.me, ...this.players.values()]) for (const s of p?.seasons ?? []) for (const t of s.teams) add(t.ref, t.competition);
+    for (const c of this.clubPages.values()) for (const [k, n] of Object.entries(c.comps ?? {})) { const [svaz, rocnik, soutez] = k.split("|"); add({ id: "", name: "", svaz, rocnik: +rocnik, soutez }, n); }
     for (const r of this.browseRecent()) if (r.k === "s") { const [svaz, rocnik, soutez] = r.id.split("|"); add({ id: "", name: "", svaz, rocnik: +rocnik, soutez }, r.name); }
     return Array.from(out.values()).sort((a, b) => b.rocnik - a.rocnik || a.name.localeCompare(b.name, "cs"));
   }

@@ -465,6 +465,15 @@ export const Parsers = {
   },
 
   // ------------------------------------------------------------ oddíl
+  /** Názvy soutěží z odkazů na tabulky (<a href="/tabulka/svaz-S/rocnik-R/soutez-X">OS 1</a>). */
+  compNames(html: string): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const m of html.matchAll(/<a[^>]*href="[^"]*\/tabulka\/svaz-(\d+)\/rocnik-(\d{4})\/soutez-(\d+)[^"]*"[^>]*>(.*?)<\/a>/gs)) {
+      const name = t(m[4].replace(/<[^>]+>/g, ""));
+      if (name) out[`${m[1]}|${m[2]}|${m[3]}`] = name;
+    }
+    return out;
+  },
   club(html: string, id: string): ClubPage {
     const teams = new Map<string, TeamRef>();
     for (const [href, text] of Html.hrefs(html)) {
@@ -483,7 +492,7 @@ export const Parsers = {
     const strip = (s: string, p: string) => (s.startsWith(p) ? s.substring(p.length) : s);
     const name = [cardHeader, fromTeams ?? "", strip(strip(title, "STIS - "), "STIS")]
       .find((x) => x.trim().length > 0 && !x.startsWith("Sezóna")) ?? `Oddíl ${id}`;
-    return { id, name: name.trim(), teams: Array.from(teams.values()) };
+    return { id, name: name.trim(), teams: Array.from(teams.values()), comps: Parsers.compNames(html) };
   },
 
   // ------------------------------------------------------------ zápis o utkání

@@ -21,7 +21,7 @@ const strOf = (id: string) => PLAYERS.find((p) => p[0] === id)?.[2] ?? OPP.playe
 
 function clubPage() {
   return pad(`<html><head><title>STIS - oddíl</title></head><body><div class="card-header">TTC Bystřice</div>` +
-    TEAMS.map((t) => `<a href="/druzstvo-${t.id}/svaz-420802/rocnik-2026/soutez-${t.soutez}">${t.name}</a>`).join(" ") + `</body></html>`);
+    TEAMS.map((t) => `<a href="/druzstvo-${t.id}/svaz-420802/rocnik-2026/soutez-${t.soutez}">${t.name}</a> (Muži, <a href="/tabulka/svaz-420802/rocnik-2026/soutez-${t.soutez}">${t.soutez === "6723" ? "OS 1" : "OP"}</a>)<br>`).join(" ") + `</body></html>`);
 }
 function teamPage(id: string) {
   const t = TEAMS.find((x) => x.id === id);

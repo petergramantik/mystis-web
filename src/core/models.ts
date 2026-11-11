@@ -264,7 +264,11 @@ export interface TeamInfo {
   contactName: string | null; email: string | null; phones: string[];
 }
 
-export interface ClubPage { id: string; name: string; teams: TeamRef[] }
+export interface ClubPage {
+  id: string; name: string; teams: TeamRef[];
+  /** názvy soutěží z odkazů na tabulky („svaz|ročník|soutěž“ → „3. liga muži B“) */
+  comps?: Record<string, string>;
+}
 
 export class ZapisGame extends Data {
   constructor(

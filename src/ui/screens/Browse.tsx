@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 // Karta „Hráči“: Moji soupeři + Hledat (kohokoli – hráče, oddíl, soutěž). Data ze STIS se načítají jen na vyžádání.
 import { vm } from "../../app/vm";
 import { Stis, type TeamRef } from "../../core/models";
@@ -179,15 +180,15 @@ export function BrowseClubScreen({ path, name }: { path: string; name: string })
             <ListCard>
               {!c.teams.length && <Empty text="Oddíl nemá v tomto ročníku žádné družstvo." />}
               {c.teams.map((t) => {
-                const comp = vm.knownComps().find((k) => k.soutez === t.soutez && k.svaz === t.svaz && k.rocnik === t.rocnik);
+                const comp = { name: c.comps?.[`${t.svaz}|${t.rocnik}|${t.soutez}`] ?? vm.knownComps().find((k) => k.soutez === t.soutez && k.svaz === t.svaz && k.rocnik === t.rocnik)?.name ?? "" };
                 return (
                   <div key={t.id + t.soutez}>
                     <div className="row g12" style={{ padding: "10px 14px" }}>
-                      <div className="col w1 clickable" onClick={() => vm.openTeam(t, comp?.name ?? "")}>
+                      <div className="col w1 clickable" onClick={() => vm.openTeam(t, comp.name)}>
                         <T semi size={15} lines={1}>{t.name} <span style={{ color: C.Muted }}>›</span></T>
-                        <Muted size={12} text={comp?.name || `soutěž ${t.soutez} · ${season(t.rocnik)}`} maxLines={1} />
+                        <Muted size={12} text={comp.name ? `${comp.name} · ${season(t.rocnik)}` : `soutěž ${t.soutez} · ${season(t.rocnik)}`} maxLines={1} />
                       </div>
-                      <button className="chip" style={{ height: 32 }} onClick={() => openComp({ svaz: t.svaz, rocnik: t.rocnik, soutez: t.soutez, name: comp?.name || `${t.name} – soutěž` })}>Soutěž ›</button>
+                      <button className="chip" style={{ height: 32 }} onClick={() => openComp({ svaz: t.svaz, rocnik: t.rocnik, soutez: t.soutez, name: comp.name || `Soutěž družstva ${t.name}` })}>Soutěž ›</button>
                     </div>
                     <Divider />
                   </div>
@@ -219,7 +220,14 @@ export function BrowseClubScreen({ path, name }: { path: string; name: string })
   );
 }
 
-export function BrowseCompScreen({ c }: { c: CompRef & { name: string } }) {
+export function BrowseCompScreen({ c: c0 }: { c: CompRef & { name: string } }) {
+  // skutečný název soutěže, jakmile je známý (ze stránky oddílu, hráče nebo mých družstev)
+  const known = vm.knownComps().find((k) => k.svaz === c0.svaz && k.rocnik === c0.rocnik && k.soutez === c0.soutez)?.name;
+  const c = known ? { ...c0, name: known } : c0;
+  useEffect(() => {
+    const id = `${c0.svaz}|${c0.rocnik}|${c0.soutez}`;
+    if (known && vm.browseRecent().some((r) => r.k === "s" && r.id === id && r.name !== known)) vm.addBrowseRecent("s", id, known);
+  }, [known]);
   const tabKey = Stis.tabulka(c.svaz, c.rocnik, c.soutez);
   const rows = vm.tabulky.get(tabKey);
   const los = vm.compLos.get(vm.compKey(c));
