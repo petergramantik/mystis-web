@@ -50,7 +50,7 @@ export function ModelScreen({ section }: { section?: string | null }) {
   }, [section]);
   return (
     <div className="col g12 px16" style={{ paddingTop: 12 }}>
-      <Muted size={14} maxLines={6} color={C.Ink} text="Všechny predikce v MySTIS vycházejí jen z STR hráčů (systém eSTeR na STIS). Jsou to odhady, ne jistoty – model neví o nemoci, únavě, absencích ani o tom, komu kdo „sedí“." />
+      <Muted size={14} maxLines={6} color={C.Ink} text="Základní predikce v MySTIS vycházejí jen z STR hráčů (systém eSTeR na STIS). K dispozici je i komplexní model (STR+), který navíc započítá vzájemné zápasy hráčů a výhodu domácího prostředí – zapíná se přepínačem STR | STR+ u každé predikce nebo v Nastavení, podrobnosti v bodě 8. Jsou to odhady, ne jistoty – model neví o nemoci, únavě ani absencích." />
       <Sec id="hra" title="1. Šance v jedné hře">
         <P>Šance na výhru ve dvouhře se počítá jen z rozdílu STR obou hráčů. Je to stejná křivka jako u šachového Elo: každých 200 bodů rozdílu znamená zhruba desetkrát lepší poměr výher.</P>
         <WinCurve />

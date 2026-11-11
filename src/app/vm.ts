@@ -551,7 +551,16 @@ export class AppVm {
 
   // ---------- komplexní model predikcí ----------
   get complexOn(): boolean { return Complex.on; }
-  setComplex(v: boolean) { prefs.complexModel = v; Complex.on = v; this.pairCache.clear(); this.emit(); }
+  setComplex(v: boolean) {
+    prefs.complexModel = v; Complex.on = v; this.pairCache.clear();
+    // predikce konce sezóny je spočítaná jedním modelem – po přepnutí se spočítá znovu
+    for (const k of Array.from(this.predictions.keys())) {
+      const m = /svaz-(\d+)\/rocnik-(\d+)\/soutez-(\d+)/.exec(k);
+      this.predictions.delete(k);
+      if (m) this.loadPrediction(m[1], +m[2], m[3]);
+    }
+    this.emit();
+  }
   private pairCache = new Map<string, H2HInfo>();
   private pairVer = "";
   /** Vzájemná korekce STR hráče a proti b (z historie a, případně b). */

@@ -1,5 +1,6 @@
 // Živě: utkání vybraného dne ve sledovaných soutěžích, sledování utkání (max. 5) s vlastním upozorněním,
 // a obrazovka sledovaného (cizího) utkání.
+import { baseline } from "../../core/complex";
 import { SupportStrip } from "../support";
 import { useEffect, useState } from "react";
 import { vm, type BoardStatus, MAX_WATCHED, type LiveComp, type Watched } from "../../app/vm";
@@ -344,6 +345,7 @@ export function WatchScreen({ k, shared }: { k: string; shared?: string }) {
   if (!m && !w && !z) return <div className="px16"><Loading text={shared ? "Načítám zápis o utkání…" : "Hledám utkání…"} /></div>;
   const games = z ? Live.fromZapis(z, strs.strOf, (id, n) => vm.rangeOf(id, n)) : [];
   const st = Live.evaluate(games, z ? vm.fmtOf(z) : vm.format);
+  const stBase = vm.complexOn ? baseline(() => Live.evaluate(games, z ? vm.fmtOf(z) : vm.format)) : null;
   const comp = found?.comp ?? (w ? { svaz: w.svaz, rocnik: w.rocnik, soutez: w.soutez, label: w.compLabel } as LiveComp : null);
   const dt = m?.dateTime ?? w?.dateTime ?? null;
   const pending = !!z && lineupsPending(games);
@@ -351,7 +353,7 @@ export function WatchScreen({ k, shared }: { k: string; shared?: string }) {
   const compName = comp ? vm.compLabel(comp) ?? comp.label : "";
   return (
     <div className="col g12">
-      <ScoreHeader st={st} myHome={myHome} homeName={home} awayName={away} empty={!games.length || !strs.ready || pending} neutral={neutral}
+      <ScoreHeader st={st} base={stBase} myHome={myHome} homeName={home} awayName={away} empty={!games.length || !strs.ready || pending} neutral={neutral}
         emptyText={pending ? "Sestavy dvouher zatím nejsou zapsané – predikce se ukáže po jejich doplnění." : games.length && !strs.ready ? `Načítám STR hráčů… (${strs.done}/${strs.total})` : undefined}
         comp={comp ? { text: [compName, m?.round ? `${m.round}. kolo` : null].filter((x) => x).join(" · "),
           onClick: () => vm.openCompetition({ id: "", name: "", svaz: comp.svaz, rocnik: comp.rocnik, soutez: comp.soutez }, compName, "", "tabulka") } : null} />

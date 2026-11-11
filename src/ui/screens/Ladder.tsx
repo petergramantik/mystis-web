@@ -1,3 +1,4 @@
+import { ModelToggle } from "../modelToggle";
 import { useEffect, useState } from "react";
 import { ModelLink } from "./Model";
 import { vm, S } from "../../app/vm";
@@ -107,6 +108,7 @@ export function StandingsTable({ comp, rows, loading, current }: { comp: Comp; r
   const pred = vm.predictions.get(key);
   const showPred = current && vm.predOn && (computing || !!pred || vm.predErrors.has(key));
   const toggle = current && (
+    <div className="row g8" style={{ alignItems: "center" }}>
     <button className={"chip" + (vm.predOn ? " on" : "")} style={{ display: "flex", alignItems: "center", gap: 8, alignSelf: "flex-start", height: 36 }}
       onClick={() => {
         const on = !(vm.predOn && (computing || !!pred));
@@ -116,6 +118,8 @@ export function StandingsTable({ comp, rows, loading, current }: { comp: Comp; r
       {computing && <Spinner size={16} width={2} color={vm.predOn ? "#fff" : C.Blue} />}
       {computing ? "Počítám…" : "Predikce po sezóně"}
     </button>
+    {vm.predOn && <ModelToggle />}
+    </div>
   );
   if (showPred) {
     const perr = vm.predErrors.get(key);

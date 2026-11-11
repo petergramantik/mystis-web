@@ -1,3 +1,5 @@
+import { ModelToggle } from "../modelToggle";
+import { baseline } from "../../core/complex";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ModelLink } from "./Model";
 import { SupportStrip } from "../support";
@@ -118,6 +120,7 @@ export function LiveScreen({ team }: { team: number }) {
       vm.manualResultsFor(tk), vm.format.players, vm.format.doubles, vm.singlesOrderFor(ctx.myTeam.ref), vm.format);
   }
   const st = Live.evaluate(games, z ? vm.fmtOf(z) : vm.format);
+  const stBase = vm.complexOn ? baseline(() => Live.evaluate(games, z ? vm.fmtOf(z) : vm.format)) : null;
   const pending = !!z && lineupsPending(games);
   const slots = z ? vm.singlesKeyFor(z) : null;
   const mine = new Map<number, MyLiveGame>();
@@ -131,7 +134,7 @@ export function LiveScreen({ team }: { team: number }) {
 
   return (
     <div className="col g12">
-      <ScoreHeader st={st} myHome={myHome} homeName={homeName} awayName={awayName} empty={!games.length || pending}
+      <ScoreHeader st={st} base={stBase} myHome={myHome} homeName={homeName} awayName={awayName} empty={!games.length || pending}
         emptyText={pending ? "Sestavy dvouher zatím nejsou zapsané – predikce se ukáže po jejich doplnění." : undefined}
         comp={{ text: [ctx.myTeam.competition, ctx.next?.round ? `${ctx.next.round}. kolo` : null, MatchFormats.short(z ? vm.fmtOf(z) : vm.format)].filter((x) => x).join(" · "),
           onClick: ctx.myTeam.ref ? () => vm.openCompetition(ctx.myTeam.ref!, ctx.myTeam.competition || ctx.myTeam.name, ctx.myTeam.name, "tabulka") : undefined }} />
@@ -220,8 +223,10 @@ function useChangeFlash(sig: string, color: () => string | null): { n: number; c
 const FlashOverlay = ({ f }: { f: { n: number; color: string } | null }) => (f ? <div key={f.n} className="flash" style={{ background: f.color }} /> : null);
 const FLASH_EVENT = "mystis-flash";
 
-export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = false, emptyText, comp }: {
+export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = false, emptyText, comp, base }: {
   st: LiveState; myHome: boolean; homeName: string; awayName: string; empty: boolean; neutral?: boolean; emptyText?: string;
+  /** výsledek základního modelu (jen STR) pro srovnání, když je zapnutý STR+ */
+  base?: LiveState | null;
   /** soutěž · kolo · formát nad družstvy; klepnutí = tabulka */
   comp?: { text: string; onClick?: () => void } | null;
 }) {
@@ -285,6 +290,12 @@ export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = f
         {myHome ? <StatTile label="Prohra" value={Stats.pct(pLoss)} dark valueColor={C.Peach} /> : <StatTile label="Výhra" value={Stats.pct(pWin)} dark valueColor={C.WinLight} />}
       </TileRow>}
       <ProbBar p={pWin + st.pDraw / 2} reverse={!myHome} />
+      {!st.finished && (
+        <div className="row g8" style={{ flexWrap: "wrap" }}>
+          <ModelToggle dark />
+          {base && vm.complexOn && <Muted color={C.MutedOnNavy} size={12} text={neutral ? `STR: domácí ${Stats.pct(base.pHomeWin)} · hosté ${Stats.pct(base.pAwayWin)}` : `STR: výhra ${Stats.pct(myHome ? base.pHomeWin : base.pAwayWin)}`} />}
+        </div>
+      )}
       {st.finished ? <Muted color={C.MutedOnNavy} size={13} text={neutral ? `Konečný výsledek ${st.home} : ${st.away}` : `Konečný výsledek z pohledu vašeho družstva: ${my} : ${opp}`} />
         : <div className="row g8" style={{ flexWrap: "wrap" }}><PredictionText hs={a} as_={b} myHome={neutral ? null : myHome} dark /><Muted color={C.MutedOnNavy} size={13} text={`· odehráno ${st.played} z ${st.games.length}`} /></div>}
       </>}

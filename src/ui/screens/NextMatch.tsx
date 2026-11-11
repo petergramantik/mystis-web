@@ -1,3 +1,5 @@
+import { ModelToggle } from "../modelToggle";
+import { baseline } from "../../core/complex";
 import { useEffect, useState, type ReactNode } from "react";
 import { ModelLink } from "./Model";
 import { vm } from "../../app/vm";
@@ -143,7 +145,9 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
   // nejpravděpodobnější konečný výsledek (hraje se do cíle, proto ne zaokrouhlený součet všech her)
   // počítá se se skutečnými domácími a pořadím her soutěže (stejně jako sdílená predikce)
   vm.complexNeed(mine.map((p) => p.id));
-  const fc = myForecast(mine.map((p) => p.str ?? 1400), theirs.map((p) => p.str ?? 1400), home, fmt, vm.singlesOrderFor(ctx?.myTeam.ref ?? theirRef), { mine: mine.map((p) => p.id), theirs: theirs.map((p) => p.id) });
+  const run = () => myForecast(mine.map((p) => p.str ?? 1400), theirs.map((p) => p.str ?? 1400), home, fmt, vm.singlesOrderFor(ctx?.myTeam.ref ?? theirRef), { mine: mine.map((p) => p.id), theirs: theirs.map((p) => p.id) });
+  const fc = run();
+  const fcBase = vm.complexOn ? baseline(run) : null;
   const [my, op] = fc.likely;
   // dvouhry na hráče podle formátu (u 1.–3. ligy 3 ze 4 soupeřů)
   const perGames = Math.max(1, Math.round(MatchFormats.singlesCount(fmt) / fmt.players));
@@ -158,8 +162,10 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
           <Muted size={12} text={`${home == null ? "vy : soupeř" : "domácí : hosté"} · výhra ${Stats.pct(fc.pWin)}, remíza ${Stats.pct(fc.pDraw)}, prohra ${Stats.pct(fc.pLoss)}`} maxLines={2} />
         </div>
         {rs.busy && <Spinner size={18} width={2} />}
+        <ModelToggle />
         <BigNumber text={`${hs} : ${as_}`} color={rs.busy ? C.Muted : my > op ? C.Win : my < op ? C.OrangeText : C.Ink} size={26} />
       </div>
+      {fcBase && <Muted size={12} text={`Podle samotného STR: výhra ${Stats.pct(fcBase.pWin)}, remíza ${Stats.pct(fcBase.pDraw)}, prohra ${Stats.pct(fcBase.pLoss)} · ${home === false ? `${fcBase.likely[1]} : ${fcBase.likely[0]}` : `${fcBase.likely[0]} : ${fcBase.likely[1]}`}`} maxLines={2} />}
       {rs.busy && <Muted color={C.Blue} size={12} text={`Upřesňuji sestavy… ${rs.total ? `(načteno ${rs.done} z ${rs.total} hráčů) · ` : ""}předběžný odhad`} />}
       <div style={{ opacity: rs.busy ? 0.55 : 1, transition: "opacity .2s" }}><ProbBar p={fc.expHome + fc.expAway > 0 ? fc.expHome / (fc.expHome + fc.expAway) : 0.5} /></div>
       <Muted text={`Vaše sestava: ${mineP.map(label).join(", ")}`} size={13} maxLines={3} />

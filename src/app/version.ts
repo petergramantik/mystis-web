@@ -2,12 +2,20 @@
 import { IS_DEV } from "./channel";
 
 export const PROD_VERSION = "2.14.1";
-export const DEV_VERSION = "2.15-dev.4";
+export const DEV_VERSION = "2.15-dev.5";
 export const APP_VERSION = IS_DEV ? DEV_VERSION : PROD_VERSION;
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.15-dev.5", date: "11. 11. 2026", title: "Přepínač STR | STR+ u predikcí",
+    items: [
+      "U každé predikce (šance ve hře, příští zápas, predikce utkání, sezóna, živé utkání) přepínač STR | STR+",
+      "STR+ = komplexní model (vzájemné zápasy, výhoda domácích); u výsledku se ukáže i hodnota podle samotného STR",
+      "Popis modelu: úvod zmiňuje komplexní model",
+    ],
+  },
   {
     version: "2.15-dev.4", date: "11. 11. 2026", title: "Přepínač verzí",
     items: ["Klepnutím na štítek DEV v záhlaví se vrátíte do běžné verze; aplikace z plochy si volbu pamatuje"],

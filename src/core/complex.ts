@@ -26,6 +26,13 @@ export const Complex = {
   slope(): number { return Math.LN10 / StrModel.SCALE; },
 };
 
+/** Výpočet základním modelem (jen STR) bez ohledu na přepínač – pro srovnání s komplexním. */
+export function baseline<T>(f: () => T): T {
+  const was = Complex.on;
+  Complex.on = false;
+  try { return f(); } finally { Complex.on = was; }
+}
+
 export interface H2HInfo { adj: number; games: number; weight: number }
 
 /**

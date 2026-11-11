@@ -1,3 +1,5 @@
+import { ModelToggle } from "../modelToggle";
+import { baseline } from "../../core/complex";
 import { IS_DEV, copyProdSettings, prodHasProfile } from "../../app/channel";
 import { switchChannel } from "../../app/switch";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
@@ -682,7 +684,9 @@ function CardForecast({ ctx, oppName, oppRef, oppRoster, home }: {
   const fmt = ctx.myTeam.ref ? vm.formatForComp(ctx.myTeam.ref) : vm.format;
   const order = vm.singlesOrderFor(ctx.myTeam.ref);
   vm.complexNeed(mine.map((p) => p.id));
-  const f = myForecast(mine.map((p) => p.str ?? 1400), theirs.map((p) => p.str ?? 1400), home, fmt, order, { mine: mine.map((p) => p.id), theirs: theirs.map((p) => p.id) });
+  const fc = () => myForecast(mine.map((p) => p.str ?? 1400), theirs.map((p) => p.str ?? 1400), home, fmt, order, { mine: mine.map((p) => p.id), theirs: theirs.map((p) => p.id) });
+  const f = fc();
+  const fBase = vm.complexOn ? baseline(fc) : null;
   // f je z pohledu mého družstva -> výsledek v pořadí domácí : hosté jako na kartě
   const [hh, aa] = home ? f.likely : [f.likely[1], f.likely[0]];
   const meIn = me ? mine.find((p) => p.id === me.id || Stats.fold(p.name) === Stats.fold(me.name)) : undefined;
@@ -698,6 +702,10 @@ function CardForecast({ ctx, oppName, oppRef, oppRoster, home }: {
   return (
     <ForecastBox>
       <MiniOdds win={f.pWin} draw={f.pDraw} loss={f.pLoss} busy={rs.busy} />
+      <div className="row g8" style={{ justifyContent: "center", flexWrap: "wrap" }}>
+        <ModelToggle dark />
+        {fBase && <Muted color="#D6E1FA" size={12} text={`STR: výhra ${Stats.pct(fBase.pWin)} · prohra ${Stats.pct(fBase.pLoss)}`} />}
+      </div>
       <div style={{ opacity: rs.busy ? 0.6 : 1 }}><ProbBar p={f.pWin + f.pDraw / 2} /></div>
       <PredictionText hs={hh} as_={aa} myHome={home} dark center />
       {rs.busy && <T size={11} color="#D6E1FA" center>upřesňuji…</T>}

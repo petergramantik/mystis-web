@@ -545,3 +545,4 @@ export function TeamName({ name, end = false, bold = true }: { name: string; end
   const size = n.length > 26 ? 13 : n.length > 18 ? 14 : 16;
   return <T bold={bold} color="#fff" size={size} lines={3} end={end} style={{ flex: 1, wordBreak: "break-word" }}>{n}</T>;
 }
+

@@ -1,3 +1,4 @@
+import { ModelToggle } from "../modelToggle";
 import { useEffect, useState } from "react";
 import { vm } from "../../app/vm";
 import type { Match } from "../../core/models";
@@ -168,9 +169,10 @@ export function H2HScreen({ oppKey }: { oppKey: string }) {
       <div className="col g12 px16">
         {p != null && myStr != null && oppStr != null && (
           <AppCard>
-            <div className="row"><T bold style={{ flex: 1 }}>Šance na výhru v dalším zápase</T><BigNumber text={Stats.pct(p)} color={p >= 0.5 ? C.Win : C.OrangeText} size={24} /></div>
+            <div className="row"><T bold style={{ flex: 1 }}>Šance na výhru v dalším zápase</T><ModelToggle style={{ marginRight: 8 }} /><BigNumber text={Stats.pct(p)} color={p >= 0.5 ? C.Win : C.OrangeText} size={24} /></div>
             <ProbBar p={p} />
             <Muted size={13} text={`Rozdíl STR ${signedInt(myStr - oppStr)} · výhra +${StrModel.gainIfWin(myStr, oppStr)} · prohra −${-StrModel.lossIfLose(myStr, oppStr)} STR`} />
+            {vm.complexOn && (!h2h || !h2h.games) && <Muted size={12} text="STR+: vzájemná korekce je nulová (málo zápasů), šance je stejná jako podle STR." />}
             {h2h && h2h.games > 0 && pBase != null && <Muted size={12} maxLines={2} text={`Komplexní model: vzájemná korekce ${h2h.adj > 0 ? "+" : h2h.adj < 0 ? "−" : "±"}${Math.abs(h2h.adj)} STR z ${h2h.games} ${h2h.games === 1 ? "zápasu" : "zápasů"} · podle samotného STR ${Stats.pct(pBase)}`} />}
             {stale && <Muted size={12} text={`STR soupeře po posledním vzájemném zápase${loadingOpp ? ", načítám aktuální…" : ""}`} />}
           </AppCard>

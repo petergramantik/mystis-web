@@ -1,3 +1,4 @@
+import { ModelToggle } from "../modelToggle";
 import { useEffect, useState } from "react";
 import { ModelLink } from "./Model";
 import { SupportStrip } from "../support";
@@ -85,6 +86,7 @@ export function PairScreen({ aId0, aName0, bId0, bName0, pA0 }: { aId0: string; 
             <AppCard>
               <div className="row">
                 <T bold style={{ flex: 1 }}>{even ? "Vyrovnané" : `Favorit: ${first(fav)}`}</T>
+                {pA0 == null && <ModelToggle style={{ marginRight: 8 }} />}
                 <BigNumber text={pct(even ? 0.5 : favP)} color={even ? C.Ink : favCol} size={22} />
               </div>
               <div className="row" style={{ height: 9, borderRadius: 5, overflow: "hidden" }}>
@@ -96,6 +98,7 @@ export function PairScreen({ aId0, aName0, bId0, bName0, pA0 }: { aId0: string; 
                 <T size={13} bold color={colB}>{`${pct(1 - p)} ${first(bName)}`}</T>
               </div>
               <Muted size={13} maxLines={3} text={`${first(aName)}: výhra +${StrModel.gainIfWin(strA, strB)} / prohra −${-StrModel.lossIfLose(strA, strB)} · ${first(bName)}: výhra +${StrModel.gainIfWin(strB, strA)} / prohra −${-StrModel.lossIfLose(strB, strA)} STR`} />
+              {vm.complexOn && pA0 == null && (!h2h || !h2h.games) && <Muted size={12} text="STR+: vzájemné zápasy nejsou, šance je stejná jako podle STR." />}
               {h2h && h2h.games > 0 && <Muted size={12} maxLines={3} text={`Komplexní model: vzájemná korekce ${first(aName)} ${h2h.adj > 0 ? "+" : h2h.adj < 0 ? "−" : "±"}${Math.abs(h2h.adj)} STR z ${h2h.games} ${h2h.games === 1 ? "zápasu" : "zápasů"} · podle samotného STR ${pct(pBase)} : ${pct(1 - pBase)}`} />}
               <ModelLink section={h2h ? "complex" : "hra"} />
             </AppCard>
