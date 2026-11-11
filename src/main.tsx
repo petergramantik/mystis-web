@@ -1,3 +1,4 @@
+import { IS_DEV, SP } from "./app/channel";
 import { AdminStatsScreen } from "./ui/screens/AdminStats";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
@@ -146,7 +147,7 @@ function Root() {
         {canBack() ? <button className="iconbtn" onClick={goBack} aria-label="Zpět"><Icon name="back" /></button> : screen.t === "Overview" ? <div style={{ width: 8 }} /> : <div className="spacer44" />}
         {screen.t === "Overview" && <button onClick={() => vm.go({ t: "About" })} aria-label="O aplikaci" style={{ background: "none", border: 0, padding: 0, marginLeft: 4, display: "flex", cursor: "pointer" }}><img src="icons/icon-192.png" alt="" width={28} height={28} style={{ borderRadius: 7, display: "block" }} /></button>}
         {opts.length === 0 && screen.t !== "Overview" && <div className="spacer44" />}
-        <div className="title" style={opts.length || screen.t === "Overview" ? { textAlign: "left", paddingLeft: screen.t === "Overview" ? 10 : 8 } : undefined}>{title(screen)}</div>
+        <div className="title" style={opts.length || screen.t === "Overview" ? { textAlign: "left", paddingLeft: screen.t === "Overview" ? 10 : 8 } : undefined}>{title(screen)}{IS_DEV && <span className="devtag">DEV</span>}</div>
         {opts.length > 0 ? <button className="iconbtn" onClick={() => { if (opts.length === 1) void opts[0].run(); else setSheet("share"); }} aria-label="Sdílet"><Icon name="share" /></button> : null}
         {(() => {
           const refresh = guest ? <div className="spacer44" /> : <button className="iconbtn" onClick={() => vm.refreshAll()} aria-label="Obnovit data"><Icon name="refresh" /></button>;
@@ -211,18 +212,18 @@ navigator.serviceWorker?.addEventListener("message", (e: MessageEvent) => {
 // Jednoduchý GET bez vlastních hlaviček – starší Worker bez počítadla ho jen přepošle na STIS a nic se nerozbije.
 (() => {
   try {
-    let id = localStorage.getItem("mystis.anon_id");
+    let id = localStorage.getItem(SP + "anon_id");
     if (!id) {
       id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
-      localStorage.setItem("mystis.anon_id", id);
+      localStorage.setItem(SP + "anon_id", id);
     }
     const day = new Date().toISOString().slice(0, 10);
-    if (localStorage.getItem("mystis.anon_day") === day) return;
+    if (localStorage.getItem(SP + "anon_day") === day) return;
     const proxy = vm.prefs.proxyUrl;
     if (!proxy) return;
     setTimeout(() => {
       fetch(`${proxy}/__hit?id=${encodeURIComponent(id!)}&v=${encodeURIComponent(APP_VERSION)}`, { mode: "cors", cache: "no-store" })
-        .then(() => localStorage.setItem("mystis.anon_day", day), () => { /* bez sítě – zkusí příště */ });
+        .then(() => localStorage.setItem(SP + "anon_day", day), () => { /* bez sítě – zkusí příště */ });
     }, 3000);
   } catch { /* soukromý režim */ }
 })();
@@ -233,9 +234,9 @@ navigator.serviceWorker?.addEventListener("message", (e: MessageEvent) => {
   let q = new URLSearchParams(location.search);
   const has = (x: URLSearchParams) => x.has("z") || x.has("h") || x.has("d") || x.has("pr") || x.has("m");
   try {
-    if (has(q)) sessionStorage.setItem("mystis_share", JSON.stringify({ q: q.toString(), t: Date.now() }));
+    if (has(q)) sessionStorage.setItem(SP + "share", JSON.stringify({ q: q.toString(), t: Date.now() }));
     else {
-      const s = JSON.parse(sessionStorage.getItem("mystis_share") ?? "null");
+      const s = JSON.parse(sessionStorage.getItem(SP + "share") ?? "null");
       if (s && Date.now() - s.t < 60_000) q = new URLSearchParams(s.q);
     }
   } catch { /* soukromý režim */ }
@@ -243,7 +244,7 @@ navigator.serviceWorker?.addEventListener("message", (e: MessageEvent) => {
   if (location.search) history.replaceState(history.state, "", location.pathname);
   vm.openShared(q);
   // po skutečném otevření už odkaz nepoužívat (další obnovení stránky = normální start)
-  setTimeout(() => { try { sessionStorage.removeItem("mystis_share"); } catch { /* */ } }, 15_000);
+  setTimeout(() => { try { sessionStorage.removeItem(SP + "share"); } catch { /* */ } }, 15_000);
 })();
 // aplikace spuštěná klepnutím na notifikaci: ?n={…} -> po načtení utkání otevřít zápis / živé utkání
 (() => {

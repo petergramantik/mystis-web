@@ -1,3 +1,4 @@
+import { SP } from "../app/channel";
 // Instalace webové aplikace do telefonu (PWA): Android přes systémové okno prohlížeče, iPhone návodem.
 import { useState } from "react";
 import { vm } from "../app/vm";
@@ -18,7 +19,7 @@ export function isIOS(): boolean {
   return /iPhone|iPad|iPod/.test(ua) || (ua.includes("Macintosh") && navigator.maxTouchPoints > 1);
 }
 const canPrompt = () => deferred != null;
-const DISMISS = "mystis.install_dismissed";
+const DISMISS = SP + "install_dismissed";
 
 /** Spustí instalaci; když prohlížeč systémové okno nenabízí, vrátí false (ukáže se návod). */
 async function install(): Promise<boolean> {

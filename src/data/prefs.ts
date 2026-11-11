@@ -1,5 +1,6 @@
+import { SP } from "../app/channel";
 // Nastavení a malé stavové hodnoty (přepis Prefs.kt) – uložené v localStorage prohlížeče.
-const P = "mystis.";
+const P = SP;
 
 function get(k: string): string | null {
   try { return localStorage.getItem(P + k); } catch { return null; }

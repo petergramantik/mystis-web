@@ -8,7 +8,8 @@ import {
   AppCard, BigNumber, C, Empty, Icon, KeyValue, ListCard, Loading, MatchRow, Muted, NavyHeader, OButton, PrimaryButton, SectionTitle,
   StatTile, StrChart, T, TextField, TileRow, Avatar, dec1, signedInt, Segmented, Spinner,
 } from "../components";
-import { ProfileInput } from "./Overview";
+import { DevCard, ProfileInput } from "./Overview";
+import { IS_DEV } from "../../app/channel";
 import { InstallCard } from "../install";
 import { strPoints } from "./StrScreen";
 import { APP_VERSION } from "../../app/version";
@@ -187,6 +188,7 @@ export function SettingsScreen() {
         <Muted text={`Aktuálně: ${vm.me?.name ?? "–"}`} size={13} />
         <ProfileInput dark={false} buttonText="Najít a načíst" onDone={() => setMsg("Profil načten.")} />
       </AppCard>
+      {IS_DEV && <DevCard dark={false} />}
       <InstallCard />
       {!vm.prefs.proxyUrl && <ProxySetup />}
       <AppCard>

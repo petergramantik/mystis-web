@@ -169,8 +169,8 @@ Bun.serve({
   port: 8080,
   fetch(req) {
     let p = new URL(req.url).pathname;
-    if (p === "/") p = "/index.html";
-    if (p === "/config.js") return new Response(`window.MYSTIS_PROXY = "http://localhost:8787";`, { headers: { "Content-Type": "text/javascript" } });
+    if (p.endsWith("/")) p += "index.html";
+    if (p === "/config.js" || p === "/dev/config.js") return new Response(`window.MYSTIS_PROXY = "http://localhost:8787";`, { headers: { "Content-Type": "text/javascript" } });
     const f = DIST + p.slice(1);
     if (existsSync(f)) return new Response(Bun.file(f));
     return new Response("404", { status: 404 });

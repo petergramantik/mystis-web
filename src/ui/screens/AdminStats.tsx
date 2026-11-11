@@ -1,9 +1,10 @@
+import { SP } from "../../app/channel";
 import { useEffect, useState } from "react";
 import { vm } from "../../app/vm";
 import { AppCard, C, Empty, Loading, Muted, OButton, T, TextField } from "../components";
 
 /** Klíč ke statistikám uživatelů (STATS_KEY workeru) – uložený jen v tomto zařízení. */
-const KEY = "mystis.stats_key";
+const KEY = SP + "stats_key";
 export function statsKey(): string | null { try { return localStorage.getItem(KEY); } catch { return null; } }
 function setStatsKey(k: string | null) { try { if (k) localStorage.setItem(KEY, k); else localStorage.removeItem(KEY); } catch { /* soukromý režim */ } }
 

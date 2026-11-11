@@ -1,3 +1,4 @@
+import { IDB, SP } from "../app/channel";
 // Stahování stránek STIS přes proxy (přepis HttpFetcher.kt) a mezipaměť v IndexedDB (offline režim).
 //  - STIS bez ověřené session vrací krátkou "bránu" – pak dotaz zopakujeme s ?nuser=1.
 //  - Kódování je smíšené (cp1250 + UTF-8), proxy vrací původní bajty a dekódujeme je po bajtech.
@@ -15,7 +16,7 @@ export class FetchError extends Error {
 interface Entry { html: string; at: number }
 
 // ---------------------------------------------------------------- IndexedDB
-const DB = "mystis";
+const DB = IDB;
 const STORE = "pages";
 let dbp: Promise<IDBDatabase | null> | null = null;
 function db(): Promise<IDBDatabase | null> {
@@ -81,7 +82,7 @@ export class WebFetcher implements Fetcher {
   private sessionReady = false;
 
   constructor() {
-    try { this.cookie = sessionStorage.getItem("mystis.cookie") ?? ""; } catch { /* */ }
+    try { this.cookie = sessionStorage.getItem(SP + "cookie") ?? ""; } catch { /* */ }
   }
 
   async cachedAt(path: string): Promise<number | null> {
@@ -156,7 +157,7 @@ export class WebFetcher implements Fetcher {
     const ck = resp.headers.get("X-Stis-Cookie");
     if (ck != null && ck !== "") {
       this.cookie = ck;
-      try { sessionStorage.setItem("mystis.cookie", ck); } catch { /* */ }
+      try { sessionStorage.setItem(SP + "cookie", ck); } catch { /* */ }
     }
     const status = Number(resp.headers.get("X-Stis-Status") ?? "200");
     if (status >= 400) throw new FetchError(`STIS odpověděl ${status}`, "http");

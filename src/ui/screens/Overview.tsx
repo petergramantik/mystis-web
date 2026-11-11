@@ -1,3 +1,4 @@
+import { IS_DEV, copyProdSettings, prodHasProfile } from "../../app/channel";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { SupportStrip } from "../support";
 import { MatchFormats } from "../../core/live";
@@ -12,6 +13,7 @@ import { roundScore, type SearchPlayer } from "../../core/search";
 import {
   AppCard, Avatar, BigNumber, C, Chips, Marquee, Dialog, Empty, ErrorBox, ErrorWithDiagnostics, FormDots, Icon, ListCard, Loading, MatchRow,
   Muted, NavyHeader, Pill, PredictionText, shortTeam, PrimaryButton, ProbBar, ResultBadge, SectionTitle, Sparkline, Spinner, StatTile, T, TextField, TileRow, dec1, f0, signedInt,
+  OButton,
 } from "../components";
 import { fmtDMYdt, fmtWhenShort, hhmmLdt } from "../fmt";
 import { ProxySetup } from "./Records";
@@ -28,6 +30,7 @@ export function OnboardingScreen() {
       </div>
       <BigNumber text="MySTIS" color="#fff" size={40} />
       <T size={17} color={C.MutedOnNavy}>Statistiky, žebříček oddílu a predikce STR – data přímo ze STIS.</T>
+      {IS_DEV && <DevCard />}
       {!vm.prefs.proxyUrl && <ProxySetup />}
       <AppCard>
         <T bold size={18}>Kdo jste?</T>
@@ -756,3 +759,16 @@ function SwipeRow({ children, onSwipe, enabled }: { children: ReactNode; onSwipe
 }
 let lastSwipeAt = 0;
 function swiped(_e: unknown) { return Date.now() - lastSwipeAt < 300; }
+
+/** Vývojová verze: vysvětlení a převzetí nastavení z produkční verze. */
+export function DevCard({ dark = true }: { dark?: boolean }) {
+  const [msg, setMsg] = useState<string | null>(null);
+  return (
+    <AppCard style={{ border: `2px solid ${C.Orange}` }}>
+      <T bold size={16} color={C.OrangeText}>Vývojová verze (DEV)</T>
+      <Muted size={13} maxLines={6} text="Zkušební verze s novými funkcemi – může obsahovat chyby. Nastavení a data má oddělená od běžné aplikace, ta zůstane beze změny." />
+      {prodHasProfile() && <OButton text="Převzít nastavení z běžné verze" onClick={() => { const n = copyProdSettings(); setMsg(`Převzato ${n} položek, načítám…`); setTimeout(() => location.reload(), 600); }} />}
+      {msg && <Muted size={13} text={msg} color={dark ? C.Ink : C.Ink} />}
+    </AppCard>
+  );
+}
