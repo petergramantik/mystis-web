@@ -1515,14 +1515,23 @@ export class AppVm {
   /** Soutěže známé z načtených dat (moje družstva, profily hráčů, načtené oddíly a soupeři). */
   knownComps(): { svaz: string; rocnik: number; soutez: string; name: string }[] {
     const out = new Map<string, { svaz: string; rocnik: number; soutez: string; name: string }>();
-    const add = (r: TeamRef | null | undefined, name: string | null | undefined) => {
+    // náhradní názvy (dokud nebyl znám skutečný) se nepočítají
+    const placeholder = (n: string | null | undefined) => !n || /– soutěž$|^Soutěž družstva |^Soutěž( \d+)?$/.test(n.trim());
+    const add = (r: TeamRef | null | undefined, name0: string | null | undefined) => {
       if (!r?.soutez || !r.svaz) return;
+      const name = placeholder(name0) ? "" : name0!.trim();
       const k = this.compKey(r), cur = out.get(k);
-      if (!cur || (!cur.name && name)) out.set(k, { svaz: r.svaz, rocnik: r.rocnik, soutez: r.soutez, name: name ?? cur?.name ?? "" });
+      if (!cur || (!cur.name && name)) out.set(k, { svaz: r.svaz, rocnik: r.rocnik, soutez: r.soutez, name: name || cur?.name || "" });
     };
     for (const c of this.next) add(c.myTeam.ref, c.myTeam.competition);
     for (const p of [this.me, ...this.players.values()]) for (const s of p?.seasons ?? []) for (const t of s.teams) add(t.ref, t.competition);
     for (const c of this.clubPages.values()) for (const [k, n] of Object.entries(c.comps ?? {})) { const [svaz, rocnik, soutez] = k.split("|"); add({ id: "", name: "", svaz, rocnik: +rocnik, soutez }, n); }
+    // názvy z odkazů na tabulky na jakékoli stažené stránce a z hlaviček zápisů („Název soutěže“)
+    for (const [k, n] of this.repo.compNames) { const [svaz, rocnik, soutez] = k.split("|"); add({ id: "", name: "", svaz, rocnik: +rocnik, soutez }, n); }
+    for (const z of this.zapisy.values()) {
+      const m = /svaz-(\d+)\/rocnik-(\d{4})\/soutez-(\d+)/.exec(z.path);
+      if (m && z.competition) add({ id: "", name: "", svaz: m[1], rocnik: +m[2], soutez: m[3] }, z.competition);
+    }
     for (const r of this.browseRecent()) if (r.k === "s") { const [svaz, rocnik, soutez] = r.id.split("|"); add({ id: "", name: "", svaz, rocnik: +rocnik, soutez }, r.name); }
     // trvalý katalog soutěží aktuálního ročníku: co aplikace jednou potkala, zůstane i po restartu
     const cat = this.compCatalog();

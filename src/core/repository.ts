@@ -31,23 +31,31 @@ export const DAY = 24 * HOUR;
 export class StisRepository {
   constructor(readonly fetcher: Fetcher) {}
 
+  /** Názvy soutěží posbírané z každé stažené stránky (odkazy na tabulky): „svaz|ročník|soutěž“ → název. */
+  readonly compNames = new Map<string, string>();
+  private async get(path: string, maxAge: number): Promise<string> {
+    const html = await this.fetcher.get(path, maxAge);
+    try { for (const [k, n] of Object.entries(Parsers.compNames(html))) this.compNames.set(k, n); } catch { /* */ }
+    return html;
+  }
+
   async player(path: string, maxAge = 6 * HOUR): Promise<PlayerPage | null> {
     const canonical = Stis.canonicalPlayer(path);
     let page: PlayerPage | null = null;
     try {
-      page = Parsers.player(await this.fetcher.get(canonical, maxAge), canonical);
+      page = Parsers.player(await this.get(canonical, maxAge), canonical);
     } catch (e) {
       if (canonical === path) throw e;
       page = null;
     }
     if (page != null || canonical === path) return page;
-    return Parsers.player(await this.fetcher.get(path, maxAge), path);
+    return Parsers.player(await this.get(path, maxAge), path);
   }
 
   async teamRoster(ref: TeamRef, maxAge = DAY): Promise<TeamRoster> {
     let r: TeamRoster;
     try {
-      r = Parsers.teamRoster(await this.fetcher.get(Stis.druzstvo(ref), maxAge), ref);
+      r = Parsers.teamRoster(await this.get(Stis.druzstvo(ref), maxAge), ref);
     } catch {
       r = { team: ref, name: ref.name, players: [] };
     }
@@ -59,35 +67,35 @@ export class StisRepository {
 
   async soupisky(svaz: string, rocnik: number, soutez: string, maxAge = DAY): Promise<TeamRoster[]> {
     try {
-      return Parsers.soupisky(await this.fetcher.get(Stis.soupisky(svaz, rocnik, soutez), maxAge), svaz, rocnik, soutez);
+      return Parsers.soupisky(await this.get(Stis.soupisky(svaz, rocnik, soutez), maxAge), svaz, rocnik, soutez);
     } catch {
       return [];
     }
   }
 
   async los(ref: TeamRef, maxAge = 6 * HOUR): Promise<LosMatch[]> {
-    return Parsers.los(await this.fetcher.get(Stis.losVse(ref), maxAge), ref.svaz, ref.rocnik, ref.soutez);
+    return Parsers.los(await this.get(Stis.losVse(ref), maxAge), ref.svaz, ref.rocnik, ref.soutez);
   }
 
   async tabulka(svaz: string, rocnik: number, soutez: string, maxAge = 6 * HOUR): Promise<StandingRow[]> {
-    return Parsers.tabulka(await this.fetcher.get(Stis.tabulka(svaz, rocnik, soutez), maxAge));
+    return Parsers.tabulka(await this.get(Stis.tabulka(svaz, rocnik, soutez), maxAge));
   }
 
   async teamInfo(ref: TeamRef, maxAge = DAY): Promise<TeamInfo> {
-    return Parsers.teamInfo(await this.fetcher.get(Stis.druzstvo(ref), maxAge));
+    return Parsers.teamInfo(await this.get(Stis.druzstvo(ref), maxAge));
   }
 
   async strLadder(svaz: string, rocnik: number, soutez: string, maxAge = 6 * HOUR): Promise<StrLadder> {
-    return Parsers.strLadder(await this.fetcher.get(Stis.zebricek(svaz, rocnik, soutez), maxAge));
+    return Parsers.strLadder(await this.get(Stis.zebricek(svaz, rocnik, soutez), maxAge));
   }
 
   async zapis(path: string, maxAge = 30 * DAY): Promise<Zapis | null> {
-    return Parsers.zapis(await this.fetcher.get(path, maxAge), path);
+    return Parsers.zapis(await this.get(path, maxAge), path);
   }
 
   async club(path: string, maxAge = DAY): Promise<ClubPage> {
     const id = /\/oddil-(\d+)/.exec(path)?.[1] ?? "";
-    return Parsers.club(await this.fetcher.get(path, maxAge), id);
+    return Parsers.club(await this.get(path, maxAge), id);
   }
 
   myTeams(me: PlayerPage): TeamMembership[] {
@@ -131,8 +139,8 @@ export class StisRepository {
     return out;
   }
 
-  async searchPlayers(query: string): Promise<SearchPlayer[]> { return Search.players(await this.fetcher.get(Search.playersPath(query), HOUR)); }
-  async searchClubs(query: string): Promise<SearchClub[]> { return Search.clubs(await this.fetcher.get(Search.clubsPath(query), HOUR)); }
+  async searchPlayers(query: string): Promise<SearchPlayer[]> { return Search.players(await this.get(Search.playersPath(query), HOUR)); }
+  async searchClubs(query: string): Promise<SearchClub[]> { return Search.clubs(await this.get(Search.clubsPath(query), HOUR)); }
 
   /**
    * Probíhající utkání: začátek v okně (now−5 h, now+30 min). STIS do rozpisu zapisuje i průběžný stav
@@ -178,7 +186,7 @@ export class StisRepository {
     ];
     for (const p of pages) {
       let html: string;
-      try { html = await this.fetcher.get(p, 0); } catch { continue; }
+      try { html = await this.get(p, 0); } catch { continue; }
       const hit = Parsers.los(html, ref.svaz, ref.rocnik, ref.soutez).find((x) => x.zapisPath && this.sameMatch(x, m));
       if (hit) return hit.zapisPath;
       const l = this.zapisLinkInRows(html, m.home, m.away);
@@ -213,7 +221,7 @@ export class StisRepository {
   async competitionLos(c: { svaz: string; rocnik: number; soutez: string }, maxAge = 5 * 60_000): Promise<LosMatch[]> {
     const key = (m: LosMatch) => `${m.round}|${Stats.fold(m.home)}|${Stats.fold(m.away)}`;
     try {
-      const all = Parsers.los(await this.fetcher.get(`/los-vse/svaz-${c.svaz}/rocnik-${c.rocnik}/soutez-${c.soutez}`, maxAge), c.svaz, c.rocnik, c.soutez);
+      const all = Parsers.los(await this.get(`/los-vse/svaz-${c.svaz}/rocnik-${c.rocnik}/soutez-${c.soutez}`, maxAge), c.svaz, c.rocnik, c.soutez);
       const teams = new Set(all.flatMap((m) => [Stats.fold(m.home), Stats.fold(m.away)]));
       if (all.length && teams.size > 2 && all.length > teams.size) return all;
     } catch { /* stránka celé soutěže není – sloučit rozpisy družstev */ }
@@ -221,7 +229,7 @@ export class StisRepository {
     const out = new Map<string, LosMatch>();
     for (const t of teams) {
       try {
-        for (const m of Parsers.los(await this.fetcher.get(Stis.losVse(t), maxAge), c.svaz, c.rocnik, c.soutez)) if (!out.has(key(m))) out.set(key(m), m);
+        for (const m of Parsers.los(await this.get(Stis.losVse(t), maxAge), c.svaz, c.rocnik, c.soutez)) if (!out.has(key(m))) out.set(key(m), m);
       } catch { /* družstvo přeskočit */ }
     }
     return Array.from(out.values());
@@ -231,7 +239,7 @@ export class StisRepository {
     const s = (await this.soupisky(ref.svaz, ref.rocnik, ref.soutez)).map((x) => x.team!).filter((x) => x);
     if (s.length) return s;
     try {
-      const los = Parsers.los(await this.fetcher.get(Stis.losVse(ref), 6 * HOUR), ref.svaz, ref.rocnik, ref.soutez);
+      const los = Parsers.los(await this.get(Stis.losVse(ref), 6 * HOUR), ref.svaz, ref.rocnik, ref.soutez);
       return distinctBy(los.flatMap((x) => [x.homeRef, x.awayRef].filter((y): y is TeamRef => y != null)), (r) => r.id);
     } catch {
       return [];

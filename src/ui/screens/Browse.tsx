@@ -224,9 +224,17 @@ export function BrowseCompScreen({ c: c0 }: { c: CompRef & { name: string } }) {
   // skutečný název soutěže, jakmile je známý (ze stránky oddílu, hráče nebo mých družstev)
   const known = vm.knownComps().find((k) => k.svaz === c0.svaz && k.rocnik === c0.rocnik && k.soutez === c0.soutez)?.name;
   const c = known ? { ...c0, name: known } : c0;
+  // název zatím neznámý: přečte se z hlavičky jednoho odehraného zápisu soutěže (jedna stránka)
+  const losAll = vm.compLos.get(vm.compKey(c0));
+  useEffect(() => {
+    if (known || !losAll) return;
+    const z = losAll.find((m) => m.played && m.zapisPath);
+    if (z && !vm.zapisy.has(z.zapisPath)) vm.loadZapis(z.zapisPath);
+  }, [known, !!losAll]);
   useEffect(() => {
     const id = `${c0.svaz}|${c0.rocnik}|${c0.soutez}`;
     if (known && vm.browseRecent().some((r) => r.k === "s" && r.id === id && r.name !== known)) vm.addBrowseRecent("s", id, known);
+    // starý náhradní název v katalogu nahradí skutečný (knownComps ho uloží)
   }, [known]);
   const tabKey = Stis.tabulka(c.svaz, c.rocnik, c.soutez);
   const rows = vm.tabulky.get(tabKey);
@@ -242,7 +250,7 @@ export function BrowseCompScreen({ c: c0 }: { c: CompRef & { name: string } }) {
   return (
     <div className="col g12">
       <NavyHeader>
-        <T size={22} bold color="#fff">{c.name || `Soutěž ${c.soutez}`}</T>
+        <T size={22} bold color="#fff">{known ? c.name : (() => { const z = losAll?.find((m) => m.played && m.zapisPath); return z && !vm.zapisy.has(z.zapisPath) ? "Zjišťuji název soutěže…" : c.name || `Soutěž ${c.soutez}`; })()}</T>
         <Muted text={`${season(c.rocnik)} · ${MatchFormats.short(fmt)}`} color={C.MutedOnNavy} size={14} />
       </NavyHeader>
       <div className="col g12 px16">
