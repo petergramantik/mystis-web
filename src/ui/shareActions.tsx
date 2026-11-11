@@ -2,7 +2,7 @@
 import { useState, type ReactNode } from "react";
 import { vm, type Screen } from "../app/vm";
 import { Live } from "../core/live";
-import { Stis, type PlayerPage, type Zapis } from "../core/models";
+import { Stis, type Match, type PlayerPage, type Zapis } from "../core/models";
 import { Stats } from "../core/stats";
 import { C, Muted, T, Icon, PrimaryButton, OButton } from "./components";
 import { appBase, appLink, duelLink, matchLink, playerLink, shareImage, shareLink } from "./share";
@@ -56,6 +56,13 @@ export function shareOptions(s: Screen): ShareOpt[] {
         run: () => shareLink(c.label, `${table ? "Tabulka" : "Žebříček STR"} – ${c.label} (${seasonLabel(c.rocnik)})`, url),
       }];
     }
+    case "Overview": {
+      const me = vm.me;
+      return me ? [
+        { label: "Můj aktuální stav (obrázek)", sub: "STR, graf, úspěšnost, bilance, výkon a forma", icon: "chart", run: async () => shareImage(await statusImage(me, true), "stav.png", me.name, `${me.name} – aktuální stav (MySTIS)`, playerLink(me.path)) },
+        { label: "Odkaz na můj profil", sub: "STR, forma, bilance a graf", icon: "share", run: () => shareLink(me.name, `${me.name} – STR ${me.currentStr ?? "–"} (MySTIS)`, playerLink(me.path)) },
+      ] : [];
+    }
     default: return [];
   }
 }
@@ -85,7 +92,9 @@ function matchOpts(path: string): ShareOpt[] {
 }
 
 function playerOpts(p: PlayerPage): ShareOpt[] {
+  const isMe = vm.me?.path === p.path;
   return [
+    { label: isMe ? "Můj aktuální stav (obrázek)" : "Aktuální stav (obrázek)", sub: "STR, graf, úspěšnost, bilance, výkon a forma", icon: "trophy", run: async () => shareImage(await statusImage(p, isMe), "stav.png", p.name, `${p.name} – aktuální stav (MySTIS)`, playerLink(p.path)) },
     { label: "Odkaz na profil", sub: "STR, forma, bilance a graf", icon: "chart", run: () => shareLink(p.name, `${p.name} – STR ${p.currentStr ?? "–"} (MySTIS)`, playerLink(p.path)) },
     {
       label: "Shrnutí sezóny (obrázek)", sub: "STR, bilance, forma a nejcennější výhra", icon: "event",
@@ -185,6 +194,93 @@ export async function matchImage(z: Zapis): Promise<Blob> {
     y += pRows * 56 + 30;
   }
   footer(g, H - 44, false);
+  return toBlob(c);
+}
+
+/** Obrázek „aktuální stav“: modrý panel z Přehledu (STR, graf, dlaždice) + forma z posledních 8 (bez soupeřů). */
+export async function statusImage(p: PlayerPage, isMe: boolean): Promise<Blob> {
+  await document.fonts?.ready;
+  const pl = isMe ? vm.meWithLive() ?? p : vm.withLive(p);
+  const ch = pl.chronological;
+  const season = p.matches.length ? Math.max(...p.matches.map((m) => m.season)) : Stis.currentRocnik();
+  const sm = ch.filter((m) => m.season === season);
+  const cur = p.currentStr;
+  let provisional: number | null = null;
+  if (isMe) { const live = vm.myLiveGames(); for (let i = live.length - 1; i >= 0; i--) if (live[i].strAfter != null) { provisional = Math.round(live[i].strAfter!); break; } }
+  const shown = provisional ?? cur;
+  const start = sm[0]?.strBefore ?? null;
+  const change = shown != null && start != null ? shown - start : null;
+  // dlaždice: na Přehledu podle zobrazené soutěže, jinak celá sezóna
+  const scopeTeam = isMe ? vm.ovScopeTeam : null;
+  const scope = scopeTeam ? sm.filter((m) => Stats.fold(m.myTeam) === Stats.fold(scopeTeam)) : sm;
+  const scopeLabel = isMe && vm.ovScopeComp ? vm.ovScopeComp : "celá sezóna";
+  const w = scope.filter((m) => m.won).length, l = scope.length - w;
+  const perf = Stats.overExpectedOf(scope);
+  const form = Stats.form(pl, 8, 1e9, season).last.map((m) => m.won).reverse();
+  const unofficial = ch.slice(-8).some((m) => m.unofficial) || provisional != null;
+  const teams = (p.currentSeason?.teams ?? []).filter((t) => !t.notOnRoster).map((t) => t.name).join(", ");
+  const vals = p.graph.map((x) => x.str).filter((x): x is number => x != null).slice(-40);
+  if (provisional != null) vals.push(provisional);
+
+  const H = 1230;
+  const { c, g } = canvas(H);
+  g.fillStyle = C.Ground; g.fillRect(0, 0, W, H);
+  // modrý panel
+  g.fillStyle = C.Navy; g.beginPath(); g.roundRect(0, 0, W, 760, [0, 0, 56, 56]); g.fill();
+  rrect(g, 60, 60, 96, 96, 48, C.Blue);
+  const ini = p.name.split(" ").map((x) => x[0] ?? "").join("").slice(0, 2).toUpperCase();
+  txt(g, ini, 108, 122, { size: 38, weight: 700, color: "#fff", align: "center" });
+  txt(g, p.name, 186, 100, { size: 44, weight: 800, color: "#fff", max: W - 246 });
+  txt(g, [p.clubName, teams].filter((x) => x).join(" · "), 186, 146, { size: 26, color: C.MutedOnNavy, max: W - 246 });
+  txt(g, unofficial ? "STR · ODHAD · NEOFICIÁLNÍ VÝSLEDKY" : "STR", 60, 228, { size: 26, weight: 600, color: C.MutedOnNavy });
+  txt(g, shown != null ? String(shown) : "–", 52, 390, { size: 170, weight: 800, color: "#fff" });
+  if (change != null) txt(g, `${change > 0 ? "▲ +" : change < 0 ? "▼ −" : "± "}${Math.abs(change)} za sezónu`, 60, 450, { size: 34, weight: 700, color: change > 0 ? C.WinLight : change < 0 ? C.Peach : C.MutedOnNavy });
+  if (provisional != null && cur != null) txt(g, `oficiálně ${cur} · ≈ odhad, zatím neoficiální`, 60, 494, { size: 24, color: C.MutedOnNavy });
+  // graf
+  if (vals.length >= 2) {
+    const gx = 560, gy = 250, gw = 460, gh = 220;
+    const mn = Math.min(...vals), mx = Math.max(...vals);
+    const px = (i: number) => gx + (gw * i) / (vals.length - 1), py = (v: number) => (mx === mn ? gy + gh / 2 : gy + gh - (gh * (v - mn)) / (mx - mn));
+    g.strokeStyle = C.BlueLight; g.lineWidth = 5; g.lineJoin = "round"; g.lineCap = "round"; g.beginPath();
+    vals.forEach((v, i) => (i ? g.lineTo(px(i), py(v)) : g.moveTo(px(i), py(v))));
+    g.stroke();
+    const ex = px(vals.length - 1), ey = py(vals[vals.length - 1]);
+    const last = ch.length ? ch[ch.length - 1] : null;
+    const key = (x: Match) => x.zapisPath || x.dateText + "|" + x.myTeam;
+    const first = last ? ch.find((x) => key(x) === key(last) && x.strBefore != null) : null;
+    const d = provisional != null && cur != null ? provisional - cur : first && cur != null ? cur - first.strBefore! : 0;
+    g.fillStyle = d > 0 ? C.WinLight : d < 0 ? "#FF7A45" : C.Grey; g.beginPath();
+    if (d > 0) { g.moveTo(ex - 14, ey + 9); g.lineTo(ex + 14, ey + 9); g.lineTo(ex, ey - 15); }
+    else if (d < 0) { g.moveTo(ex - 14, ey - 9); g.lineTo(ex + 14, ey - 9); g.lineTo(ex, ey + 15); }
+    else g.arc(ex, ey, 9, 0, Math.PI * 2);
+    g.fill();
+  }
+  // dlaždice
+  const tile = (x: number, label: string, value: string, sub: string, color: string) => {
+    rrect(g, x, 540, 300, 180, 28, C.Navy2);
+    txt(g, label, x + 30, 590, { size: 26, color: C.MutedOnNavy });
+    txt(g, value, x + 30, 662, { size: 60, weight: 800, color, max: 250 });
+    txt(g, sub, x + 30, 702, { size: 22, color: C.MutedOnNavy, max: 250 });
+  };
+  tile(60, "Úspěšnost", scope.length ? Stats.pct(w / scope.length).replace(" ", "") : "–", scopeLabel, "#fff");
+  tile(390, "Bilance", `${w}–${l}`, scopeLabel, "#fff");
+  const pv = perf.sample ? perf.over : null;
+  tile(720, "Výkon", pv == null ? "–" : `${pv > 0 ? "+" : pv < 0 ? "−" : ""}${Math.abs(pv).toFixed(1).replace(".", ",")}`, `${perf.sample} zápasů`, pv == null ? "#fff" : pv >= 0 ? C.WinLight : C.Peach);
+  // forma
+  rrect(g, 30, 800, W - 60, 290, 32, "#fff");
+  txt(g, "Forma · posledních 8", 70, 868, { size: 32, weight: 700, color: C.Ink });
+  txt(g, `${form.filter((x) => x).length} výher · ${form.filter((x) => !x).length} proher`, W - 70, 868, { size: 26, color: C.Muted, align: "right" });
+  const sz = 104, gap = (W - 140 - 8 * sz) / 7;
+  form.forEach((won, i) => {
+    const x = 70 + i * (sz + gap), y = 910;
+    if (i === form.length - 1) { g.strokeStyle = won ? C.Win : C.OrangeText; g.lineWidth = 5; g.beginPath(); g.roundRect(x - 8, y - 8, sz + 16, sz + 16, 34); g.stroke(); }
+    rrect(g, x, y, sz, sz, 28, won ? C.Win : C.OrangeText);
+    txt(g, won ? "V" : "P", x + sz / 2, y + 70, { size: 44, weight: 800, color: "#fff", align: "center" });
+  });
+  txt(g, `nejnovější vpravo${unofficial ? " · ≈ vč. neoficiálních výsledků" : ""}`, W / 2, 1060, { size: 22, color: C.Muted, align: "center" });
+  const d = new Date();
+  txt(g, `${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear()}`, W / 2, H - 80, { size: 24, color: C.Muted, align: "center" });
+  footer(g, H - 40, false);
   return toBlob(c);
 }
 

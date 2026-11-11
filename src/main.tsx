@@ -138,9 +138,10 @@ function Root() {
   return (
     <>
       <div className={"topbar" + (dark ? " dark" : "")}>
-        {canBack() ? <button className="iconbtn" onClick={goBack} aria-label="Zpět"><Icon name="back" /></button> : <div className="spacer44" />}
-        {opts.length === 0 && <div className="spacer44" />}
-        <div className="title" style={opts.length ? { textAlign: "left", paddingLeft: 8 } : undefined}>{title(screen)}</div>
+        {canBack() ? <button className="iconbtn" onClick={goBack} aria-label="Zpět"><Icon name="back" /></button> : screen.t === "Overview" ? <div style={{ width: 8 }} /> : <div className="spacer44" />}
+        {screen.t === "Overview" && <button onClick={() => vm.go({ t: "About" })} aria-label="O aplikaci" style={{ background: "none", border: 0, padding: 0, marginLeft: 4, display: "flex", cursor: "pointer" }}><img src="icons/icon-192.png" alt="" width={28} height={28} style={{ borderRadius: 7, display: "block" }} /></button>}
+        {opts.length === 0 && screen.t !== "Overview" && <div className="spacer44" />}
+        <div className="title" style={opts.length || screen.t === "Overview" ? { textAlign: "left", paddingLeft: screen.t === "Overview" ? 10 : 8 } : undefined}>{title(screen)}</div>
         {opts.length > 0 ? <button className="iconbtn" onClick={() => { if (opts.length === 1) void opts[0].run(); else setSheet("share"); }} aria-label="Sdílet"><Icon name="share" /></button> : null}
         {(() => {
           const refresh = guest ? <div className="spacer44" /> : <button className="iconbtn" onClick={() => vm.refreshAll()} aria-label="Obnovit data"><Icon name="refresh" /></button>;

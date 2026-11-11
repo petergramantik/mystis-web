@@ -1272,6 +1272,9 @@ export class AppVm {
   strLadderSort = "str";
   predOn = false;
   utkaniTeam: number | null = null;
+  /** soutěž dlaždic na Přehledu (pro obrázek „aktuální stav“) */
+  ovScopeTeam: string | null = null;
+  ovScopeComp: string | null = null;
   /** stránka karty Poslední utkání (null = nejnovější) */
   lastIdx: number | null = null;
   /** filtr na kartě Utkání: all / next / played */

@@ -72,6 +72,7 @@ export function OverviewScreen() {
   const perf = Stats.overExpectedOf(teamMatches);
   const compName = activeTeam ? activeTeam.competition || activeTeam.name : compCountTiles === 1 && vm.next[0] ? vm.next[0].myTeam.competition || vm.next[0].myTeam.name : "Všechny soutěže";
   const swipe = (dir: number) => { const n = pages.length; vm.ovTile = (tileIdx + dir + n) % n; vm.emit(); };
+  vm.ovScopeTeam = activeTeam?.name ?? null; vm.ovScopeComp = compName;
   const remaining = Stats.estimateRemaining(me, vm.next.length ? sum(vm.next.map((c) => Stats.remainingTeamMatches(c.los))) : null);
   const fc = Stats.forecast(me, remaining, vm.repo.seasonEnd(vm.next.flatMap((c) => c.los)));
   const live = vm.myLiveGames();

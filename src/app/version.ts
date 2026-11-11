@@ -1,10 +1,19 @@
 // Verze aplikace a „Co je nového“. Při každé implementaci zvýšit APP_VERSION a přidat verzi nahoru.
 
-export const APP_VERSION = "2.11.2";
+export const APP_VERSION = "2.12";
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.12", date: "11. 11. 2026", title: "Sdílení aktuálního stavu jako obrázek",
+    items: [
+      "Přehled: tlačítko sdílení nabízí „Můj aktuální stav (obrázek)“ – STR, změna za sezónu, graf, úspěšnost, bilance, výkon a forma z posledních 8 (bez soupeřů)",
+      "Neoficiální výsledky jsou v obrázku zahrnuté a označené jako odhad",
+      "Stejný obrázek lze sdílet i z profilu jiného hráče",
+      "Logo aplikace vlevo nahoře na Přehledu – klepnutím otevře O aplikaci",
+    ],
+  },
   {
     version: "2.11.2", date: "11. 11. 2026", title: "Pořadí dvouher a sdílená predikce",
     items: [
