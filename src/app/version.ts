@@ -6,10 +6,6 @@ export interface Release { version: string; date: string; title: string; items: 
 
 export const RELEASES: Release[] = [
   {
-    version: "2.14.1", date: "11. 11. 2026", title: "Přepínání na vývojovou verzi",
-    items: ["O aplikaci → Vývojová verze (zkušební): přechod do verze s novými funkcemi; aplikace z plochy si volbu pamatuje"],
-  },
-  {
     version: "2.14", date: "11. 11. 2026", title: "Komplexní model predikcí",
     items: [
       "Nastavení → Komplexní model predikcí (výchozí vypnuto): k STR přidá vzájemné zápasy hráčů a výhodu domácího prostředí v soutěži",
