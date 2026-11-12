@@ -131,7 +131,7 @@ function PlayerPick({ label, value, name, onPick, offerMe }: { label: string; va
       </div>
       {open && <>
         {offerMe && me && <div className="row g6" style={{ flexWrap: "wrap" }}>{chip(me.path, `Já (${me.name})`, "me")}</div>}
-        <TextField value={q} onChange={setQ} icon="search" label="Hledat hráče na STIS (jméno)" onEnter={search} />
+        <TextField value={q} onChange={setQ} icon="search" label="Hledat hráče na STIS" onEnter={search} />
         <div className="row g8"><button className="chip on" style={{ height: 34 }} onClick={search}>{busy ? "Hledám…" : "Hledat"}</button></div>
         {err && <Muted text={err} color={C.OrangeText} size={12} maxLines={3} />}
         {res && !res.length && <Muted text="Nikoho takového STIS nenašel." size={13} />}

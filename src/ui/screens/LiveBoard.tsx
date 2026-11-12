@@ -232,7 +232,7 @@ function AddCompetitionSheet({ onClose }: { onClose: () => void }) {
         </div>
         <div className="row g8" style={{ background: "#fff", borderRadius: 14, padding: "0 12px", border: "1px solid #D5D9E0" }}>
           <span style={{ fontSize: 18, color: C.Muted }}>🔍</span>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Soutěž, oddíl nebo odkaz ze STIS" autoFocus
+          <input type="search" name="mystis-q" autoComplete="off" data-form-type="other" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Soutěž, oddíl nebo odkaz ze STIS" autoFocus
             style={{ flex: 1, border: 0, outline: "none", height: 46, fontSize: 16, background: "transparent" }} />
           {q && <span className="clickable" style={{ color: C.Muted }} onClick={() => setQ("")}>✕</span>}
         </div>

@@ -177,3 +177,7 @@ button { font-family: inherit; }
 .losm .score { border: 1.5px solid var(--blue); color: var(--blue); border-radius: 12px; padding: 6px 10px; font-weight: 800; font-size: 15px; white-space: nowrap; background: #fff; font-family: inherit; }
 .losm .score.plain { border-color: #C4CBD8; color: var(--ink); }
 .losm .when { color: var(--muted); font-size: 13px; font-weight: 600; text-align: right; white-space: nowrap; }
+
+/* vlastní tlačítko × místo nativního u vyhledávacích polí */
+.field input[type="search"]::-webkit-search-cancel-button, .field input[type="search"]::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
+.field input[type="search"] { -webkit-appearance: none; appearance: none; }

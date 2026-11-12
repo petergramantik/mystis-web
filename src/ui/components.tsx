@@ -269,7 +269,9 @@ export function TextField({ value, onChange, label, placeholder, icon, numeric, 
   return (
     <div className={"field" + (icon ? " icon" : "")}>
       {icon && <svg className="ico" viewBox="0 0 24 24"><path d={ICONS[icon]} /></svg>}
+      {/* type=search + neutrální name: Chrome na Androidu jinak podle popisku („jméno“) nabízí automatické vyplnění (i platební karty) */}
       <input value={value} placeholder={placeholder} inputMode={numeric ? "numeric" : undefined} onChange={(e) => onChange(e.target.value)}
+        type={search ? "search" : "text"} name={search ? "mystis-q" : "mystis-f"} data-form-type="other" data-lpignore="true"
         enterKeyHint={search ? "search" : onEnter ? "go" : "done"}
         // Enter potvrdí a zavře klávesnici
         onKeyDown={(e) => { if (e.key === "Enter") { onEnter?.(); (e.target as HTMLInputElement).blur(); } }}
