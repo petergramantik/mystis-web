@@ -69,9 +69,7 @@ function BrowseView({ soutezeOnly = false }: { soutezeOnly?: boolean }) {
   const rocnik = Stis.currentRocnik();
   const comps0 = vm.knownComps();
   // hledání bez ohledu na mezery, tečky, velikost písmen a diakritiku („OL 1“ = „ol1“), i podle zkratek
-  const q = CompTree.norm(b.query);
-  const comps = b.kind === "s" ? comps0.filter((c) => c.rocnik === rocnik && (!q || compFromLink
-    || [c.name, vm.treeEntry(c.soutez)?.svazName ?? "", ...vm.compAliases(c)].some((x) => CompTree.norm(x).includes(q)))) : [];
+  const comps = b.kind === "s" ? (compFromLink ? comps0.filter((c) => c.rocnik === rocnik) : vm.searchComps(b.query)) : [];
   const recent = vm.browseRecent().filter((r) => (soutezeOnly ? r.k === "s" : r.k !== "s"));
   const go = () => {
     if (link?.kind === "player") { openPlayer(link.path, "Hráč"); return; }
@@ -311,6 +309,10 @@ export function BrowseCompScreen({ c: c0 }: { c: CompRef & { name: string } }) {
             )}
           </>
         )}
+        {c.rocnik === Stis.currentRocnik() && <div className="row g8" style={{ alignItems: "center" }}>
+          <Muted size={13} style={{ flex: 1 }} maxLines={2} text="Živě: probíhající utkání soutěže na kartě Utkání → Živě" />
+          <LiveToggle c={c} />
+        </div>}
         <OButton text="Žebříček STR soutěže na STIS" onClick={() => window.open(Stis.BASE + Stis.zebricek(c.svaz, c.rocnik, c.soutez), "_blank")} />
       </div>
       <div style={{ height: 8 }} />
@@ -353,12 +355,24 @@ function LosRow({ m, compName }: { m: LosMatch; compName: string }) {
   );
 }
 
+/** Přidat soutěž do Živě (sledování probíhajících utkání) / odebrat. Moje soutěže jsou v Živě vždy. */
+function LiveToggle({ c, small = false }: { c: { svaz: string; rocnik: number; soutez: string; name: string }; small?: boolean }) {
+  if (c.rocnik !== Stis.currentRocnik()) return null;
+  const lc = vm.liveComps().find((x) => vm.compKey(x) === vm.compKey(c));
+  const style = { height: small ? 30 : 34, flex: "none" as const, padding: small ? "0 10px" : undefined };
+  if (lc?.mine) return <span style={{ color: C.Win, fontSize: 12, fontWeight: 700, flex: "none" }}>✓ v Živě</span>;
+  return lc
+    ? <button className="chip" style={{ ...style, color: C.Win }} onClick={(e) => { e.stopPropagation(); vm.removeLiveComp(lc); }}>✓ v Živě</button>
+    : <button className="chip" style={style} onClick={(e) => { e.stopPropagation(); vm.addLiveComp({ id: "", name: "", svaz: c.svaz, rocnik: c.rocnik, soutez: c.soutez }, c.name || `Soutěž ${c.soutez}`); vm.toast("Soutěž přidána do Živě"); }}>+ Živě</button>;
+}
+
 function CompRow({ c, sub }: { c: { svaz: string; rocnik: number; soutez: string; name: string }; sub: string }) {
   return (
     <div>
       <div className="row g12 clickable" style={{ padding: "10px 14px" }} onClick={() => openComp(c)}>
         <Icon name="trophy" size={22} color={C.Blue} />
         <div className="col w1"><T semi size={15} lines={2}>{c.name || `Soutěž ${c.soutez}`}</T><Muted size={12} text={sub} maxLines={1} /></div>
+        <LiveToggle c={c} small />
         <T bold color={C.Blue}>›</T>
       </div>
       <Divider />

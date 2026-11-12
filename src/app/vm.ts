@@ -1619,6 +1619,13 @@ export class AppVm {
       this.emit();
     });
   }
+  /** Hledání soutěží aktuálního ročníku podle názvu, zkratky nebo svazu (bez ohledu na mezery, velikost písmen a diakritiku). */
+  searchComps(query: string): { svaz: string; rocnik: number; soutez: string; name: string }[] {
+    const q = CompTree.norm(query), rocnik = Stis.currentRocnik();
+    return this.knownComps().filter((c) => c.rocnik === rocnik && (!q
+      || [c.name, this.treeEntry(c.soutez)?.svazName ?? "", ...this.compAliases(c)].some((x) => CompTree.norm(x).includes(q))));
+  }
+  isLiveComp(c: { svaz: string; rocnik: number; soutez: string }) { return this.liveComps().some((x) => this.compKey(x) === this.compKey(c)); }
   /** Soutěže známé z načtených dat (moje družstva, profily hráčů, načtené oddíly a soupeři). */
   knownComps(): { svaz: string; rocnik: number; soutez: string; name: string }[] {
     const out = new Map<string, { svaz: string; rocnik: number; soutez: string; name: string }>();

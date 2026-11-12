@@ -215,6 +215,8 @@ function AddCompetitionSheet({ onClose }: { onClose: () => void }) {
   };
   const added = (t: { svaz: string; rocnik: number; soutez: string }) => vm.liveComps().some((x) => vm.compKey(x) === vm.compKey(t));
   const mineComps = vm.liveComps().filter((c) => !c.mine);
+  // soutěže ze seznamu soutěží republiky (bez dotazu na STIS)
+  const compHits = !linkRef && q.trim().length >= 2 ? vm.searchComps(q) : [];
   // A: návrhy – soutěže ostatních družstev mého oddílu
   const suggest = vm.club.teams.filter((t) => t.rocnik === rocnik && !added(t))
     .filter((t, i, a) => a.findIndex((x) => vm.compKey(x) === vm.compKey(t)) === i);
@@ -230,7 +232,7 @@ function AddCompetitionSheet({ onClose }: { onClose: () => void }) {
         </div>
         <div className="row g8" style={{ background: "#fff", borderRadius: 14, padding: "0 12px", border: "1px solid #D5D9E0" }}>
           <span style={{ fontSize: 18, color: C.Muted }}>🔍</span>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Oddíl nebo odkaz ze STIS" autoFocus
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Soutěž, oddíl nebo odkaz ze STIS" autoFocus
             style={{ flex: 1, border: 0, outline: "none", height: 46, fontSize: 16, background: "transparent" }} />
           {q && <span className="clickable" style={{ color: C.Muted }} onClick={() => setQ("")}>✕</span>}
         </div>
@@ -244,14 +246,23 @@ function AddCompetitionSheet({ onClose }: { onClose: () => void }) {
               <Muted text="SOUTĚŽE VAŠEHO ODDÍLU" size={12} style={{ paddingLeft: 4 }} />
               {suggest.map((t, i) => <CompOffer key={i} t={t} title={t.name} added={false} />)}
             </>}
-            {suggest.length === 0 && <Muted text="Začněte psát název oddílu (např. „Ježov“), nebo vložte odkaz na soutěž ze STIS." size={13} maxLines={3} />}
+            {suggest.length === 0 && <Muted text="Začněte psát název nebo zkratku soutěže (např. „KS II C“), svaz či oddíl (např. „Ježov“), nebo vložte odkaz na soutěž ze STIS." size={13} maxLines={4} />}
           </>
         )}
 
+        {!linkRef && compHits.length > 0 && (
+          <>
+            <Muted text={`SOUTĚŽE (${compHits.length})`} size={12} style={{ paddingLeft: 4 }} />
+            {compHits.slice(0, 8).map((c) => <CompOffer key={vm.compKey(c)} t={{ id: "", name: c.name, svaz: c.svaz, rocnik: c.rocnik, soutez: c.soutez }} title={c.name || `Soutěž ${c.soutez}`}
+              added={added(c)} sub={vm.treeEntry(c.soutez)?.svazName ?? undefined} />)}
+            {compHits.length > 8 && <Muted text="Upřesněte hledání – zobrazeno prvních 8 soutěží." size={12} style={{ paddingLeft: 4 }} />}
+          </>
+        )}
         {!linkRef && busy && <Loading text="Hledám oddíly…" />}
+        {!linkRef && clubs && !busy && clubs.length > 0 && <Muted text="ODDÍLY" size={12} style={{ paddingLeft: 4 }} />}
         {!linkRef && clubs && !busy && (
           <div className="col g8">
-            {!clubs.length && <Muted text="Nic nenalezeno." size={13} />}
+            {!clubs.length && !compHits.length && <Muted text="Nic nenalezeno." size={13} />}
             {clubs.slice(0, 12).map((c) => (
               <AppCard key={c.id} padding={0}>
                 <div className="row g10 clickable" style={{ padding: "10px 12px" }} onClick={() => toggleClub(c)}>
@@ -293,7 +304,7 @@ function AddCompetitionSheet({ onClose }: { onClose: () => void }) {
 }
 
 /** Nabídka soutěže: název soutěže, počet družstev, dnešní utkání; tlačítko Přidat / ✓ Přidáno. */
-function CompOffer({ t, title, added, flat = false }: { t: TeamRef; title: string; added: boolean; flat?: boolean }) {
+function CompOffer({ t, title, added, flat = false, sub }: { t: TeamRef; title: string; added: boolean; flat?: boolean; sub?: string }) {
   const label = vm.compLabel(t);
   const los = vm.compLos.get(vm.compKey(t));
   const teams = los ? new Set(los.flatMap((m) => [Stats.fold(m.home), Stats.fold(m.away)])).size : null;
@@ -304,10 +315,10 @@ function CompOffer({ t, title, added, flat = false }: { t: TeamRef; title: strin
     <div className="row g10" style={{ padding: flat ? "6px 0" : "10px 12px" }}>
       <div className="col w1">
         <T semi size={14} lines={2}>{title}</T>
-        <Muted size={12} maxLines={2} text={info || "načítám informace o soutěži…"} />
+        <Muted size={12} maxLines={2} text={info || sub || "načítám informace o soutěži…"} />
       </div>
       {added ? <T bold color={C.Win} style={{ flex: "none" }}>✓ Přidáno</T>
-        : <button className="chip on" style={{ height: 34, flex: "none" }} onClick={() => vm.addLiveComp(t, label ?? `Soutěž družstva ${t.name || t.soutez}`)}>+ Přidat</button>}
+        : <button className="chip on" style={{ height: 34, flex: "none" }} onClick={() => vm.addLiveComp(t, label ?? (sub ? title : `Soutěž družstva ${t.name || t.soutez}`))}>+ Přidat</button>}
     </div>
   );
   return flat ? body : <AppCard padding={0}>{body}</AppCard>;
