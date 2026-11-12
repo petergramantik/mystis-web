@@ -9,6 +9,7 @@ import {
 } from "../components";
 import { strPoints } from "./StrScreen";
 import { TeamForecast } from "./NextMatch";
+import { DuelMatchRow } from "./Duel";
 
 export function CaptainScreen() {
   const me = vm.me;
@@ -233,7 +234,7 @@ export function CompareScreen({ a0, b0 }: { a0: string | null; b0: string | null
             {mutual.length > 0 && (
               <>
                 <SectionTitle text={`Vzájemně: ${w(mutual)}–${mutual.length - w(mutual)}`} />
-                <AppCard>{[...mutual].reverse().map((m, i) => <Muted key={i} text={`${m.dateText} · ${m.score} · ${m.competition}`} color={C.Ink} size={14} maxLines={1} />)}</AppCard>
+                <ListCard>{[...mutual].reverse().map((m, i) => <DuelMatchRow key={i} m={m} aId={pa.id ?? ""} aName={pa.name} bId={pb.id ?? ""} bName={pb.name} />)}</ListCard>
               </>
             )}
           </>

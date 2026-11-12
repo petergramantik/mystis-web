@@ -389,7 +389,7 @@ function PredictionCard({ path, myHome, isMe }: { path: string; myHome: boolean;
 }
 
 /** Vzájemný zápas: klepnutím se rozbalí jednotlivé sety (ze zápisu utkání) z pohledu hráče A. */
-function DuelMatchRow({ m, aId, aName, bId, bName }: { m: Match; aId: string; aName: string; bId: string; bName: string }) {
+export function DuelMatchRow({ m, aId, aName, bId, bName }: { m: Match; aId: string; aName: string; bId: string; bName: string }) {
   const [open, setOpen] = useState(false);
   const path = m.zapisPath;
   useEffect(() => { if (open && path) vm.loadZapis(path); }, [open, path]);
