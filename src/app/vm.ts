@@ -148,6 +148,8 @@ export class AppVm {
     if (sameScreen(this.current, s)) return;
     // karta Hráči: vždy začíná soutěží mého hlavního družstva (ruční volba platí jen do odchodu z karty)
     if (s.t === "Opponents") prefs.oppComp = null;
+    // Přehled: poslední utkání zase od nejnovějšího
+    if (s.t === "Overview") this.lastSel = null;
     this.stack = [...this.stack.filter((x) => !sameScreen(x, s)), s];
     this.trim(); this.emit(); this.scrollTop();
   }
@@ -1454,7 +1456,8 @@ export class AppVm {
   ovScopeTeam: string | null = null;
   ovScopeComp: string | null = null;
   /** stránka karty Poslední utkání (null = nejnovější) */
-  lastIdx: number | null = null;
+  /** Přehled → Moje poslední utkání: ručně zvolené družstvo (def = nejnovější utkání v době volby) */
+  lastSel: { team: string; def: string } | null = null;
   /** filtr na kartě Utkání: all / next / played */
   utkaniFilter = prefs.utkaniFilter;
   set<K extends "lastByTeam" | "matchesTeam" | "matchesSeason" | "recentTeam" | "oppMode" | "oppComp" | "rankByTeam" | "ladderTab" | "matchesTab" | "compSeason" | "compId" | "strLadderMine" | "strLadderSort" | "utkaniTeam" | "predOn">(k: K, v: AppVm[K]) {

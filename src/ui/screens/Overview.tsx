@@ -473,6 +473,8 @@ function PreviousCard({ ctx, prev, back, total, onHome }: { ctx: NextMatchContex
 
 /** Karta Poslední utkání: mé družstvo – výsledek – soupeř, mé zápasy a celková změna STR; více soutěží = posouvání. */
 function LastUtkaniCard() {
+  // každý návrat na Přehled (i šipkou Zpět) začíná nejnovějším utkáním
+  useState(() => { vm.lastSel = null; return 0; });
   // stránky = poslední utkání každého mého družstva; výchozí nejnovější utkání ze všech
   const teams = distinctTeams();
   const all = vm.lastUtkani(null);
@@ -480,9 +482,13 @@ function LastUtkaniCard() {
     .filter((x, i, arr) => arr.findIndex((y) => y.zapisPath === x.zapisPath && y.myTeam === x.myTeam) === i);
   if (!pages.length) return null;
   const defIdx = Math.max(0, all ? pages.findIndex((x) => x.zapisPath === all.zapisPath && Stats.fold(x.myTeam) === Stats.fold(all.myTeam)) : 0);
-  const idx = vm.lastIdx != null && vm.lastIdx < pages.length ? vm.lastIdx : defIdx;
+  // ruční volba = družstvo; platí jen dokud nepřijde novější utkání (a do přepnutí karty – viz vm.tab)
+  const defKey = all ? `${all.zapisPath}|${Stats.fold(all.myTeam)}` : "";
+  const sel = vm.lastSel && vm.lastSel.def === defKey ? pages.findIndex((x) => Stats.fold(x.myTeam) === vm.lastSel!.team) : -1;
+  const idx = sel >= 0 ? sel : defIdx;
   const last = pages[idx];
-  const swipe = (dir: number) => { vm.lastIdx = (idx + dir + pages.length) % pages.length; vm.emit(); };
+  const pick = (i: number) => { vm.lastSel = { team: Stats.fold(pages[i].myTeam), def: defKey }; vm.emit(); };
+  const swipe = (dir: number) => pick((idx + dir + pages.length) % pages.length);
   const info = lastInfo(last);
   const liveTeam = Math.max(0, vm.next.findIndex((c) => c.myTeam.name === last.myTeam));
   // celková změna STR za utkání
@@ -548,7 +554,7 @@ function LastUtkaniCard() {
       </SwipeRow>
       {pages.length > 1 && (
         <div className="row" style={{ justifyContent: "center", gap: 6 }}>
-          {pages.map((_, i) => <div key={i} className="clickable" onClick={() => { vm.lastIdx = i; vm.emit(); }}
+          {pages.map((_, i) => <div key={i} className="clickable" onClick={() => pick(i)}
             style={{ width: i === idx ? 8 : 6, height: i === idx ? 8 : 6, borderRadius: 4, background: i === idx ? C.Navy : "rgba(14,26,51,0.3)" }} />)}
         </div>
       )}
