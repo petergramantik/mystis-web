@@ -132,6 +132,46 @@ function useBackHandler() {
   }, []);
 }
 
+/** Stažení obrazovky dolů = Obnovit data aktuální obrazovky (místo obnovení celé stránky prohlížečem). */
+function PullToRefresh() {
+  const [d, setD] = useState(0);
+  const [spin, setSpin] = useState(false);
+  useEffect(() => {
+    const TH = 64;
+    let y0 = -1, pull = 0;
+    const blocked = () => !!document.querySelector(".scrim, .dialog-bg") || vm.onboarding;
+    const start = (e: TouchEvent) => { y0 = window.scrollY <= 0 && e.touches.length === 1 && !blocked() ? e.touches[0].clientY : -1; pull = 0; };
+    const move = (e: TouchEvent) => {
+      if (y0 < 0) return;
+      if (window.scrollY > 0) { y0 = -1; pull = 0; setD(0); return; }
+      pull = Math.max(0, Math.min(96, (e.touches[0].clientY - y0) * 0.5));
+      setD(pull);
+    };
+    const end = () => {
+      if (y0 >= 0 && pull >= TH) {
+        setSpin(true); vm.refreshCurrent();
+        setTimeout(() => setSpin(false), 900);
+      }
+      y0 = -1; pull = 0; setD(0);
+    };
+    window.addEventListener("touchstart", start, { passive: true });
+    window.addEventListener("touchmove", move, { passive: true });
+    window.addEventListener("touchend", end, { passive: true });
+    window.addEventListener("touchcancel", end, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", start); window.removeEventListener("touchmove", move);
+      window.removeEventListener("touchend", end); window.removeEventListener("touchcancel", end);
+    };
+  }, []);
+  if (!spin && d < 8) return null;
+  const y = spin ? 64 : d;
+  return (
+    <div className={"ptr" + (spin ? " spin" : "")} style={{ transform: `translateY(${y}px)`, opacity: spin ? 1 : Math.min(1, d / 64) }}>
+      <span style={{ display: "flex", transform: spin ? undefined : `rotate(${d * 4}deg)` }}><Icon name="refresh" /></span>
+    </div>
+  );
+}
+
 function Root() {
   useSyncExternalStore(vm.subscribe, vm.getVersion);
   useBackHandler();
@@ -157,7 +197,7 @@ function Root() {
         <div className="title" style={opts.length || screen.t === "Overview" ? { textAlign: "left", paddingLeft: screen.t === "Overview" ? 10 : 8 } : undefined}>{title(screen)}{IS_DEV && <span className="devtag clickable" onClick={(e) => { e.stopPropagation(); setSheet("dev"); }}>DEV</span>}</div>
         {opts.length > 0 ? <button className="iconbtn" onClick={() => { if (opts.length === 1) void opts[0].run(); else setSheet("share"); }} aria-label="Sdílet"><Icon name="share" /></button> : null}
         {(() => {
-          const refresh = guest ? <div className="spacer44" /> : <button className="iconbtn" onClick={() => vm.refreshAll()} aria-label="Obnovit data"><Icon name="refresh" /></button>;
+          const refresh = guest ? <div className="spacer44" /> : <button className="iconbtn" onClick={() => vm.refreshCurrent()} aria-label="Obnovit data"><Icon name="refresh" /></button>;
           return screen.t === "Live" ? <LiveTopRing team={screen.team} fallback={refresh} /> : refresh;
         })()}
         {guest ? <div className="spacer44" /> : <button className="iconbtn" onClick={() => setMenu(true)} aria-label="Další funkce"><Icon name="more" /></button>}
@@ -193,6 +233,7 @@ function Root() {
         </Dialog>
       )}
       {toast}
+      {!guest && <PullToRefresh />}
       {guest ? <GuestBar /> : <nav className="bottombar">
         <div className="inner">
           {TABS.map(([s, label, icon]) => (

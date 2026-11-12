@@ -2,12 +2,26 @@
 import { IS_DEV } from "./channel";
 
 export const PROD_VERSION = "2.14.1";
-export const DEV_VERSION = "2.15-dev.17";
+export const DEV_VERSION = "2.15-dev.18";
 export const APP_VERSION = IS_DEV ? DEV_VERSION : PROD_VERSION;
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.15-dev.18", date: "12. 11. 2026", title: "Přehlednější rozpis, hledání a profil",
+    items: [
+      "Rozpis soutěže: celé názvy družstev, výsledek jako tlačítko na zápis, střídavé podbarvení, moje družstva zvýrazněná",
+      "Profil: Stabil a min / max ve vlastní dlaždici, změna STR za období počítaná od začátku období (Za sezónu = období Sezóna)",
+      "Stažení obrazovky dolů obnoví data aktuální obrazovky; po obnovení stránky zůstanete na stejné obrazovce",
+      "Utkání: jen aktuální a předchozí sezóna, starší pod „Starší sezóny“",
+      "Hledání: Enter zavře klávesnici, tlačítko × vymaže pole, počet výsledků v poli",
+      "Hráči → Hledat: jedno pole pro hráče i oddíly",
+      "Všechny soutěže: tlačítka Přehled svazů a Můj svaz; v soutěži Načíst / Načíst rozpis, dokud není vše načtené",
+      "Predikce po sezóně se uloží pro STR i STR+ a znovu počítá jen po dalším kole",
+      "Klepnutí na už zvolený STR / STR+ otevře vysvětlení modelu",
+    ],
+  },
   {
     version: "2.15-dev.17", date: "12. 11. 2026", title: "Žebříčky a sezóny soutěží",
     items: [

@@ -251,15 +251,30 @@ export function Legend({ items }: { items: [string, string][] }) {
   return <div className="legend">{items.map(([c, t], i) => <div className="it" key={i}><div className="sw" style={{ background: c }} />{t}</div>)}</div>;
 }
 
-export function TextField({ value, onChange, label, placeholder, icon, numeric, onEnter }: {
+export function TextField({ value, onChange, label, placeholder, icon, numeric, onEnter, count }: {
   value: string; onChange: (v: string) => void; label: string; placeholder?: string; icon?: string; numeric?: boolean; onEnter?: () => void;
+  /** počet výsledků vpravo v poli (vyhledávání/filtr) */
+  count?: number | string | null;
 }) {
+  const search = icon === "search";
+  const right = (search && value ? 40 : 0) + (count != null ? 44 : 0);
   return (
     <div className={"field" + (icon ? " icon" : "")}>
       {icon && <svg className="ico" viewBox="0 0 24 24"><path d={ICONS[icon]} /></svg>}
       <input value={value} placeholder={placeholder} inputMode={numeric ? "numeric" : undefined} onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter" && onEnter) onEnter(); }} autoComplete="off" autoCorrect="off" spellCheck={false} />
+        enterKeyHint={search ? "search" : onEnter ? "go" : "done"}
+        // Enter potvrdí a zavře klávesnici
+        onKeyDown={(e) => { if (e.key === "Enter") { onEnter?.(); (e.target as HTMLInputElement).blur(); } }}
+        style={right ? { paddingRight: right + 8 } : undefined}
+        autoComplete="off" autoCorrect="off" spellCheck={false} />
       <label>{label}</label>
+      {(count != null || (search && value)) && (
+        <div className="row" style={{ position: "absolute", right: 4, top: 0, height: 56, alignItems: "center", gap: 2 }}>
+          {count != null && <span style={{ color: C.Muted, fontSize: 13, fontWeight: 600, padding: "0 4px", whiteSpace: "nowrap" }}>{count}</span>}
+          {search && value && <button className="iconbtn" aria-label="Vymazat" onMouseDown={(e) => e.preventDefault()} onClick={() => onChange("")}
+            style={{ width: 36, height: 36, fontSize: 18, color: C.Muted }}>✕</button>}
+        </div>
+      )}
     </div>
   );
 }

@@ -76,7 +76,7 @@ export function CompetitionView({ kind }: { kind: "tabulka" | "stis" }) {
   useEffect(() => {
     if (!comp || !vm.predOn) return;
     const k = Stis.tabulka(comp.svaz, comp.rocnik, comp.soutez);
-    if (!vm.predictions.has(k) && !vm.predLoading.get(k)) vm.set("predOn", false);
+    if (!vm.pred(k) && !vm.predBusy(k)) vm.set("predOn", false);
   }, [comp?.svaz, comp?.rocnik, comp?.soutez, season]);
   useEffect(() => {
     if (!comp || older) return;
@@ -108,6 +108,7 @@ export function CompetitionView({ kind }: { kind: "tabulka" | "stis" }) {
   );
 }
 
+const fmtStamp = (t: number) => { const d = new Date(t); return `${d.getDate()}. ${d.getMonth() + 1}. ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`; };
 const myClubFold = () => Stats.fold(Clubs.clubName(vm.me?.clubName ?? vm.club.name ?? ""));
 
 export function StandingsTable({ comp, rows, loading, current }: { comp: Comp; rows: StandingRow[] | undefined; loading: boolean; current: boolean }) {
@@ -116,8 +117,9 @@ export function StandingsTable({ comp, rows, loading, current }: { comp: Comp; r
   const club = myClubFold();
   const mine = (r: { name: string }) => comp.teams.some((t) => Stats.fold(t) === Stats.fold(r.name)) || (!!club && Stats.fold(Clubs.clubName(r.name)) === club);
   const key = Stis.tabulka(comp.svaz, comp.rocnik, comp.soutez);
-  const computing = vm.predLoading.get(key) === true;
-  const pred = vm.predictions.get(key);
+  const computing = vm.predBusy(key);
+  const pred = vm.pred(key);
+  const info = vm.predInfo(key);
   const showPred = current && vm.predOn && (computing || !!pred || vm.predErrors.has(key));
   const toggle = current && (
     <div className="row g8" style={{ alignItems: "center" }}>
@@ -130,7 +132,7 @@ export function StandingsTable({ comp, rows, loading, current }: { comp: Comp; r
       {computing && <Spinner size={16} width={2} color={vm.predOn ? "#fff" : C.Blue} />}
       {computing ? "Počítám…" : "Predikce po sezóně"}
     </button>
-    {vm.predOn && <ModelToggle />}
+    {vm.predOn && <ModelToggle help="sezona" />}
     </div>
   );
   if (showPred) {
@@ -140,7 +142,13 @@ export function StandingsTable({ comp, rows, loading, current }: { comp: Comp; r
         {toggle}
         {computing ? <Loading text={vm.predProgress || "Počítám predikci…"} />
           : perr ? <ErrorBox text={perr} onRetry={() => vm.loadPrediction(comp.svaz, comp.rocnik, comp.soutez, true)} />
-            : pred ? <PredictionView comp={comp} pred={pred} mine={mine} /> : null}
+            : pred ? <>
+              {info && <div className="row g8" style={{ alignItems: "center", padding: "0 4px" }}>
+                <Muted size={12} style={{ flex: 1 }} text={`Spočítáno ${fmtStamp(info.at)}${info.round ? ` · po ${info.round}. kole` : ""}`} />
+                <span className="clickable" style={{ color: C.Blue, fontSize: 12, fontWeight: 600 }} onClick={() => vm.loadPrediction(comp.svaz, comp.rocnik, comp.soutez, true)}>Přepočítat</span>
+              </div>}
+              <PredictionView comp={comp} pred={pred} mine={mine} />
+            </> : null}
       </>
     );
   }

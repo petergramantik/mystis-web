@@ -703,7 +703,7 @@ function CardForecast({ ctx, oppName, oppRef, oppRoster, home }: {
   const mySingles = meIn && myStr != null ? myOpps.map((o) => [o.name.split(" ")[0], vm.myWinProb(o.id, myStr, o.str ?? 1400)] as [string, number]) : [];
   return (
     <ForecastBox>
-      <div className="row" style={{ justifyContent: "flex-end", marginBottom: -4 }}><ModelToggle dark /></div>
+      <div className="row" style={{ justifyContent: "flex-end", marginBottom: -4 }}><ModelToggle help="utkani" dark /></div>
       <MiniOdds win={f.pWin} draw={f.pDraw} loss={f.pLoss} busy={rs.busy} />
       <div style={{ opacity: rs.busy ? 0.6 : 1 }}><ProbBar p={f.pWin + f.pDraw / 2} /></div>
       {fBase && <Muted color="#D6E1FA" size={12} text={(() => { const [a, b, c] = Stats.pct3(fBase.pWin, fBase.pDraw, fBase.pLoss); return `STR: výhra ${a} · remíza ${b} · prohra ${c}`; })()} style={{ textAlign: "center" }} />}

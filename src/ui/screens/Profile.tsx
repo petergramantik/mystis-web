@@ -7,7 +7,7 @@ import { Stats } from "../../core/stats";
 import {
   AppCard, Avatar, BigNumber, C, Divider, Empty, FormDots, FormPerf, KeyValue, ListCard, Loading, MatchRow, Muted, NavyHeader, OButton, PrimaryButton, Dialog, SectionTitle, StatTile, T, TileRow, dec1, signedInt,
 } from "../components";
-import { StrPanel, strPoints } from "./StrScreen";
+import { StrPanel, seasonChangeOf, strPoints } from "./StrScreen";
 
 const seasonLabel = (y: number) => `${y}/${String((y + 1) % 100).padStart(2, "0")}`;
 const rec = (ms: Match[]) => { const w = ms.filter((m) => m.won).length; return { w, l: ms.length - w, pct: ms.length ? w / ms.length : null }; };
@@ -47,8 +47,7 @@ export function ProfileScreen({ path, name, ask = false }: { path: string; name?
 
   const ch = p.chronological;
   const lastSeason = ch.length ? Math.max(...ch.map((m) => m.season)) : Stis.currentRocnik();
-  const sez = strPoints(p, "sez");
-  const sezChange = vm.seasonStrChange(isMe && me ? me : p) ?? (sez.length >= 2 ? sez[sez.length - 1][1] - sez[0][1] : null);
+  const sezChange = seasonChangeOf(isMe && me ? me : p);
   const total = rec(ch);
   const bySeason = new Map<number, Match[]>();
   for (const m of ch) { const l = bySeason.get(m.season) ?? []; l.push(m); bySeason.set(m.season, l); }
@@ -78,7 +77,13 @@ export function ProfileScreen({ path, name, ask = false }: { path: string; name?
           <StatTile label="Za sezónu" value={sezChange != null ? signedInt(sezChange) : "–"} dark
             valueColor={sezChange == null ? undefined : sezChange >= 0 ? C.WinLight : C.Peach} />
         </TileRow>
-        {(p.ster.stabil != null || p.ster.min != null) && <Muted color={C.MutedOnNavy} size={13} text={[p.ster.stabil != null ? `Stabilní ${dec1(p.ster.stabil)}` : null, p.ster.min != null ? `rozpětí ${p.ster.min}–${p.ster.max}` : null].filter(Boolean).join(" · ")} />}
+        {(p.ster.stabil != null || p.ster.min != null) && (
+          <div className="tile dark" style={{ padding: "7px 12px", flexDirection: "row", gap: 6, flexWrap: "wrap", fontSize: 13 }}>
+            {p.ster.stabil != null && <span><span style={{ color: C.MutedOnNavy }}>Stabil: </span><b style={{ color: "#fff" }}>{dec1(p.ster.stabil)}</b></span>}
+            {p.ster.stabil != null && p.ster.min != null && <span style={{ color: C.MutedOnNavy }}>·</span>}
+            {p.ster.min != null && <span><span style={{ color: C.MutedOnNavy }}>min / max: </span><b style={{ color: "#fff" }}>{p.ster.min} / {p.ster.max}</b></span>}
+          </div>
+        )}
         <a href={Stis.BASE + p.path} target="_blank" rel="noopener" style={{ color: "#AFC3EE", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>Otevřít na STIS ↗</a>
       </NavyHeader>
       <div className="col g12 px16">
@@ -88,7 +93,7 @@ export function ProfileScreen({ path, name, ask = false }: { path: string; name?
           <OButton text="Sdílet" onClick={() => setShareOpen(true)} style={{ flex: isMe ? 1 : "none" }} />
         </div>
         {shareOpen && <ShareSheet opts={shareOptions({ t: "Player", path })} onClose={() => setShareOpen(false)} />}
-        <StrPanel p={p} isMe={isMe} />
+        <StrPanel p={p} isMe={isMe} seasonChange={sezChange} />
         {sec?.forma}
         <SectionTitle text="Poslední zápasy" />
         <ListCard>{ch.slice(-10).reverse().map((m, i) => <MatchRow key={i} m={m} onClick={() => {}} />)}</ListCard>

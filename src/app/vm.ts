@@ -13,6 +13,7 @@ import { pointsRule, predictSeason, type SeasonPrediction, type SeasonTeam } fro
 import { type LDate, LDT_MAX, fmtDT, ldDay, ldMonth, ldYear, ldtDate, ldtHour, ldtMinute, ldtOf, today, nowLdt } from "../core/dates";
 import { FetchError, WebFetcher } from "../data/fetcher";
 import { prefs } from "../data/prefs";
+import { SP } from "./channel";
 const DAY_MS = 86_400_000;
 
 /** Soutěž na obrazovce Živě. */
@@ -105,7 +106,37 @@ export class AppVm {
   emit() {
     if (this.pending) return;
     this.pending = true;
-    queueMicrotask(() => { this.pending = false; this.version++; for (const l of this.listeners) l(); });
+    queueMicrotask(() => { this.pending = false; this.version++; this.saveStack(); for (const l of this.listeners) l(); });
+  }
+  /** Obrazovky, které po obnovení stránky nedávají smysl (závisí na právě běžícím utkání). */
+  private static NO_RESTORE = new Set(["Live", "Fixture", "Team", "Watch", "Shared", "Prediction"]);
+  private savedStack = "";
+  /** Historie obrazovek přežije obnovení stránky (pull-to-refresh prohlížeče, aktualizace aplikace). */
+  private saveStack() {
+    if (typeof sessionStorage === "undefined" || this.onboarding || this.guest) return;
+    const v = JSON.stringify(this.stack);
+    if (v === this.savedStack) return;
+    this.savedStack = v;
+    try { sessionStorage.setItem(SP + "stack", JSON.stringify({ s: this.stack, t: Date.now() })); } catch { /* soukromý režim */ }
+  }
+  private restoreStack() {
+    try {
+      const x = JSON.parse(sessionStorage.getItem(SP + "stack") ?? "null");
+      if (!x || Date.now() - x.t > 6 * 3600_000 || !Array.isArray(x.s)) return;
+      const st = (x.s as Screen[]).filter((s) => s && typeof s.t === "string" && !AppVm.NO_RESTORE.has(s.t));
+      if (st.length) this.stack = st;
+    } catch { /* */ }
+  }
+  /** Obnovit data aktuální obrazovky (tlačítko Obnovit i stažení obrazovky dolů). */
+  refreshCurrent() {
+    const s = this.current;
+    switch (s.t) {
+      case "BrowseClub": this.loadClubPage(s.path, true); break;
+      case "BrowseComp": this.loadCompBrowse(s, true); break;
+      case "Player": if (this.me && s.path === this.me.path) this.refreshAll(); else this.loadPlayer(s.path, true); break;
+      case "ZapisDetail": this.loadZapis(s.path, false, true); break;
+      default: this.refreshAll();
+    }
   }
 
   // ---------- navigace
@@ -214,7 +245,7 @@ export class AppVm {
   constructor() {
     Complex.on = prefs.complexModel;
     Complex.pair = (a, b) => this.pairInfo(a, b).adj;
-    if (prefs.playerPath != null && typeof window !== "undefined") this.loadMe(false);
+    if (prefs.playerPath != null && typeof window !== "undefined") { this.restoreStack(); this.loadMe(false); }
   }
 
   selectTeam(i: number) { this.nextSelected = i; this.nextSelectedByUser = true; this.ovTile = null; this.emit(); }
@@ -555,10 +586,10 @@ export class AppVm {
   get complexOn(): boolean { return Complex.on; }
   setComplex(v: boolean) {
     prefs.complexModel = v; Complex.on = v; this.pairCache.clear();
-    // predikce konce sezóny je spočítaná jedním modelem – po přepnutí se spočítá znovu
-    for (const k of Array.from(this.predictions.keys())) {
+    // predikce konce sezóny má výsledek pro každý model zvlášť (uložený) – chybějící se dopočítá
+    const bases = new Set(Array.from(this.predictions.keys()).map((k) => k.replace(/\|\+?$/, "")));
+    for (const k of bases) {
       const m = /svaz-(\d+)\/rocnik-(\d+)\/soutez-(\d+)/.exec(k);
-      this.predictions.delete(k);
       if (m) this.loadPrediction(m[1], +m[2], m[3]);
     }
     this.emit();
@@ -988,20 +1019,50 @@ export class AppVm {
   }
 
   // ---------- predikce konečné tabulky soutěže
+  /** klíč výsledku = tabulka + model (STR / STR+) */
   predictions = new Map<string, SeasonPrediction>();
+  predMeta = new Map<string, { at: number; round: number }>();
   predLoading = new Map<string, boolean>();
   predErrors = new Map<string, string>();
   predProgress = "";
-  /** Spočítá predikci tabulky po sezóně: rozpisy všech družstev soutěže, soupisky, simulace. */
+  private mk(key: string, plus = Complex.on) { return key + "|" + (plus ? "+" : ""); }
+  pred(key: string): SeasonPrediction | undefined { return this.predictions.get(this.mk(key)); }
+  predInfo(key: string) { return this.predMeta.get(this.mk(key)); }
+  predBusy(key: string): boolean { return this.predLoading.get(this.mk(key)) === true; }
+  /** Otisk vstupů: tabulka se mění jen po odehraném kole -> stejný otisk = stejná predikce. */
+  private predFp(rows: StandingRow[]) { return rows.map((r) => `${r.name}:${r.played}:${r.points}:${r.score}`).join("|"); }
+  private predRead(mk: string): { fp: string; at: number; round: number; p: SeasonPrediction } | null {
+    try { return JSON.parse(localStorage.getItem(SP + "pred:" + mk) ?? "null"); } catch { return null; }
+  }
+  private predWrite(mk: string, fp: string, round: number, p: SeasonPrediction) {
+    const at = Date.now();
+    this.predictions.set(mk, p); this.predMeta.set(mk, { at, round });
+    try {
+      // staré výsledky (déle než 120 dní) pryč
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k?.startsWith(SP + "pred:")) { try { if (at - (JSON.parse(localStorage.getItem(k) ?? "{}").at ?? 0) > 120 * DAY_MS) localStorage.removeItem(k); } catch { localStorage.removeItem(k); } }
+      }
+      localStorage.setItem(SP + "pred:" + mk, JSON.stringify({ fp, at, round, p }));
+    } catch { /* plné úložiště – jen v paměti */ }
+  }
+  /** Spočítá predikci tabulky po sezóně: rozpisy všech družstev soutěže, soupisky, simulace. Hotový výsledek se znovu použije, dokud se tabulka nezmění. */
   loadPrediction(svaz: string, rocnik: number, soutez: string, force = false) {
     const key = Stis.tabulka(svaz, rocnik, soutez);
-    if (this.predLoading.get(key) || (!force && this.predictions.has(key))) return;
-    this.predLoading.set(key, true); this.predErrors.delete(key); this.predProgress = "Načítám tabulku…"; this.emit();
+    const plus = Complex.on, mk = this.mk(key, plus);
+    if (this.predLoading.get(mk) || (!force && this.predictions.has(mk))) return;
+    this.predLoading.set(mk, true); this.predErrors.delete(key); this.predProgress = "Načítám tabulku…"; this.emit();
     (async () => {
       try {
-        const rows = this.tabulky.get(key) ?? (await this.repo.tabulka(svaz, rocnik, soutez));
+        const rows = (!force && this.tabulky.get(key)) || (await this.repo.tabulka(svaz, rocnik, soutez, force ? 0 : undefined));
         this.tabulky.set(key, rows);
         if (!rows.length) throw new Error("Tabulka soutěže je prázdná – není z čeho počítat.");
+        const fp = this.predFp(rows);
+        const round = Math.max(0, ...rows.map((r) => r.played));
+        if (!force) {
+          const st = this.predRead(mk);
+          if (st && st.fp === fp) { this.predictions.set(mk, st.p); this.predMeta.set(mk, { at: st.at, round: st.round }); return; }
+        }
         this.predProgress = "Načítám soupisky soutěže…"; this.emit();
         const rosters = await this.repo.soupisky(svaz, rocnik, soutez);
         let refs: TeamRef[] = rosters.map((r) => r.team).filter((x): x is TeamRef => !!x);
@@ -1053,11 +1114,24 @@ export class AppVm {
         for (const t of teams) if (!t.lineup.length) t.lineup = [avgStr];
         this.predProgress = `Simuluji ${future.size} zbývajících utkání…`; this.emit();
         await new Promise((r) => setTimeout(r, 30));
-        this.predictions.set(key, { ...predictSeason(teams, Array.from(future.values()), pointsRule(rows), this.formatForComp({ svaz, soutez }), 5000, this.singlesOrderFor({ svaz, soutez, rocnik })), lineups });
+        const run = (model: boolean) => {
+          // simulace je synchronní – model se nastaví jen na dobu výpočtu
+          const prev = Complex.on;
+          Complex.on = model; this.pairCache.clear();
+          try { return { ...predictSeason(teams, Array.from(future.values()), pointsRule(rows), this.formatForComp({ svaz, soutez }), 5000, this.singlesOrderFor({ svaz, soutez, rocnik })), lineups }; }
+          finally { Complex.on = prev; this.pairCache.clear(); }
+        };
+        this.predWrite(mk, fp, round, run(plus));
+        // druhý model dopočítat na pozadí, ať je přepnutí STR / STR+ okamžité
+        const mk2 = this.mk(key, !plus);
+        setTimeout(() => {
+          if (this.predLoading.get(mk2) || (this.predictions.has(mk2) && this.predRead(mk2)?.fp === fp)) return;
+          try { this.predWrite(mk2, fp, round, run(!plus)); this.emit(); } catch { /* jen na vyžádání */ }
+        }, 1500);
       } catch (e) {
         this.predErrors.set(key, err(e));
       } finally {
-        this.predLoading.set(key, false); this.predProgress = ""; this.emit();
+        this.predLoading.set(mk, false); this.predProgress = ""; this.emit();
       }
     })();
   }
@@ -1515,18 +1589,25 @@ export class AppVm {
   /** procházení svazů v Hledat → Soutěže (null = přehled republika + kraje) */
   browseSvaz: string | null = null;
   compView: "tab" | "los" = "tab";
-  browse: { kind: "p" | "o" | "s"; query: string; players: SearchPlayer[] | null; clubs: SearchClub[] | null; loading: boolean; err: string | null } =
+  browse: { kind: "p" | "o" | "s"; query: string; players: SearchPlayer[] | null; clubs: SearchClub[] | null; loading: boolean; err: string | null; all?: { p: boolean; o: boolean } } =
     { kind: "p", query: "", players: null, clubs: null, loading: false, err: null };
   /** hledání na kartě Soutěže (oddělené od hledání hráčů) */
-  browseComps: { kind: "p" | "o" | "s"; query: string; players: SearchPlayer[] | null; clubs: SearchClub[] | null; loading: boolean; err: string | null } =
+  browseComps: { kind: "p" | "o" | "s"; query: string; players: SearchPlayer[] | null; clubs: SearchClub[] | null; loading: boolean; err: string | null; all?: { p: boolean; o: boolean } } =
     { kind: "s", query: "", players: null, clubs: null, loading: false, err: null };
   browseSearch() {
     const b = this.browse, q = b.query.trim();
     if (b.kind === "s" || q.length < 2) return;
     b.loading = true; b.err = null; this.emit();
-    const done = (e: string | null) => { b.loading = false; b.err = e; this.emit(); };
-    if (b.kind === "p") this.repo.searchPlayers(q).then((r) => { b.players = r; done(null); }, (e) => done(err(e)));
-    else this.repo.searchClubs(q).then((r) => { b.clubs = r; done(null); }, (e) => done(err(e)));
+    // jedno pole: hráči i oddíly najednou (chyba jen když selžou obě hledání)
+    const ps = this.repo.searchPlayers(q), cs = this.repo.searchClubs(q);
+    Promise.allSettled([ps, cs]).then(([p, c]) => {
+      b.players = p.status === "fulfilled" ? p.value : null;
+      b.clubs = c.status === "fulfilled" ? c.value : null;
+      b.all = { p: false, o: false };
+      b.loading = false;
+      b.err = p.status === "rejected" && c.status === "rejected" ? err(p.reason) : null;
+      this.emit();
+    });
   }
   /** Soutěže známé z načtených dat (moje družstva, profily hráčů, načtené oddíly a soupeři). */
   knownComps(): { svaz: string; rocnik: number; soutez: string; name: string }[] {

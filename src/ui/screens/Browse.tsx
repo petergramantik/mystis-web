@@ -2,9 +2,10 @@ import { useEffect } from "react";
 import { CompTree, type TreeComp, type TreeSvaz } from "../../core/compTree";
 // Karta „Hráči“: Moji soupeři + Hledat (kohokoli – hráče, oddíl, soutěž). Data ze STIS se načítají jen na vyžádání.
 import { vm } from "../../app/vm";
-import { Stis, type TeamRef } from "../../core/models";
+import { Stis, type LosMatch, type TeamRef } from "../../core/models";
 import { MatchFormats } from "../../core/live";
-import { fmtShort, ldtDate } from "../../core/dates";
+import { fmtShort, ldDow, ldtDate } from "../../core/dates";
+import { hhmmLdt } from "../fmt";
 import {
   AppCard, Avatar, BigNumber, C, Chips, Divider, Empty, ErrorBox, Icon, ListCard, Loading, Muted, NavyHeader, OButton, PrimaryButton,
   SectionTitle, Segmented, T, TextField,
@@ -56,7 +57,7 @@ function BrowseView({ soutezeOnly = false }: { soutezeOnly?: boolean }) {
   // karta Hráči hledá hráče a oddíly, karta Soutěže soutěže (sdílený stav hledání, každá svůj druh)
   const b0 = vm.browse;
   const b = soutezeOnly ? vm.browseComps : b0;
-  if (!soutezeOnly && b0.kind === "s") b0.kind = "p";
+  if (!soutezeOnly && b0.kind !== "p") b0.kind = "p";
   const set = (p: Partial<typeof b>) => { Object.assign(b, p); vm.emit(); };
   const link = Stis.normalizeInput(b.query);
   // vložený odkaz ze STIS: hráč / oddíl / soutěž
@@ -81,45 +82,64 @@ function BrowseView({ soutezeOnly = false }: { soutezeOnly?: boolean }) {
   };
   return (
     <div className="col g10 px16">
-      {!soutezeOnly && <Segmented options={[["p", "Hráči"], ["o", "Oddíly"]]} selected={b.kind === "s" ? "p" : b.kind} onSelect={(k) => set({ kind: k as "p" | "o", err: null })} />}
       <TextField value={b.query} onChange={(v) => set({ query: v })} icon="search" onEnter={go}
-        label={b.kind === "p" ? "Jméno hráče nebo odkaz ze STIS" : b.kind === "o" ? "Název oddílu nebo odkaz ze STIS" : "Název soutěže nebo odkaz ze STIS"} />
+        count={b.kind === "s" && b.query.trim() && !compFromLink ? comps.length : null}
+        label={b.kind === "s" ? "Název soutěže nebo odkaz ze STIS" : "Hráč, oddíl nebo odkaz ze STIS"} />
       {b.kind !== "s" && <PrimaryButton text={b.loading ? "Hledám…" : "Hledat na STIS"} onClick={go} enabled={!b.loading && b.query.trim().length >= 2} />}
       <ManualNote text={b.kind === "s"
         ? `Všechny soutěže republiky v ročníku ${season(rocnik)}: procházejte svazy, nebo hledejte podle názvu soutěže či svazu. Starší ročník otevřete vloženým odkazem ze STIS.`
-        : "Data ze STIS se stahují jen na vyžádání – po hledání a po klepnutí na „Načíst“ u hráče, oddílu nebo soutěže."} />
+        : "Hledá hráče i oddíly najednou. Data ze STIS se stahují jen na vyžádání – po hledání a po klepnutí na „Načíst“ u hráče, oddílu nebo soutěže."} />
       {b.err && <ErrorBox text={b.err} onRetry={go} />}
       {b.loading && <Loading text="Hledám na STIS…" />}
-      {b.kind === "p" && b.players && !b.loading && (
-        <ListCard>
-          {!b.players.length && <Empty text="Nikoho takového STIS nenašel." />}
-          {b.players.slice(0, 100).map((p) => (
-            <div key={p.path}>
-              <div className="row g12 clickable" style={{ padding: "10px 14px" }} onClick={() => openPlayer(p.path, p.name)}>
-                <Avatar text={p.name} color={C.Blue} size={38} />
-                <div className="col w1"><T semi size={15} lines={1}>{p.name}{p.birthYear ? <span style={{ color: C.Muted }}>{` (${p.birthYear})`}</span> : null}</T><Muted size={12} text={p.club || "–"} maxLines={1} /></div>
-                {p.str != null && p.str > 0 && <T semi size={14} color={C.Muted}>{`STR ${p.str}`}</T>}
-              </div>
-              <Divider />
-            </div>
-          ))}
-        </ListCard>
-      )}
-      {b.kind === "o" && b.clubs && !b.loading && (
-        <ListCard>
-          {!b.clubs.length && <Empty text="Žádný oddíl neodpovídá hledání." />}
-          {b.clubs.slice(0, 100).map((c) => (
-            <div key={c.path}>
-              <div className="row g12 clickable" style={{ padding: "10px 14px" }} onClick={() => openClub(c.path, c.name)}>
-                <Avatar text={c.name} color={C.Blue} size={38} square />
-                <T semi size={15} lines={2} style={{ flex: 1 }}>{c.name}</T>
-                <T bold color={C.Blue}>›</T>
-              </div>
-              <Divider />
-            </div>
-          ))}
-        </ListCard>
-      )}
+      {b.kind !== "s" && (b.players || b.clubs) && !b.loading && (() => {
+        const ps = b.players ?? [], cs = b.clubs ?? [];
+        const all = b.all ?? { p: false, o: false };
+        const more = (k: "p" | "o", n: number, shown: number) => n > shown && (
+          <div className="row clickable" style={{ padding: "10px 14px", justifyContent: "center" }} onClick={() => set({ all: { ...all, [k]: true } })}>
+            <T semi size={14} color={C.Blue}>{`Zobrazit všech ${n} ›`}</T>
+          </div>
+        );
+        const LIM = 5;
+        const psShown = all.p ? ps.slice(0, 100) : ps.slice(0, LIM);
+        const csShown = all.o ? cs.slice(0, 100) : cs.slice(0, LIM);
+        return (
+          <>
+            {!ps.length && !cs.length && <Empty text="Nikoho ani žádný oddíl takového STIS nenašel." />}
+            {ps.length > 0 && <SectionTitle text={`Hráči (${ps.length})`} />}
+            {ps.length > 0 && (
+              <ListCard>
+                {psShown.map((p) => (
+                  <div key={p.path}>
+                    <div className="row g12 clickable" style={{ padding: "10px 14px" }} onClick={() => openPlayer(p.path, p.name)}>
+                      <Avatar text={p.name} color={C.Blue} size={38} />
+                      <div className="col w1"><T semi size={15} lines={1}>{p.name}{p.birthYear ? <span style={{ color: C.Muted }}>{` (${p.birthYear})`}</span> : null}</T><Muted size={12} text={p.club || "–"} maxLines={1} /></div>
+                      {p.str != null && p.str > 0 && <T semi size={14} color={C.Muted}>{`STR ${p.str}`}</T>}
+                    </div>
+                    <Divider />
+                  </div>
+                ))}
+                {more("p", ps.length, psShown.length)}
+              </ListCard>
+            )}
+            {cs.length > 0 && <SectionTitle text={`Oddíly (${cs.length})`} />}
+            {cs.length > 0 && (
+              <ListCard>
+                {csShown.map((c) => (
+                  <div key={c.path}>
+                    <div className="row g12 clickable" style={{ padding: "10px 14px" }} onClick={() => openClub(c.path, c.name)}>
+                      <Avatar text={c.name} color={C.Blue} size={38} square />
+                      <T semi size={15} lines={2} style={{ flex: 1 }}>{c.name}</T>
+                      <T bold color={C.Blue}>›</T>
+                    </div>
+                    <Divider />
+                  </div>
+                ))}
+                {more("o", cs.length, csShown.length)}
+              </ListCard>
+            )}
+          </>
+        );
+      })()}
       {b.kind === "s" && compFromLink && (
         <ListCard>
           <div className="row g12 clickable" style={{ padding: "10px 14px" }} onClick={go}>
@@ -133,7 +153,7 @@ function BrowseView({ soutezeOnly = false }: { soutezeOnly?: boolean }) {
           {comps.slice(0, 150).map((c) => <CompRow key={`${c.svaz}|${c.soutez}`} c={c} sub={[...vm.compAliases(c).slice(0, 2), vm.treeEntry(c.soutez)?.svazName ?? season(c.rocnik)].join(" · ")} />)}
         </ListCard>
       ) : <SvazBrowser />)}
-      {!b.loading && recent.length > 0 && ((b.kind === "p" && !b.players) || (b.kind === "o" && !b.clubs) || b.kind === "s") && (
+      {!b.loading && recent.length > 0 && ((b.kind !== "s" && !b.players && !b.clubs) || b.kind === "s") && (
         <>
           <SectionTitle text="Naposledy otevřené" action="Vymazat" onAction={() => { vm.prefs.browseRecentJson = "[]"; vm.emit(); }} />
           <ListCard>
@@ -253,6 +273,8 @@ export function BrowseCompScreen({ c: c0 }: { c: CompRef & { name: string } }) {
   const rows = vm.tabulky.get(tabKey);
   const los = vm.compLos.get(vm.compKey(c));
   const loaded = vm.compBrowseLoaded(c);
+  // vše načtené (tabulka i rozpis) -> tlačítko Obnovit, jinak Načíst (dočte chybějící část)
+  const all = !!rows && !!los;
   const busy = vm.compLoading.get(tabKey) === true || vm.compLosLoading.has(vm.compKey(c));
   const fmt = vm.formatForComp(c);
   const current = c.rocnik === Stis.currentRocnik();
@@ -271,30 +293,17 @@ export function BrowseCompScreen({ c: c0 }: { c: CompRef & { name: string } }) {
           <>
             <div className="row g8">
               <div style={{ flex: 1 }}><Chips options={[["tab", "Tabulka"], ["los", "Rozpis a výsledky"]]} selected={view} onSelect={(k) => { vm.compView = k as "tab" | "los"; vm.emit(); }} /></div>
-              <button className="chip" style={{ height: 34 }} onClick={() => vm.loadCompBrowse(c, true)}>{busy ? "Načítám…" : "Obnovit"}</button>
+              <button className="chip" style={{ height: 34 }} onClick={() => vm.loadCompBrowse(c, all)}>{busy ? "Načítám…" : all ? "Obnovit" : "Načíst"}</button>
             </div>
             {view === "tab" ? <StandingsTable comp={comp} rows={rows} loading={busy} current={current} /> : (
-              !los ? (busy ? <Loading text="Načítám rozpis…" /> : <Empty text="Rozpis se nepodařilo načíst." />) : (
+              !los ? (busy ? <Loading text="Načítám rozpis…" /> : <LoadCard title="Rozpis zatím není načtený" text="Načte se rozpis utkání a výsledky soutěže." button="Načíst rozpis" busy={false} onLoad={() => vm.loadCompLos(c)} />) : (
                 <>
                   {Array.from(rounds.entries()).map(([round, ms]) => (
                     <div key={round} className="col g6">
                       <SectionTitle text={`${round}. kolo${ms![0]?.dateTime ? ` · ${fmtShort(ldtDate(ms![0].dateTime!))}` : ""}`} />
-                      <ListCard>
-                        {ms!.map((m, i) => {
-                          const open = m.zapisPath && m.played ? () => vm.go({ t: "ZapisDetail", path: m.zapisPath, myTeam: m.home }) : null;
-                          const team = (r: TeamRef | null, n: string) => r?.id ? () => vm.openTeam({ ...r, name: n }, c.name) : undefined;
-                          return (
-                            <div key={i}>
-                              <div className="row g8" style={{ padding: "9px 14px" }}>
-                                <div style={{ flex: 1 }} className={m.homeRef?.id ? "clickable" : ""} onClick={team(m.homeRef, m.home)}><T size={14} lines={2}>{m.home}</T></div>
-                                <span className={open ? "clickable" : ""} onClick={open ?? undefined} style={{ minWidth: 58, textAlign: "center", fontWeight: 700, color: m.played ? C.Ink : C.Muted, fontSize: 14 }}>{m.played ? `${m.score}${open ? " ›" : ""}` : m.dateText.split(" ")[1] ?? "–"}</span>
-                                <div style={{ flex: 1, textAlign: "right" }} className={m.awayRef?.id ? "clickable" : ""} onClick={team(m.awayRef, m.away)}><T size={14} lines={2}>{m.away}</T></div>
-                              </div>
-                              <Divider />
-                            </div>
-                          );
-                        })}
-                      </ListCard>
+                      <div className="loscard">
+                        {ms!.map((m, i) => <LosRow key={i} m={m} compName={c.name} />)}
+                      </div>
                     </div>
                   ))}
                 </>
@@ -305,6 +314,41 @@ export function BrowseCompScreen({ c: c0 }: { c: CompRef & { name: string } }) {
         <OButton text="Žebříček STR soutěže na STIS" onClick={() => window.open(Stis.BASE + Stis.zebricek(c.svaz, c.rocnik, c.soutez), "_blank")} />
       </div>
       <div style={{ height: 8 }} />
+    </div>
+  );
+}
+
+const DOW = ["", "po", "út", "st", "čt", "pá", "so", "ne"];
+const myTeamIds = () => new Set(vm.next.map((x) => x.myTeam.ref?.id).filter((x): x is string => !!x));
+
+/** Utkání v rozpisu soutěže: oba týmy na vlastním řádku (celé názvy), výsledek jako tlačítko na zápis. */
+function LosRow({ m, compName }: { m: LosMatch; compName: string }) {
+  const open = m.zapisPath && m.played ? () => vm.go({ t: "ZapisDetail", path: m.zapisPath, myTeam: m.home }) : null;
+  const team = (r: TeamRef | null, n: string) => r?.id ? () => vm.openTeam({ ...r, name: n }, compName) : undefined;
+  const sm = m.played ? /^(\d+)\s*:\s*(\d+)$/.exec(m.score) : null;
+  const h = sm ? +sm[1] : 0, a = sm ? +sm[2] : 0;
+  const mine = myTeamIds();
+  const isMine = (m.homeRef?.id && mine.has(m.homeRef.id)) || (m.awayRef?.id && mine.has(m.awayRef.id));
+  const row = (r: TeamRef | null, n: string, win: boolean) => {
+    const on = team(r, n);
+    return (
+      <div className={"tm" + (win ? " w" : "") + (on ? " clickable" : "")} onClick={on}>
+        <span className="n">{n}</span>{on && <span className="a">›</span>}
+      </div>
+    );
+  };
+  const d = m.dateTime;
+  return (
+    <div className={"losm" + (isMine ? " mine" : "")}>
+      <div className="teams">
+        {row(m.homeRef, m.home, !!sm && h > a)}
+        {row(m.awayRef, m.away, !!sm && a > h)}
+      </div>
+      <div className="res">
+        {m.played
+          ? <button className={"score" + (open ? " clickable" : " plain")} onClick={open ?? undefined} disabled={!open}>{sm ? `${h} : ${a}` : m.score}{open ? " ›" : ""}</button>
+          : <span className="when">{d != null ? <>{DOW[ldDow(ldtDate(d))]} {fmtShort(ldtDate(d))}<br />{hhmmLdt(d)}</> : m.dateText || "–"}</span>}
+      </div>
     </div>
   );
 }
@@ -347,6 +391,8 @@ function SvazBrowser() {
   for (const x of vm.next) if (x.myTeam.ref?.svaz) mineIds.add(x.myTeam.ref.svaz);
   for (const x of vm.me?.currentSeason?.teams ?? []) if (x.ref?.svaz) mineIds.add(x.ref.svaz);
   const mine = Array.from(mineIds).map((id) => CompTree.find(t, id)?.svaz).filter((x): x is TreeSvaz => !!x);
+  // „Můj svaz“ = nejbližší svaz mých družstev (okresní, jinak krajský)
+  const myMain = mine.find((x) => CompTree.find(t, x.id)?.parent) ?? mine[0] ?? null;
   if (!cur) {
     const kraje = Object.values(t.svazy).filter((s) => s.id !== CompTree.ROOT && (s.souteze.length || Object.keys(s.svazy ?? {}).length));
     const root = t.svazy[CompTree.ROOT];
@@ -371,8 +417,10 @@ function SvazBrowser() {
   const subs = Object.values(s.svazy ?? {});
   return (
     <div className="col g10">
-      <div className="row g8">
+      <div className="row g8" style={{ flexWrap: "wrap" }}>
         <button className="chip" style={{ height: 34 }} onClick={() => open(cur.parent?.id ?? null)}>{`‹ ${cur.parent ? cur.parent.nazev : "Přehled svazů"}`}</button>
+        {cur.parent && <button className="chip" style={{ height: 34 }} onClick={() => open(null)}>Přehled svazů</button>}
+        {myMain && myMain.id !== s.id && <button className="chip" style={{ height: 34 }} onClick={() => open(myMain.id)}>Můj svaz</button>}
       </div>
       <T bold size={18}>{s.id === CompTree.ROOT ? "Republika – ČAST" : s.nazev}</T>
       {!s.souteze.length && !subs.length && <Empty text="Svaz nemá v tomto ročníku žádné soutěže." />}

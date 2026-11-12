@@ -130,9 +130,19 @@ function PlayerMatches() {
   const me = vm.meWithLive();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
+  const [older, setOlder] = useState(false);
+  // po návratu na obrazovku jsou starší sezóny sbalené -> výběr starší sezóny zrušit
+  useEffect(() => {
+    const ss = Array.from(new Set(vm.me?.chronological.map((m) => m.season) ?? [])).sort((a, b) => b - a);
+    if (vm.matchesSeason != null && vm.matchesSeason !== "all" && ss.slice(2).some((s) => String(s) === vm.matchesSeason)) vm.set("matchesSeason", null);
+  }, []);
   if (!me) return <Loading />;
   const seasons = Array.from(new Set(me.chronological.map((m) => m.season))).sort((a, b) => b - a);
   const season = vm.matchesSeason ?? (seasons[0] != null ? String(seasons[0]) : "all");
+  // aktuální a předchozí sezóna, starší na vyžádání (po návratu na obrazovku zase sbalené)
+  const showOlder = older;
+  const seasonOpts: [string, string][] = [["all", "Všechny sezóny"], ...(showOlder ? seasons : seasons.slice(0, 2)).map((s) => [String(s), `${s}/${(s + 1) % 100}`] as [string, string]),
+    ...(!showOlder && seasons.length > 2 ? [["__older", "Starší sezóny ›"] as [string, string]] : [])];
   const teams = Array.from(new Set(me.chronological.filter((m) => season === "all" || String(m.season) === season).map((m) => m.myTeam).filter((t) => t.trim())));
   const team = vm.matchesTeam === "all" || teams.some((t) => Stats.fold(t) === Stats.fold(vm.matchesTeam)) ? vm.matchesTeam : "all";
   const q = Stats.fold(query);
@@ -147,8 +157,8 @@ function PlayerMatches() {
 
   return (
     <div className="col g8 px16">
-      <TextField value={query} onChange={setQuery} label="Hledat soupeře, klub nebo soutěž" icon="search" />
-      <Chips options={[["all", "Všechny sezóny"], ...seasons.map((s) => [String(s), `${s}/${(s + 1) % 100}`] as [string, string])]} selected={season} onSelect={(k) => vm.set("matchesSeason", k)} />
+      <TextField value={query} onChange={setQuery} label="Hledat soupeře, klub nebo soutěž" icon="search" count={list.length} />
+      <Chips options={seasonOpts} selected={season} onSelect={(k) => { if (k === "__older") setOlder(true); else vm.set("matchesSeason", k); }} />
       {teams.length > 1 && <Chips options={[["all", "Všechna družstva"], ...teams.map((t) => [t, t] as [string, string])]} selected={team} onSelect={(k) => vm.set("matchesTeam", k)} />}
       <Chips options={[["all", "Vše"], ["w", "Výhry"], ["l", "Prohry"], ["5", "Pětisetové"]]} selected={filter} onSelect={setFilter} />
       <T size={14} color={C.Muted} style={{ padding: "0 4px" }}>{`${list.length} zápasů · ${w} výher · ${list.length - w} proher · sety ${sf}:${sa}`}</T>

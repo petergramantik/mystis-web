@@ -295,7 +295,7 @@ export function ScoreHeader({ st, myHome, homeName, awayName, empty, neutral = f
       <ProbBar p={pWin + st.pDraw / 2} reverse={!myHome} />
       {!st.finished && (
         <div className="col g4">
-          <ModelToggle dark style={{ alignSelf: "flex-start" }} />
+          <ModelToggle help="zive" dark style={{ alignSelf: "flex-start" }} />
           {base && vm.complexOn && <Muted color={C.MutedOnNavy} size={12} text={neutral ? `STR: domácí ${Stats.pct(base.pHomeWin)} · hosté ${Stats.pct(base.pAwayWin)}` : `STR: výhra ${Stats.pct(myHome ? base.pHomeWin : base.pAwayWin)}`} />}
         </div>
       )}

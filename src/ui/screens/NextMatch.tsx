@@ -162,7 +162,7 @@ export function TeamForecast({ me, minePick, theirsPick, fmt = MatchFormats.DEFA
           <Muted size={12} text={`${home == null ? "vy : soupeř" : "domácí : hosté"} · výhra ${Stats.pct3(fc.pWin, fc.pDraw, fc.pLoss)[0]}, remíza ${Stats.pct3(fc.pWin, fc.pDraw, fc.pLoss)[1]}, prohra ${Stats.pct3(fc.pWin, fc.pDraw, fc.pLoss)[2]}`} maxLines={2} />
         </div>
         {rs.busy && <Spinner size={18} width={2} />}
-        <ModelToggle />
+        <ModelToggle help="utkani" />
         <BigNumber text={`${hs} : ${as_}`} color={rs.busy ? C.Muted : my > op ? C.Win : my < op ? C.OrangeText : C.Ink} size={26} />
       </div>
       {fcBase && <Muted size={12} text={`STR: výhra ${Stats.pct3(fcBase.pWin, fcBase.pDraw, fcBase.pLoss)[0]}, remíza ${Stats.pct3(fcBase.pWin, fcBase.pDraw, fcBase.pLoss)[1]}, prohra ${Stats.pct3(fcBase.pWin, fcBase.pDraw, fcBase.pLoss)[2]} · ${home === false ? `${fcBase.likely[1]} : ${fcBase.likely[0]}` : `${fcBase.likely[0]} : ${fcBase.likely[1]}`}`} maxLines={2} />}
