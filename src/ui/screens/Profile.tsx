@@ -73,9 +73,9 @@ export function ProfileScreen({ path, name, ask = false }: { path: string; name?
         </div>
         <TileRow>
           <StatTile label="STR" value={`${p.currentStr ?? "–"}`} dark />
-          <StatTile label="Nejvyšší" value={`${p.ster.peak ?? "–"}`} dark sub={p.ster.peakDate ?? null} />
           <StatTile label="Za sezónu" value={sezChange != null ? signedInt(sezChange) : "–"} dark
             valueColor={sezChange == null ? undefined : sezChange >= 0 ? C.WinLight : C.Peach} />
+          <StatTile label="Nejvyšší" value={`${p.ster.peak ?? "–"}`} dark sub={p.ster.peakDate ?? null} />
         </TileRow>
         {(p.ster.stabil != null || p.ster.min != null) && (
           <div className="tile dark" style={{ padding: "7px 12px", flexDirection: "row", gap: 6, flexWrap: "wrap", fontSize: 13 }}>
