@@ -25,6 +25,7 @@ import { RecordsScreen, SettingsScreen } from "./ui/screens/Records";
 import { AppShareSheet, GuestBar, ShareSheet, shareOptions } from "./ui/shareActions";
 import { SupportMenuSheet } from "./ui/support";
 import { APP_VERSION } from "./app/version";
+import { APP_ICON } from "./ui/appIcon";
 import "./ui/app.css";
 
 const TABS: [Screen, string, string][] = [
@@ -192,7 +193,7 @@ function Root() {
     <>
       <div className={"topbar" + (dark ? " dark" : "")}>
         {canBack() ? <button className="iconbtn" onClick={goBack} aria-label="Zpět"><Icon name="back" /></button> : screen.t === "Overview" ? <div style={{ width: 8 }} /> : <div className="spacer44" />}
-        {screen.t === "Overview" && <button onClick={() => vm.go({ t: "About" })} aria-label="O aplikaci" style={{ background: "none", border: 0, padding: 0, marginLeft: 4, display: "flex", cursor: "pointer" }}><img src="icons/icon-192.png" alt="" width={28} height={28} style={{ borderRadius: 7, display: "block" }} /></button>}
+        {screen.t === "Overview" && <button onClick={() => vm.go({ t: "About" })} aria-label="O aplikaci" style={{ background: "none", border: 0, padding: 0, marginLeft: 4, display: "flex", cursor: "pointer" }}><img src={APP_ICON} alt="" width={28} height={28} decoding="sync" style={{ borderRadius: 7, display: "block" }} /></button>}
         {opts.length === 0 && screen.t !== "Overview" && <div className="spacer44" />}
         <div className="title" style={opts.length || screen.t === "Overview" ? { textAlign: "left", paddingLeft: screen.t === "Overview" ? 10 : 8 } : undefined}>{title(screen)}{IS_DEV && <span className="devtag clickable" onClick={(e) => { e.stopPropagation(); setSheet("dev"); }}>DEV</span>}</div>
         {opts.length > 0 ? <button className="iconbtn" onClick={() => { if (opts.length === 1) void opts[0].run(); else setSheet("share"); }} aria-label="Sdílet"><Icon name="share" /></button> : null}
