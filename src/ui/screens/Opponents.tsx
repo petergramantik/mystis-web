@@ -22,6 +22,8 @@ export function OpponentsScreen() {
   const me = comp === "all" ? meAll : meAll.copy({ matches: meAll.matches.filter((m) => m.competition === comp) });
   const opps = Stats.opponents(me);
   const clubs = Stats.clubsOf(opps);
+  const clubList = mode === "club" ? Stats.searchClubs(me, query) : [];
+  const oppList = mode === "club" ? [] : Stats.searchOpponents(me, query);
   return (
     <div className="col g10 px16">
       <div className="row g8">
@@ -30,11 +32,11 @@ export function OpponentsScreen() {
           <Icon name="compare" size={18} />Porovnat
         </button>
       </div>
-      <TextField value={query} onChange={setQuery} icon="search" label={mode === "club" ? "Název klubu, např. Slavoj" : "Jméno soupeře"} />
+      <TextField value={query} onChange={setQuery} icon="search" label={mode === "club" ? "Název klubu, např. Slavoj" : "Jméno soupeře"} count={mode === "club" ? clubList.length : oppList.length} />
       {comps.length > 1 && <Chips options={[["all", "Všichni"], ...comps.map((c) => [c, c] as [string, string])]} selected={comp} onSelect={(k) => { vm.prefs.oppComp = k; vm.emit(); }} />}
       <T size={14} color={C.Muted} style={{ padding: "0 4px" }}>{`${opps.length} soupeřů z ${clubs.length} klubů`}</T>
       {mode === "club" ? (() => {
-        const list = Stats.searchClubs(me, query);
+        const list = clubList;
         return (
           <>
             <T size={13} bold color={C.Muted}>KLUBY PODLE POČTU ZÁPASŮ</T>
@@ -45,7 +47,7 @@ export function OpponentsScreen() {
           </>
         );
       })() : (() => {
-        const list = Stats.searchOpponents(me, query);
+        const list = oppList;
         return (
           <>
             <T size={13} bold color={C.Muted}>{query ? "VÝSLEDKY HLEDÁNÍ" : "NEJČASTĚJŠÍ SOUPEŘI"}</T>

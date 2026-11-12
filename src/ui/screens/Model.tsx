@@ -77,10 +77,19 @@ export function ModelScreen({ section }: { section?: string | null }) {
         <P><b>Výkon</b> = o kolik zápasů hráč vyhrál víc (nebo méně), než odpovídá šancím podle STR. Kladné číslo znamená, že hraje nad své STR.</P>
       </Sec>
       <Sec id="complex" title="8. STR+: Komplexní model (volitelný)">
-        <P>Zapíná se v Nastavení{vm.complexOn ? " – teď je zapnutý" : " – teď je vypnutý"}. K samotnému STR přidává:</P>
+        <P>Zapíná se v Nastavení nebo přepínačem STR / STR+ u predikcí – volba platí v celé aplikaci{vm.complexOn ? " (teď je zapnutý)" : " (teď je vypnutý)"}. K samotnému STR přidává:</P>
         <P><b>Vzájemné zápasy.</b> U každého předchozího zápasu dvojice se spočítá, o kolik dopadl jinak, než čekalo tehdejší STR. Novější zápasy mají větší váhu (poločas {Math.round(Complex.H2H_HALF_LIFE / 365)} roky) a zápasy, od kterých se rozdíl STR hráčů hodně změnil, se počítají méně. Výsledek se stáhne k nule (malý vzorek nic nedokazuje) a omezí na ±{Complex.H2H_CAP} STR. Platí pro šanci v jedné hře i pro všechny dvouhry v predikci utkání (u spoluhráčů se kvůli tomu načítají jejich profily).</P>
         <P><b>Výhoda domácích.</b> Ze všech odehraných dvouher soutěže se spočítá, o kolik domácí hrají lépe, než říká STR. Opět staženo k nule a omezeno na ±{Complex.HOME_CAP} STR.</P>
         <P><b>Forma se nezapočítává.</b> Teorie (Elo, Glicko-2) i zpětný test ukazují, že STR na každý zápas už reaguje – korekce formou (série výher a proher se zohledněním síly soupeřů) predikce na 5 020 skutečných zápasech zhoršila, stejně jako „nevyzpytatelnost“ hráče. Vzájemné zápasy je naopak zlepšily (Brier 0,1774 → 0,1764).</P>
+        <P><b>STR, nebo STR+?</b></P>
+        <P><b>Výhody STR+:</b> přesnější odhad proti konkrétním soupeřům – zohlední, jak se vám s nimi hraje, a výhodu domácího prostředí.</P>
+        <P><b>Nevýhody STR+:</b><br />
+          • Čísla se liší od STIS – oficiální systém počítá jen se STR, výsledky STR+ si nikdo jiný nespočítá stejně.<br />
+          • Vzájemných zápasů bývá málo – náhodná výhra či prohra odhad trochu posune (korekce je proto omezená na ±{Complex.H2H_CAP} STR).<br />
+          • Výhoda domácích je průměr soutěže, ne konkrétní herny.<br />
+          • Zlepšení přesnosti je malé – rozdíl proti STR bývá u zápasu jen pár procent.<br />
+          • Počítá se jen se vzájemnými zápasy z profilů načtených v aplikaci; po načtení dalšího profilu se odhad může mírně změnit.</P>
+        <P><b>Doporučení:</b> STR+ pro co nejlepší odhad proti konkrétním soupeřům, STR pro čísla shodná s logikou STIS.</P>
         <Backtest />
       </Sec>
       <Muted size={12} maxLines={3} text="Neoficiální aplikace; oficiální výsledky, body a STR platí vždy podle STIS." />

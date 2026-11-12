@@ -143,7 +143,11 @@ function PlayerMatches() {
   const showOlder = older;
   const seasonOpts: [string, string][] = [["all", "Všechny sezóny"], ...(showOlder ? seasons : seasons.slice(0, 2)).map((s) => [String(s), `${s}/${(s + 1) % 100}`] as [string, string]),
     ...(!showOlder && seasons.length > 2 ? [["__older", "Starší sezóny ›"] as [string, string]] : [])];
-  const teams = Array.from(new Set(me.chronological.filter((m) => season === "all" || String(m.season) === season).map((m) => m.myTeam).filter((t) => t.trim())));
+  // družstva od nejaktuálnějšího (podle posledního zápasu; chronological je od nejstaršího)
+  const teams = Array.from(new Set(me.chronological.filter((m) => season === "all" || String(m.season) === season).map((m) => m.myTeam).filter((t) => t.trim())).values()).reverse();
+  const lastIdx = new Map<string, number>();
+  me.chronological.forEach((m, i) => lastIdx.set(m.myTeam, i));
+  teams.sort((a, b) => (lastIdx.get(b) ?? -1) - (lastIdx.get(a) ?? -1));
   const team = vm.matchesTeam === "all" || teams.some((t) => Stats.fold(t) === Stats.fold(vm.matchesTeam)) ? vm.matchesTeam : "all";
   const q = Stats.fold(query);
   const list = [...me.chronological].reverse().filter((m) =>

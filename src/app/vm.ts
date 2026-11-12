@@ -584,7 +584,17 @@ export class AppVm {
 
   // ---------- komplexní model predikcí ----------
   get complexOn(): boolean { return Complex.on; }
+  /** čeká se na potvrzení prvního zapnutí STR+ (dialog s vysvětlením) */
+  complexAsk = false;
   setComplex(v: boolean) {
+    if (v && !prefs.complexIntroSeen) { this.complexAsk = true; this.emit(); return; }
+    this.applyComplex(v);
+  }
+  confirmComplex(on: boolean) {
+    this.complexAsk = false;
+    if (on) { prefs.complexIntroSeen = true; this.applyComplex(true); } else this.emit();
+  }
+  private applyComplex(v: boolean) {
     prefs.complexModel = v; Complex.on = v; this.pairCache.clear();
     // predikce konce sezóny má výsledek pro každý model zvlášť (uložený) – chybějící se dopočítá
     const bases = new Set(Array.from(this.predictions.keys()).map((k) => k.replace(/\|\+?$/, "")));

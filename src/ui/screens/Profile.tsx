@@ -54,8 +54,16 @@ export function ProfileScreen({ path, name, ask = false }: { path: string; name?
   const best = Array.from(bySeason.entries()).filter(([, ms]) => ms.length >= 10).map(([y, ms]) => [y, rec(ms)] as const)
     .sort((a, b) => (b[1].pct ?? 0) - (a[1].pct ?? 0))[0];
   const jumps = biggestJump(strPoints(p, "vse"));
-  const clubs = Array.from(new Set(p.seasons.map((s) => s.club).filter((x): x is string => !!x)));
-  const seasons = [...p.seasons].sort((a, b) => b.year - a.year);
+  // starší sezóny: jen družstva (oddíly), za která hráč opravdu nastoupil – samotná soupiska se nepočítá
+  const cur = Stis.currentRocnik();
+  const games = (x: string | null | undefined) => (x ?? "").split(":").map((v) => parseInt(v, 10)).filter((v) => Number.isFinite(v)).reduce((a, b) => a + b, 0);
+  const seasons = [...p.seasons].sort((a, b) => b.year - a.year).flatMap((s) => {
+    if (s.year >= cur || !s.teams.length) return [s];
+    const ms = bySeason.get(s.year) ?? [];
+    const teams = s.teams.filter((t) => games(t.singles) + games(t.doubles) > 0 || ms.some((m) => Stats.fold(m.myTeam) === Stats.fold(t.name)));
+    return teams.length || ms.length ? [{ ...s, teams }] : [];
+  });
+  const clubs = Array.from(new Set(seasons.map((s) => s.club).filter((x): x is string => !!x)));
   const newest = seasons[0]?.year ?? null;
   const sec = profileSections(p);
   const mutual: Match[] = !isMe && p.id ? vm.meWithLive()?.chronological.filter((m) => m.opponentId === p.id) ?? [] : [];

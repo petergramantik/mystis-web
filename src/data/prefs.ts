@@ -40,6 +40,9 @@ export const prefs = {
   set clubPath(v: string | null) { set("club_path", v); },
   get complexModel() { return get("complex_model") === "true"; },
   set complexModel(v: boolean) { set("complex_model", String(v)); },
+  /** úvodní vysvětlení STR+ už bylo potvrzené */
+  get complexIntroSeen() { return get("complex_intro") === "true"; },
+  set complexIntroSeen(v: boolean) { set("complex_intro", String(v)); },
   get notifications() { return get("notifications") !== "false"; },
   set notifications(v: boolean) { set("notifications", String(v)); },
   /** Notifikace o hrách probíhajícího utkání (jen při otevřené aplikaci). */

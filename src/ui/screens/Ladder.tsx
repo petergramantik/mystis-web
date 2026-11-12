@@ -3,9 +3,9 @@ import { useEffect, useState } from "react";
 import { ModelLink } from "./Model";
 import { vm } from "../../app/vm";
 import { Clubs, Stis, type StandingRow, type StrLadder, type StrLadderRow } from "../../core/models";
-import { Stats, avg, maxBy, type LadderEntry } from "../../core/stats";
+import { Stats, avg, maxBy } from "../../core/stats";
 import type { SeasonPrediction } from "../../core/season";
-import { AppCard, BigNumber, C, Chips, Dialog, Pill, PrimaryButton, Spinner, Divider, Empty, ErrorBox, ErrorWithDiagnostics, ListCard, Loading, Muted, Segmented, StatTile, T, TileRow, dec1, f0, signedInt } from "../components";
+import { AppCard, BigNumber, C, Chips, Pill, PrimaryButton, Spinner, Divider, Empty, ErrorBox, ErrorWithDiagnostics, ListCard, Loading, Muted, Segmented, StatTile, T, TileRow, dec1, f0, signedInt } from "../components";
 
 export function shortTeam(team: string, club: string): string {
   const letter = Clubs.teamLetter(team);
@@ -363,21 +363,7 @@ function InternalLadder() {
   const club = vm.club;
   const [team, setTeam] = useState("all");
   const [sort, setSort] = useState("str");
-  const [chosen, setChosen] = useState<LadderEntry | null>(null);
   const meId = vm.me?.id;
-
-  const dialog = chosen && (
-    <Dialog title={chosen.name} onClose={() => setChosen(null)} actions={
-      <>
-        <button className="textbtn" onClick={() => { const p = chosen.path; setChosen(null); if (p) vm.go({ t: "Player", path: p }); }}>Jen zobrazit profil</button>
-        <button className="textbtn" style={{ fontWeight: 700 }} onClick={() => { const p = chosen.path; setChosen(null); if (p) vm.setProfile(p, () => {}); }}>Přepnout na hráče</button>
-      </>
-    }>
-      <Muted color={C.Ink} size={14} maxLines={8} style={{ whiteSpace: "pre-line" }} text={
-        [chosen.str != null ? `STR ${chosen.str}` : null, chosen.teams.join(", ") || null, chosen.played > 0 ? `sezóna ${chosen.wins}–${chosen.losses}` : null].filter((x) => x).join(" · ") +
-        "\n\nPřepnout aplikaci na tohoto hráče? Přehled, STR, zápasy, soupeři i upozornění se pak budou týkat jeho."} />
-    </Dialog>
-  );
 
   if (!club.ladder.length) {
     return (
@@ -404,7 +390,6 @@ function InternalLadder() {
 
   return (
     <div className="col g10 px16">
-      {dialog}
       <Muted text={`${club.name} · ${club.ladder.length} hráčů · ${club.rosters.length} družstev`} size={14} />
       <Chips options={[["all", "Celý oddíl"], ...teamNames.map((t) => [t, shortTeam(t, club.name)] as [string, string])]} selected={team} onSelect={setTeam} />
       <Chips options={[["str", "STR"], ["wins", "%"], ["change", "+/-"]]} selected={sort} onSelect={setSort} />
@@ -427,7 +412,7 @@ function InternalLadder() {
           return (
             <div key={(e.id ?? e.name) + i}>
               <div className="row clickable" style={{ background: mine ? C.Tint : "#fff", padding: "9px 14px" }}
-                onClick={() => { if (mine) vm.openMyProfile(); else if (e.path != null) setChosen(e); }}>
+                onClick={() => { if (mine) vm.openMyProfile(); else if (e.path != null) vm.go({ t: "Player", path: e.path }); }}>
                 <BigNumber text={sort === "str" ? `${rank}` : `${i + 1}`} color={rank <= 3 && sort === "str" ? C.Orange : C.Ink} size={20} style={{ width: 34, flex: "none" }} />
                 <div className="col w1">
                   <T size={16} bold={mine} semi={!mine} lines={1}>{e.name + (mine ? " (vy)" : "")}</T>

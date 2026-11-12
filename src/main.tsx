@@ -232,6 +232,17 @@ function Root() {
           <Muted size={14} maxLines={6} text="Zkušební verze s novými funkcemi. Běžná verze má vlastní data a nastavení; aplikace z plochy si zapamatuje, kterou verzi jste zvolili. Do vývojové verze se vrátíte v O aplikaci." />
         </Dialog>
       )}
+      {vm.complexAsk && (
+        <Dialog title="Zapnout STR+?" onClose={() => vm.confirmComplex(false)} actions={<>
+          <OButton text="Zůstat u STR" onClick={() => vm.confirmComplex(false)} />
+          <PrimaryButton text="Zapnout STR+" onClick={() => vm.confirmComplex(true)} />
+        </>}>
+          <div className="col g10">
+            <Muted size={14} maxLines={10} color="#0E1A33" text="STR+ ke STR přidá vzájemné zápasy a výhodu domácích. Odhad proti konkrétním soupeřům bývá o něco přesnější, ale čísla se liší od STIS a při málo vzájemných zápasech mohou kolísat. Volba platí v celé aplikaci a kdykoli ji vrátíte přepínačem STR / STR+." />
+            <span className="clickable" style={{ color: "#1F4FB8", fontSize: 14, fontWeight: 600 }} onClick={() => { vm.confirmComplex(false); vm.go({ t: "Model", section: "complex" }); }}>Jak STR+ funguje ›</span>
+          </div>
+        </Dialog>
+      )}
       {toast}
       {!guest && <PullToRefresh />}
       {guest ? <GuestBar /> : <nav className="bottombar">
