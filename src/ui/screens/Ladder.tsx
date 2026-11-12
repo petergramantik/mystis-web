@@ -5,7 +5,7 @@ import { vm } from "../../app/vm";
 import { Clubs, Stis, type StandingRow, type StrLadder, type StrLadderRow } from "../../core/models";
 import { Stats, avg, maxBy, type LadderEntry } from "../../core/stats";
 import type { SeasonPrediction } from "../../core/season";
-import { AppCard, BigNumber, C, Chips, Dialog, Pill, Spinner, Divider, Empty, ErrorBox, ErrorWithDiagnostics, ListCard, Loading, Muted, Segmented, StatTile, T, TileRow, dec1, f0, signedInt } from "../components";
+import { AppCard, BigNumber, C, Chips, Dialog, Pill, PrimaryButton, Spinner, Divider, Empty, ErrorBox, ErrorWithDiagnostics, ListCard, Loading, Muted, Segmented, StatTile, T, TileRow, dec1, f0, signedInt } from "../components";
 
 export function shortTeam(team: string, club: string): string {
   const letter = Clubs.teamLetter(team);
@@ -15,10 +15,10 @@ export function shortTeam(team: string, club: string): string {
 /** Záložka Žebříčky: tabulka soutěže, oficiální žebříček STR a interní žebříček oddílu. */
 export function LadderScreen() {
   // tabulky soutěží jsou na kartě Soutěže, tady jen pořadí hráčů
-  const tab = vm.ladderTab === "tabulka" ? "interni" : vm.ladderTab;
+  const tab = vm.ladderTab === "interni" ? "interni" : "stis";
   return (
     <div className="col g10">
-      <div className="px16"><Segmented options={[["interni", "Interní žebříček"], ["stis", "Žebříček STIS"]]} selected={tab} onSelect={(k) => vm.set("ladderTab", k)} /></div>
+      <div className="px16"><Segmented options={[["stis", "Žebříček STIS"], ["interni", "Interní žebříček"]]} selected={tab} onSelect={(k) => vm.set("ladderTab", k)} /></div>
       {tab === "stis" ? <CompetitionView kind="stis" /> : <InternalLadder />}
     </div>
   );
@@ -68,6 +68,10 @@ export function CompetitionView({ kind }: { kind: "tabulka" | "stis" }) {
   // výchozí soutěž = soutěž hlavního družstva hráče
   const mainSoutez = vm.next[vm.mainTeamIndex]?.myTeam.ref?.soutez;
   const comp = list.find((c) => c.soutez === vm.compId) ?? list.find((c) => c.soutez === mainSoutez) ?? list[0] ?? null;
+  // běžně jen aktuální a předchozí sezóna; starší se rozbalí a načtou ručně
+  const recentSeasons = seasons.slice(0, 2);
+  const older = season != null && !recentSeasons.includes(season) && !vm.compExplicit;
+  const showOlder = vm.compOlderOpen || older;
   // po přepnutí na soutěž bez spočítané predikce se ukáže oficiální tabulka
   useEffect(() => {
     if (!comp || !vm.predOn) return;
@@ -75,7 +79,7 @@ export function CompetitionView({ kind }: { kind: "tabulka" | "stis" }) {
     if (!vm.predictions.has(k) && !vm.predLoading.get(k)) vm.set("predOn", false);
   }, [comp?.svaz, comp?.rocnik, comp?.soutez, season]);
   useEffect(() => {
-    if (!comp) return;
+    if (!comp || older) return;
     if (kind === "tabulka") vm.loadTabulka(comp.svaz, comp.rocnik, comp.soutez);
     else vm.loadStrLadder(comp.svaz, comp.rocnik, comp.soutez);
   }, [kind, comp?.svaz, comp?.rocnik, comp?.soutez]);
@@ -87,9 +91,16 @@ export function CompetitionView({ kind }: { kind: "tabulka" | "stis" }) {
   const reload = () => kind === "tabulka" ? vm.loadTabulka(comp.svaz, comp.rocnik, comp.soutez, true) : vm.loadStrLadder(comp.svaz, comp.rocnik, comp.soutez, true);
   return (
     <div className="col g10 px16">
-      {seasons.length > 1 && <Chips options={seasons.map((y) => [String(y), `${y}/${(y + 1) % 100}`])} selected={String(season)} onSelect={(k) => { vm.set("compSeason", parseInt(k, 10)); vm.set("compId", null); }} />}
+      {seasons.length > 1 && <Chips options={[...(showOlder ? seasons : recentSeasons).map((y) => [String(y), `${y}/${(y + 1) % 100}`] as [string, string]), ...(!showOlder && seasons.length > 2 ? [["older", "Starší sezóny ›"] as [string, string]] : [])]}
+        selected={String(season)} onSelect={(k) => { vm.compExplicit = false; if (k === "older") { vm.compOlderOpen = true; vm.emit(); return; } vm.set("compSeason", parseInt(k, 10)); vm.set("compId", null); }} />}
       {list.length > 1 && <Chips options={list.map((c) => [c.soutez, c.label])} selected={comp.soutez} onSelect={(k) => vm.set("compId", k)} />}
-      {error ? <ErrorBox text={error} onRetry={reload} />
+      {older && !loading && !error && !(kind === "tabulka" ? vm.tabulky.has(path) : vm.strLadders.has(path)) ? (
+        <AppCard>
+          <T bold>{`Sezóna ${season}/${String(((season ?? 0) + 1) % 100).padStart(2, "0")} není načtená`}</T>
+          <Muted size={13} maxLines={3} text="Starší sezóny se načítají jen na vyžádání (jedna stránka STIS)." />
+          <PrimaryButton text={kind === "tabulka" ? "Načíst tabulku" : "Načíst žebříček"} onClick={() => kind === "tabulka" ? vm.loadTabulka(comp.svaz, comp.rocnik, comp.soutez) : vm.loadStrLadder(comp.svaz, comp.rocnik, comp.soutez)} />
+        </AppCard>
+      ) : error ? <ErrorBox text={error} onRetry={reload} />
         : kind === "tabulka" ? <StandingsTable comp={comp} rows={vm.tabulky.get(path)} loading={loading} current={season === seasons[0]} />
           : <OfficialLadder comp={comp} data={vm.strLadders.get(path)} loading={loading} />}
       <div style={{ height: 8 }} />

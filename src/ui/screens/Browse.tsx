@@ -42,6 +42,8 @@ function openComp(c: CompRef & { name: string }) { vm.addBrowseRecent("s", `${c.
 /** Karta Soutěže: Moje soutěže (tabulky, rozpis, predikce) a všechny soutěže republiky. */
 export function CompsScreen() {
   const tab = vm.compsTab;
+  // při otevření karty: aktuální sezóna, starší sbalené
+  useEffect(() => { if (!vm.compExplicit) { vm.compOlderOpen = false; vm.compSeason = null; vm.emit(); } }, []);
   return (
     <div className="col g10">
       <div className="px16"><Segmented options={[["mine", "Moje soutěže"], ["all", "Všechny soutěže"]]} selected={tab} onSelect={(k) => { vm.compsTab = k as "mine" | "all"; vm.emit(); }} /></div>

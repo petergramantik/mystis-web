@@ -1345,8 +1345,11 @@ export class AppVm {
   /** Otevře Žebříčky (tabulku / žebříček STR) na zadané soutěži. */
   openCompetition(ref: TeamRef, label: string, team: string, tab: "tabulka" | "stis") {
     this.extraComp = { svaz: ref.svaz, rocnik: ref.rocnik, soutez: ref.soutez, label, teams: [team] };
-    this.compSeason = ref.rocnik; this.compId = ref.soutez; this.ladderTab = tab;
-    this.tab(S.Ladder);
+    this.compSeason = ref.rocnik; this.compId = ref.soutez;
+    // otevřená konkrétní soutěž (i starší sezóna) se načte rovnou, karta si výběr nechá
+    this.compExplicit = true; this.compOlderOpen = true;
+    if (tab === "tabulka") { this.compsTab = "mine"; this.tab(S.Comps); }
+    else { this.ladderTab = "stis"; this.tab(S.Ladder); }
   }
   /** Soupisky družstev načtené pro profil hráče (klíč = id družstva). */
   rosters = new Map<string, TeamRoster | null>();
@@ -1504,6 +1507,9 @@ export class AppVm {
   // ---------- karta Hráči → Hledat (nic se nenačítá samo)
   playersTab: "mine" | "search" = "mine";
   compsTab: "mine" | "all" = "mine";
+  /** rozbalené starší sezóny v Moje soutěže / Žebříček STIS (po návratu na kartu sbalené) */
+  compOlderOpen = false;
+  compExplicit = false;
   /** Můj profil (dřív karta STR). */
   openMyProfile() { if (this.me) this.go({ t: "Player", path: this.me.path }); }
   /** procházení svazů v Hledat → Soutěže (null = přehled republika + kraje) */

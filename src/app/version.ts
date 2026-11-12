@@ -2,12 +2,20 @@
 import { IS_DEV } from "./channel";
 
 export const PROD_VERSION = "2.14.1";
-export const DEV_VERSION = "2.15-dev.16";
+export const DEV_VERSION = "2.15-dev.17";
 export const APP_VERSION = IS_DEV ? DEV_VERSION : PROD_VERSION;
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.15-dev.17", date: "12. 11. 2026", title: "Žebříčky a sezóny soutěží",
+    items: [
+      "Žebříčky: nejdřív Žebříček STIS, pak Interní žebříček",
+      "Profil: stabilní STR a rozpětí v horním panelu",
+      "Moje soutěže a Žebříček STIS: jen aktuální a předchozí sezóna, starší po rozbalení a ručním načtení",
+    ],
+  },
   {
     version: "2.15-dev.16", date: "12. 11. 2026", title: "Nové spodní menu",
     items: [

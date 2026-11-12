@@ -78,6 +78,7 @@ export function ProfileScreen({ path, name, ask = false }: { path: string; name?
           <StatTile label="Za sezónu" value={sezChange != null ? signedInt(sezChange) : "–"} dark
             valueColor={sezChange == null ? undefined : sezChange >= 0 ? C.WinLight : C.Peach} />
         </TileRow>
+        {(p.ster.stabil != null || p.ster.min != null) && <Muted color={C.MutedOnNavy} size={13} text={[p.ster.stabil != null ? `Stabilní ${dec1(p.ster.stabil)}` : null, p.ster.min != null ? `rozpětí ${p.ster.min}–${p.ster.max}` : null].filter(Boolean).join(" · ")} />}
         <a href={Stis.BASE + p.path} target="_blank" rel="noopener" style={{ color: "#AFC3EE", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>Otevřít na STIS ↗</a>
       </NavyHeader>
       <div className="col g12 px16">
@@ -103,12 +104,6 @@ export function ProfileScreen({ path, name, ask = false }: { path: string; name?
             {jumps && <Fact label="Největší skok STR" value={signedInt(jumps[1] ?? 0)} sub={seasonLabel(jumps[0])} />}
           </div>
           {clubs.length > 0 && <Muted size={12} maxLines={3} text={`Oddíly: ${clubs.join(", ")}`} />}
-          {(p.ster.stabil != null || p.ster.min != null || p.ster.peak != null) && <>
-            <Muted size={12} text="STR podle STIS" style={{ marginTop: 4 }} />
-            {p.ster.stabil != null && <KeyValue label="Stabilní STR" value={dec1(p.ster.stabil)} />}
-            {p.ster.min != null && <KeyValue label="Rozpětí (min…max)" value={`${p.ster.min} … ${p.ster.max}`} />}
-            {p.ster.peak != null && <KeyValue label="Nejvyšší dosažené" value={`${p.ster.peak}${p.ster.peakDate ? ` (${p.ster.peakDate})` : ""}`} valueColor={C.Win} />}
-          </>}
         </AppCard>
         {isMe ? <>{sec?.rekordy}{sec?.sezony}</> : <>{sec?.sezony}{sec?.rekordy}</>}
         <div className="row clickable" onClick={() => setSeasonsOpen(!seasonsOpen)} style={{ padding: "8px 4px 0" }}>
