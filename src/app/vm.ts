@@ -146,6 +146,8 @@ export class AppVm {
   /** Přepnutí záložky: obrazovka se přesune na vrchol historie. */
   tab(s: Screen) {
     if (sameScreen(this.current, s)) return;
+    // karta Hráči: vždy začíná soutěží mého hlavního družstva (ruční volba platí jen do odchodu z karty)
+    if (s.t === "Opponents") prefs.oppComp = null;
     this.stack = [...this.stack.filter((x) => !sameScreen(x, s)), s];
     this.trim(); this.emit(); this.scrollTop();
   }
