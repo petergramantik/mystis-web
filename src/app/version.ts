@@ -1,175 +1,33 @@
 // Verze aplikace a „Co je nového“. Produkce: PROD_VERSION; vývojová verze (/dev/): DEV_VERSION (např. 2.15-dev.3).
 import { IS_DEV } from "./channel";
 
-export const PROD_VERSION = "2.14.1";
-export const DEV_VERSION = "2.15-dev.23";
+export const PROD_VERSION = "2.15";
+export const DEV_VERSION = "2.16-dev.1";
 export const APP_VERSION = IS_DEV ? DEV_VERSION : PROD_VERSION;
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
   {
-    version: "2.15-dev.23", date: "12. 11. 2026", title: "Celé popisy",
-    items: ["Zkrácené popisy se po klepnutí rozbalí celé, dalším klepnutím sbalí"],
-  },
-  {
-    version: "2.15-dev.22", date: "12. 11. 2026", title: "Živě",
-    items: ["Přidaná soutěž do Živě načte i tabulku – detail soutěže je hned kompletní"],
-  },
-  {
-    version: "2.15-dev.21", date: "12. 11. 2026", title: "Živě: přidání soutěží",
+    version: "2.15", date: "12. 11. 2026", title: "Soutěže, Živě a nový profil hráče",
     items: [
-      "Živě → Přidat soutěž: hledání i podle názvu, zkratky nebo svazu soutěže",
-      "Soutěže: tlačítko „+ Živě“ u soutěží a v detailu soutěže, dalším klepnutím odebrat",
-    ],
-  },
-  {
-    version: "2.15-dev.20", date: "12. 11. 2026", title: "STR+ srozumitelněji",
-    items: [
-      "STR+: při prvním zapnutí krátké vysvětlení, v Jak počítáme výhody a nevýhody STR+",
-      "Profil → Sezóny a družstva: ve starších sezónách jen družstva, za která hráč nastoupil",
-      "Interní žebříček: klepnutí na hráče rovnou otevře profil",
-      "Utkání → Zápasy: družstva seřazená od nejaktuálnějšího",
-      "Moji soupeři: počet výsledků ve vyhledávání",
-    ],
-  },
-  {
-    version: "2.15-dev.19", date: "12. 11. 2026", title: "Profil",
-    items: ["Hlavička profilu: STR · Za sezónu · Nejvyšší"],
-  },
-  {
-    version: "2.15-dev.18", date: "12. 11. 2026", title: "Přehlednější rozpis, hledání a profil",
-    items: [
-      "Rozpis soutěže: celé názvy družstev, výsledek jako tlačítko na zápis, střídavé podbarvení, moje družstva zvýrazněná",
-      "Profil: Stabil a min / max ve vlastní dlaždici, změna STR za období počítaná od začátku období (Za sezónu = období Sezóna)",
-      "Stažení obrazovky dolů obnoví data aktuální obrazovky; po obnovení stránky zůstanete na stejné obrazovce",
-      "Utkání: jen aktuální a předchozí sezóna, starší pod „Starší sezóny“",
-      "Hledání: Enter zavře klávesnici, tlačítko × vymaže pole, počet výsledků v poli",
-      "Hráči → Hledat: jedno pole pro hráče i oddíly",
-      "Všechny soutěže: tlačítka Přehled svazů a Můj svaz; v soutěži Načíst / Načíst rozpis, dokud není vše načtené",
-      "Predikce po sezóně se uloží pro STR i STR+ a znovu počítá jen po dalším kole",
-      "Klepnutí na už zvolený STR / STR+ otevře vysvětlení modelu",
-    ],
-  },
-  {
-    version: "2.15-dev.17", date: "12. 11. 2026", title: "Žebříčky a sezóny soutěží",
-    items: [
-      "Žebříčky: nejdřív Žebříček STIS, pak Interní žebříček",
-      "Profil: stabilní STR a rozpětí v horním panelu",
-      "Moje soutěže a Žebříček STIS: jen aktuální a předchozí sezóna, starší po rozbalení a ručním načtení",
-    ],
-  },
-  {
-    version: "2.15-dev.16", date: "12. 11. 2026", title: "Nové spodní menu",
-    items: [
-      "Spodní menu: Přehled · Žebříčky · Utkání · Hráči · Soutěže",
-      "Karta Soutěže: Moje soutěže (tabulky, rozpis, predikce) a Všechny soutěže republiky",
-      "Žebříčky jen s pořadím hráčů (interní žebříček, žebříček STIS); Hráči → Hledat jen hráči a oddíly",
-      "Vývoj STR (graf s obdobím, predikce na konec sezóny, STR podle STIS) je součástí profilu – i u ostatních hráčů",
-    ],
-  },
-  {
-    version: "2.15-dev.15", date: "12. 11. 2026", title: "Hledání soutěží podle zkratek",
-    items: [
-      "Soutěže lze hledat i podle zkratek (K2C, OS 1, 2LMB…); zkratka je vidět i ve výsledku",
-      "Hledání ignoruje mezery, tečky, velikost písmen a diakritiku („OL 1“ = „ol1“)",
-    ],
-  },
-  {
-    version: "2.15-dev.14", date: "12. 11. 2026", title: "Všechny soutěže republiky",
-    items: [
-      "Hledat → Soutěže: procházení Republika → kraj → okresní svaz, soutěže podle kategorií, rychlý odkaz na můj svaz",
-      "Hledání textem ve všech soutěžích republiky (podle názvu i svazu)",
-      "Plné oficiální názvy soutěží všude v aplikaci (např. Krajská soutěž II. třídy C místo K2C)",
-      "Seznam soutěží je uložený na celou sezónu; znovu se načte jen při neznámé soutěži nebo ručně",
-    ],
-  },
-  {
-    version: "2.15-dev.13", date: "12. 11. 2026", title: "Plné názvy soutěží",
-    items: [
-      "Plný název soutěže má přednost před zkratkou (3.liga mužů skupina B místo 3LMB); zkratky lig se rozepisují",
-      "Obecné texty odkazů („Tabulka“) se už jako název soutěže nepoužijí; opravené i Naposledy otevřené a katalog",
-    ],
-  },
-  {
-    version: "2.15-dev.12", date: "12. 11. 2026", title: "Procenta výhra/remíza/prohra",
-    items: ["Výhra, remíza a prohra se zaokrouhlují tak, aby dávaly dohromady vždy 100 %"],
-  },
-  {
-    version: "2.15-dev.11", date: "12. 11. 2026", title: "Název soutěže",
-    items: ["Název soutěže se zjistí z kterékoli stažené stránky STIS, případně z hlavičky zápisu soutěže; náhradní názvy se přepíšou"],
-  },
-  {
-    version: "2.15-dev.10", date: "12. 11. 2026", title: "Katalog soutěží",
-    items: [
-      "Hledat → Soutěže si pamatuje všechny soutěže aktuálního ročníku, na které aplikace narazila (i po restartu)",
-      "Nápověda: „8. STR+: Komplexní model (volitelný)“",
-    ],
-  },
-  {
-    version: "2.15-dev.9", date: "12. 11. 2026", title: "Názvy soutěží u oddílu",
-    items: ["Načtený oddíl ukazuje u družstev skutečné názvy soutěží (ze STIS), stejně tak detail soutěže"],
-  },
-  {
-    version: "2.15-dev.8", date: "11. 11. 2026", title: "STR+ a soutěže ročníku",
-    items: [
-      "Hledat → Soutěže ukazuje jen soutěže aktuálního ročníku",
-      "Komplexní model se v aplikaci jmenuje STR+; srovnání se základním modelem je označené „STR:“",
-    ],
-  },
-  {
-    version: "2.15-dev.7", date: "11. 11. 2026", title: "Forma z 8 zápasů s výkonem",
-    items: [
-      "Forma je všude z posledních 8 zápasů (i v porovnání hráčů a rozboru soupeřů)",
-      "U formy výkon proti očekávání: kolik výher odpovídalo STR soupeřů a o kolik hráč hrál líp nebo hůř",
-      "Profil cizího hráče počítá i neoficiální výsledky z online zápisů (stejně jako porovnání)",
-    ],
-  },
-  {
-    version: "2.15-dev.6", date: "11. 11. 2026", title: "Profil hráče a porovnání",
-    items: [
-      "Profil hráče přeskládaný od nejzajímavějšího: tlačítka Vzájemně / Porovnat / Sdílet hned pod panelem, pak graf, forma, poslední zápasy, soupeři, výhry…",
-      "Porovnání hráčů: predikce vzájemného zápasu (šance, body STR, přepínač STR | STR+)",
-      "Přepínač STR | STR+ má pevné místo, hodnota podle samotného STR je na vlastním řádku",
-      "Oprava: forma na profilu hráče měla obrácené pořadí (nejnovější zápas je vpravo)",
-    ],
-  },
-  {
-    version: "2.15-dev.5", date: "11. 11. 2026", title: "Přepínač STR | STR+ u predikcí",
-    items: [
-      "U každé predikce (šance ve hře, příští zápas, predikce utkání, sezóna, živé utkání) přepínač STR | STR+",
-      "STR+ = komplexní model (vzájemné zápasy, výhoda domácích); u výsledku se ukáže i hodnota podle samotného STR",
-      "Popis modelu: úvod zmiňuje komplexní model",
-    ],
-  },
-  {
-    version: "2.15-dev.4", date: "11. 11. 2026", title: "Přepínač verzí",
-    items: ["Klepnutím na štítek DEV v záhlaví se vrátíte do běžné verze; aplikace z plochy si volbu pamatuje"],
-  },
-  {
-    version: "2.15-dev.3", date: "11. 11. 2026", title: "Karta Hráči – hledání kohokoli",
-    items: [
-      "Karta Soupeři se jmenuje Hráči a má dvě záložky: Moji soupeři a Hledat",
-      "Hledat: hráči a oddíly na STIS, soutěže z vašich družstev, hráčů a oddílů nebo z vloženého odkazu ze STIS",
-      "Nic se nestahuje samo: hráč, oddíl i soutěž mají tlačítko „Načíst“",
-      "Soutěž: tabulka (i s predikcí po sezóně) a rozpis s výsledky po kolech; oddíl: družstva a hráči oddílu podle STR",
-      "U cizího hráče: Přepnout se na tohoto hráče; naposledy otevřené položky; sdílení odkazu na soutěž a oddíl",
-    ],
-  },
-  {
-    version: "2.15-dev.2", date: "11. 11. 2026", title: "Audit a vyčištění",
-    items: [
-      "Odstraněný nepoužívaný kód (stará obrazovka hráče, nepoužité komponenty, importy a styly)",
-      "Paměť: počet profilů hráčů a stránek v paměti je omezený, mezipaměť stránek se jednou denně čistí od záznamů starších 60 dní",
-      "Stejná stránka STIS požadovaná víckrát najednou se stahuje jen jednou",
-    ],
-  },
-  {
-    version: "2.15-dev.1", date: "11. 11. 2026", title: "Vývojová verze",
-    items: [
-      "Nová vývojová verze na adrese …/dev/ se štítkem DEV – nové funkce se nejdřív zkouší tady",
-      "Oddělená data a nastavení od běžné verze; v Nastavení lze převzít nastavení z běžné verze",
-      "Vlastní ikona „MySTIS DEV“, takže jdou mít na ploše obě verze",
+      "Nové spodní menu: Přehled · Žebříčky · Utkání · Hráči · Soutěže",
+      "Karta Soutěže: Moje soutěže (tabulky, rozpis, predikce po sezóně) a Všechny soutěže republiky – procházení svazů (Přehled svazů, Můj svaz) i hledání podle názvu, zkratky nebo svazu",
+      "Plné oficiální názvy soutěží všude v aplikaci",
+      "Nový rozpis soutěže: celé názvy družstev, výsledek jako tlačítko na zápis, moje družstva zvýrazněná",
+      "Živě: soutěž přidáte hledáním podle názvu nebo tlačítkem „+ Živě“ na kartě Soutěže",
+      "Hráči: Moji soupeři a Hledat – hráči i oddíly ze STIS jedním polem; nic se nestahuje samo, vše má tlačítko „Načíst“",
+      "Profil hráče přeskládaný: dlaždice STR · Za sezónu · Nejvyšší, Stabil a min / max, vývoj STR s volbou období a predikcí konce sezóny – i u ostatních hráčů",
+      "Profil: ve starších sezónách jen družstva, za která hráč nastoupil; klepnutí na hráče v žebříčku rovnou otevře profil",
+      "Porovnání hráčů s predikcí vzájemného zápasu",
+      "Forma z posledních 8 zápasů s výkonem proti očekávání podle STR soupeřů",
+      "STR+ (vzájemné zápasy a výhoda domácích): přepínač STR / STR+ u každé predikce, vysvětlení při prvním zapnutí, výhody a nevýhody v Jak počítáme",
+      "Predikce po sezóně se pamatuje pro STR i STR+ a znovu počítá jen po dalším kole",
+      "Utkání a soutěže: aktuální a předchozí sezóna, starší pod „Starší sezóny“; družstva od nejaktuálnějšího",
+      "Stažení obrazovky dolů obnoví data aktuální obrazovky a nepřeskočí na Přehled",
+      "Hledání: počet výsledků v poli, Enter zavře klávesnici, × vymaže; zkrácené popisy se klepnutím rozbalí",
+      "Výhra, remíza a prohra dávají dohromady vždy 100 %",
+      "Rychlejší a úspornější aplikace",
     ],
   },
   {
