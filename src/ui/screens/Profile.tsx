@@ -98,6 +98,7 @@ export function ProfileScreen({ path, name, ask = false }: { path: string; name?
         <div className="row g8">
           {!isMe && me && mutual.length > 0 && <OButton text={`Vzájemně ${mutual.filter((m) => m.won).length}–${mutual.filter((m) => !m.won).length}`} onClick={() => vm.go({ t: "H2H", key: mutual[mutual.length - 1].opponentKey })} style={{ flex: 1 }} />}
           {!isMe && me && <OButton text="Porovnat" onClick={() => vm.go({ t: "Compare", a: me.path, b: path })} style={{ flex: 1 }} />}
+          {isMe && <OButton text="Porovnat" onClick={() => vm.go({ t: "Compare", a: path, b: null })} style={{ flex: 1 }} />}
           <OButton text="Sdílet" onClick={() => setShareOpen(true)} style={{ flex: isMe ? 1 : "none" }} />
         </div>
         {shareOpen && <ShareSheet opts={shareOptions({ t: "Player", path })} onClose={() => setShareOpen(false)} />}
