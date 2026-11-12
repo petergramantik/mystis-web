@@ -1231,6 +1231,8 @@ export class AppVm {
     this.liveCompSel = this.compKey(c);
     this.loadStrLadder(c.svaz, c.rocnik, c.soutez);
     this.loadCompLos(c, true);
+    // i tabulka -> detail soutěže je hned kompletní
+    this.loadTabulka(c.svaz, c.rocnik, c.soutez);
     this.emit();
   }
   removeLiveComp(c: LiveComp) {
