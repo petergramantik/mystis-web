@@ -1,4 +1,5 @@
 // Načítání a skládání dat ze STIS (přepis Repository.kt, asynchronně).
+import { CompTree, type CompTreeData } from "./compTree";
 import { Html, rx, findAll, find, g } from "./html";
 import { type LDate, type LDT, LDT_MAX, ldOf, ldtDate, nowLdt, today as todayFn } from "./dates";
 import { Clubs, Stis, type StrLadder, type TeamInfo, type ClubPage, type LosMatch, type PlayerPage, type RosterPlayer, type StandingRow, type TeamMembership, type TeamRef, type TeamRoster, type Zapis } from "./models";
@@ -91,6 +92,11 @@ export class StisRepository {
 
   async zapis(path: string, maxAge = 30 * DAY): Promise<Zapis | null> {
     return Parsers.zapis(await this.get(path, maxAge), path);
+  }
+
+  /** Katalog všech svazů a soutěží ročníku (jedna stránka oblasti ČAST). */
+  async compTree(rocnik: number, maxAge = DAY): Promise<CompTreeData | null> {
+    return CompTree.parse(await this.get(`/oblast/svaz-${CompTree.ROOT}/rocnik-${rocnik}`, maxAge), rocnik);
   }
 
   async club(path: string, maxAge = DAY): Promise<ClubPage> {

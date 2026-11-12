@@ -2,12 +2,21 @@
 import { IS_DEV } from "./channel";
 
 export const PROD_VERSION = "2.14.1";
-export const DEV_VERSION = "2.15-dev.13";
+export const DEV_VERSION = "2.15-dev.14";
 export const APP_VERSION = IS_DEV ? DEV_VERSION : PROD_VERSION;
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.15-dev.14", date: "12. 11. 2026", title: "Všechny soutěže republiky",
+    items: [
+      "Hledat → Soutěže: procházení Republika → kraj → okresní svaz, soutěže podle kategorií, rychlý odkaz na můj svaz",
+      "Hledání textem ve všech soutěžích republiky (podle názvu i svazu)",
+      "Plné oficiální názvy soutěží všude v aplikaci (např. Krajská soutěž II. třídy C místo K2C)",
+      "Seznam soutěží je uložený na celou sezónu; znovu se načte jen při neznámé soutěži nebo ručně",
+    ],
+  },
   {
     version: "2.15-dev.13", date: "12. 11. 2026", title: "Plné názvy soutěží",
     items: [

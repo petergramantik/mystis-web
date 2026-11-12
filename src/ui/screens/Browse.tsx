@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { CompTree, type TreeComp, type TreeSvaz } from "../../core/compTree";
 // Karta „Hráči“: Moji soupeři + Hledat (kohokoli – hráče, oddíl, soutěž). Data ze STIS se načítají jen na vyžádání.
 import { vm } from "../../app/vm";
 import { Stis, type TeamRef } from "../../core/models";
@@ -51,7 +52,8 @@ function BrowseView() {
   // jen soutěže aktuálního ročníku (starší lze otevřít vloženým odkazem ze STIS)
   const rocnik = Stis.currentRocnik();
   const comps0 = vm.knownComps();
-  const comps = b.kind === "s" ? comps0.filter((c) => c.rocnik === rocnik && (!b.query.trim() || compFromLink || Stats.fold(c.name).includes(Stats.fold(b.query)))) : [];
+  const q = Stats.fold(b.query.trim());
+  const comps = b.kind === "s" ? comps0.filter((c) => c.rocnik === rocnik && (!q || compFromLink || Stats.fold(`${c.name} ${vm.treeEntry(c.soutez)?.svazName ?? ""}`).includes(q))) : [];
   const recent = vm.browseRecent();
   const go = () => {
     if (link?.kind === "player") { openPlayer(link.path, "Hráč"); return; }
@@ -67,7 +69,7 @@ function BrowseView() {
         label={b.kind === "p" ? "Jméno hráče nebo odkaz ze STIS" : b.kind === "o" ? "Název oddílu nebo odkaz ze STIS" : "Název soutěže nebo odkaz ze STIS"} />
       {b.kind !== "s" && <PrimaryButton text={b.loading ? "Hledám…" : "Hledat na STIS"} onClick={go} enabled={!b.loading && b.query.trim().length >= 2} />}
       <ManualNote text={b.kind === "s"
-        ? `Soutěže ročníku ${season(rocnik)} z vašich družstev, otevřených hráčů a oddílů. Jinou soutěž najdete přes oddíl nebo hráče, nebo vložte odkaz na její stránku na STIS (i starší ročník).`
+        ? `Všechny soutěže republiky v ročníku ${season(rocnik)}: procházejte svazy, nebo hledejte podle názvu soutěže či svazu. Starší ročník otevřete vloženým odkazem ze STIS.`
         : "Data ze STIS se stahují jen na vyžádání – po hledání a po klepnutí na „Načíst“ u hráče, oddílu nebo soutěže."} />
       {b.err && <ErrorBox text={b.err} onRetry={go} />}
       {b.loading && <Loading text="Hledám na STIS…" />}
@@ -101,26 +103,19 @@ function BrowseView() {
           ))}
         </ListCard>
       )}
-      {b.kind === "s" && (
+      {b.kind === "s" && compFromLink && (
         <ListCard>
-          {compFromLink && (
-            <><div className="row g12 clickable" style={{ padding: "10px 14px" }} onClick={go}>
-              <Icon name="trophy" size={22} color={C.Blue} /><T semi size={15} style={{ flex: 1 }}>{`Otevřít soutěž z odkazu (${season(compFromLink.rocnik)})`}</T><T bold color={C.Blue}>›</T>
-            </div><Divider /></>
-          )}
-          {!comps.length && !compFromLink && <Empty text="Žádná známá soutěž neodpovídá hledání." />}
-          {comps.slice(0, 120).map((c) => (
-            <div key={`${c.svaz}|${c.rocnik}|${c.soutez}`}>
-              <div className="row g12 clickable" style={{ padding: "10px 14px" }} onClick={() => openComp(c)}>
-                <Icon name="trophy" size={22} color={C.Blue} />
-                <div className="col w1"><T semi size={15} lines={2}>{c.name || `Soutěž ${c.soutez}`}</T><Muted size={12} text={season(c.rocnik)} /></div>
-                <T bold color={C.Blue}>›</T>
-              </div>
-              <Divider />
-            </div>
-          ))}
+          <div className="row g12 clickable" style={{ padding: "10px 14px" }} onClick={go}>
+            <Icon name="trophy" size={22} color={C.Blue} /><T semi size={15} style={{ flex: 1 }}>{`Otevřít soutěž z odkazu (${season(compFromLink.rocnik)})`}</T><T bold color={C.Blue}>›</T>
+          </div>
         </ListCard>
       )}
+      {b.kind === "s" && !compFromLink && (b.query.trim() ? (
+        <ListCard>
+          {!comps.length && <Empty text="Žádná soutěž neodpovídá hledání." />}
+          {comps.slice(0, 150).map((c) => <CompRow key={`${c.svaz}|${c.soutez}`} c={c} sub={vm.treeEntry(c.soutez)?.svazName ?? season(c.rocnik)} />)}
+        </ListCard>
+      ) : <SvazBrowser />)}
       {!b.loading && recent.length > 0 && ((b.kind === "p" && !b.players) || (b.kind === "o" && !b.clubs) || b.kind === "s") && (
         <>
           <SectionTitle text="Naposledy otevřené" action="Vymazat" onAction={() => { vm.prefs.browseRecentJson = "[]"; vm.emit(); }} />
@@ -293,6 +288,104 @@ export function BrowseCompScreen({ c: c0 }: { c: CompRef & { name: string } }) {
         <OButton text="Žebříček STR soutěže na STIS" onClick={() => window.open(Stis.BASE + Stis.zebricek(c.svaz, c.rocnik, c.soutez), "_blank")} />
       </div>
       <div style={{ height: 8 }} />
+    </div>
+  );
+}
+
+function CompRow({ c, sub }: { c: { svaz: string; rocnik: number; soutez: string; name: string }; sub: string }) {
+  return (
+    <div>
+      <div className="row g12 clickable" style={{ padding: "10px 14px" }} onClick={() => openComp(c)}>
+        <Icon name="trophy" size={22} color={C.Blue} />
+        <div className="col w1"><T semi size={15} lines={2}>{c.name || `Soutěž ${c.soutez}`}</T><Muted size={12} text={sub} maxLines={1} /></div>
+        <T bold color={C.Blue}>›</T>
+      </div>
+      <Divider />
+    </div>
+  );
+}
+
+/** Procházení svazů: republika a kraje → svaz (soutěže podle kategorií + podřízené svazy). */
+function SvazBrowser() {
+  const t = vm.compTree();
+  const rocnik = Stis.currentRocnik();
+  const update = (
+    <div className="col g4" style={{ alignItems: "center" }}>
+      <span className="clickable" style={{ color: C.Blue, fontSize: 13, fontWeight: 600 }} onClick={() => vm.refreshCompTree(true)}>{vm.treeLoading ? "Aktualizuji seznam soutěží…" : "Aktualizovat seznam soutěží ze STIS"}</span>
+      {vm.treeErr && <Muted size={12} color={C.OrangeText} text={vm.treeErr} />}
+    </div>
+  );
+  if (!t) return (
+    <AppCard>
+      <T bold>Seznam soutěží {season(rocnik)}</T>
+      <Muted size={13} maxLines={3} text="Načte se jednou na celou sezónu: všechny svazy a soutěže republiky s plnými názvy (jedna stránka STIS)." />
+      {vm.treeLoading ? <Loading text="Načítám seznam soutěží…" /> : <PrimaryButton text="Načíst seznam soutěží" onClick={() => vm.refreshCompTree(true)} />}
+      {vm.treeErr && <Muted size={12} color={C.OrangeText} text={vm.treeErr} />}
+    </AppCard>
+  );
+  const cur = vm.browseSvaz ? CompTree.find(t, vm.browseSvaz) : null;
+  const open = (id: string | null) => { vm.browseSvaz = id; vm.emit(); };
+  // moje svazy (podle mých družstev): kraj i okres
+  const mineIds = new Set<string>();
+  for (const x of vm.next) if (x.myTeam.ref?.svaz) mineIds.add(x.myTeam.ref.svaz);
+  for (const x of vm.me?.currentSeason?.teams ?? []) if (x.ref?.svaz) mineIds.add(x.ref.svaz);
+  const mine = Array.from(mineIds).map((id) => CompTree.find(t, id)?.svaz).filter((x): x is TreeSvaz => !!x);
+  if (!cur) {
+    const kraje = Object.values(t.svazy).filter((s) => s.id !== CompTree.ROOT && (s.souteze.length || Object.keys(s.svazy ?? {}).length));
+    const root = t.svazy[CompTree.ROOT];
+    return (
+      <div className="col g10">
+        {mine.length > 0 && (
+          <div className="row g8" style={{ flexWrap: "wrap" }}>
+            {mine.map((s) => <button key={s.id} className="chip" style={{ height: 34 }} onClick={() => open(s.id)}>{`Můj svaz: ${s.nazev} ›`}</button>)}
+          </div>
+        )}
+        <ListCard>
+          {root && <SvazRow s={root} title="Republika – ČAST" onClick={() => open(root.id)} />}
+          {kraje.map((s) => <SvazRow key={s.id} s={s} onClick={() => open(s.id)} />)}
+        </ListCard>
+        {update}
+      </div>
+    );
+  }
+  const s = cur.svaz;
+  const groups = new Map<string, TreeComp[]>();
+  for (const c of s.souteze) { const l = groups.get(c.kat) ?? []; l.push(c); groups.set(c.kat, l); }
+  const subs = Object.values(s.svazy ?? {});
+  return (
+    <div className="col g10">
+      <div className="row g8">
+        <button className="chip" style={{ height: 34 }} onClick={() => open(cur.parent?.id ?? null)}>{`‹ ${cur.parent ? cur.parent.nazev : "Přehled svazů"}`}</button>
+      </div>
+      <T bold size={18}>{s.id === CompTree.ROOT ? "Republika – ČAST" : s.nazev}</T>
+      {!s.souteze.length && !subs.length && <Empty text="Svaz nemá v tomto ročníku žádné soutěže." />}
+      {Array.from(groups.entries()).map(([kat, cs]) => (
+        <div key={kat} className="col g6">
+          <SectionTitle text={CompTree.katLabel(kat)} />
+          <ListCard>{cs.map((c) => <CompRow key={c.id_soutez} c={{ svaz: s.id, rocnik: t.rocnik, soutez: c.id_soutez, name: c.nazev.trim() }} sub={`${s.nazev} · ${season(t.rocnik)}`} />)}</ListCard>
+        </div>
+      ))}
+      {subs.length > 0 && (
+        <>
+          <SectionTitle text="Okresní a regionální svazy" />
+          <ListCard>{subs.map((x) => <SvazRow key={x.id} s={x} onClick={() => open(x.id)} />)}</ListCard>
+        </>
+      )}
+      {update}
+    </div>
+  );
+}
+
+function SvazRow({ s, title, onClick }: { s: TreeSvaz; title?: string; onClick: () => void }) {
+  const n = s.souteze.length, k = Object.keys(s.svazy ?? {}).length;
+  return (
+    <div>
+      <div className="row g12 clickable" style={{ padding: "10px 14px" }} onClick={onClick}>
+        <Icon name="groups" size={22} color={C.Blue} />
+        <div className="col w1"><T semi size={15} lines={1}>{title ?? s.nazev}</T><Muted size={12} text={`${n} ${n === 1 ? "soutěž" : n >= 2 && n <= 4 ? "soutěže" : "soutěží"}${k ? ` · ${k} okresních svazů` : ""}`} /></div>
+        <T bold color={C.Blue}>›</T>
+      </div>
+      <Divider />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { StisRepository, type Fetcher } from "../src/core/repository";
 import { matchForecast, myForecast } from "../src/core/season";
 import { Live, LiveGame, LiveTimeline, MatchFormats, lp } from "../src/core/live";
 import { h2hAdj, homeAdvantage } from "../src/core/complex";
+import { CompTree } from "../src/core/compTree";
 import { Search, Stability, roundScore } from "../src/core/search";
 import { ldOf, ldtOf } from "../src/core/dates";
 import { matchOdds, pointsRule, predictSeason } from "../src/core/season";
@@ -457,6 +458,11 @@ async function main() {
     check("pct3 součet 100", p3.join() === "5 %,5 %,90 %" || p3.map((x) => parseInt(x)).reduce((a, b) => a + b, 0) === 100, () => J(p3));
     check("pct3 malé", Stats.pct3(0.003, 0.001, 0.996)[0] === "<1 %", () => J(Stats.pct3(0.003, 0.001, 0.996)));
     check("plné názvy lig", MatchFormats.fullCompName("2LMB") === "2. liga mužů skupina B" && MatchFormats.fullCompName("1LZA") === "1. liga žen skupina A" && MatchFormats.fullCompName("K2C") === "K2C");
+    const tree = CompTree.seed(2026)!;
+    const ents = CompTree.entries(tree);
+    check("katalog soutěží 2026", ents.length > 300 && ents.some((e) => e.soutez === "6561" && e.name === "2.liga mužů skupina B") && ents.some((e) => e.soutez === "6522" && e.svaz === "420104"), () => String(ents.length));
+    check("katalog: okres má kraj", ents.find((e) => e.soutez === "6681")?.kraj === "420104");
+    check("parser oblasti", CompTree.parse(`<script> var menu_settings = {"svazy":{"420000":{"id":"420000","nazev":"ČAST","typ":"A","souteze":[{"id_soutez":"1","nazev":"X","kat":"male"}]}},"select":{}} ;\n</script>`, 2026)?.svazy["420000"].souteze[0].nazev === "X");
     check("byName", MatchFormats.byName("3LMB")?.key === "14_8" && MatchFormats.byName("Extraliga žen")?.key === "10_6_dl" && MatchFormats.byName("OS 1") == null);
   }
   // ---------- šance rozehrané hry podle setů

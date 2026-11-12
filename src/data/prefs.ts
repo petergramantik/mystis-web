@@ -66,6 +66,10 @@ export const prefs = {
   get remindedMatch() { return get("reminded_match"); },
   set remindedMatch(v: string | null) { set("reminded_match", v); },
   /** Naposledy použité profily: [cesta, jméno], nejnovější první. */
+  get compTreeJson() { return get("comp_tree") ?? ""; },
+  set compTreeJson(v: string) { set("comp_tree", v); },
+  get compTreeTried() { return get("comp_tree_tried") ?? ""; },
+  set compTreeTried(v: string) { set("comp_tree_tried", v); },
   get compCatalogJson() { return get("comp_catalog") ?? ""; },
   set compCatalogJson(v: string) { set("comp_catalog", v); },
   get browseRecentJson() { return get("browse_recent") ?? ""; },

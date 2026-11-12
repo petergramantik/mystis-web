@@ -1,4 +1,5 @@
 // Stav aplikace a načítání dat (přepis AppViewModel.kt). Každá změna stavu zavolá emit() a React překreslí obrazovku.
+import { CompTree, type CompEntry, type CompTreeData } from "../core/compTree";
 import { Complex, h2hAdj, homeAdvantage, type H2HInfo } from "../core/complex";
 import { Match, Stis, type TeamInfo, type StandingRow, type StrLadder, type ClubPage, type LosMatch, type PlayerPage, type RosterPlayer, type TeamRef, type TeamRoster, type Zapis, type ZapisGame } from "../core/models";
 import { Parsers } from "../core/parsers";
@@ -12,6 +13,7 @@ import { pointsRule, predictSeason, type SeasonPrediction, type SeasonTeam } fro
 import { type LDate, LDT_MAX, fmtDT, ldDay, ldMonth, ldYear, ldtDate, ldtHour, ldtMinute, ldtOf, today, nowLdt } from "../core/dates";
 import { FetchError, WebFetcher } from "../data/fetcher";
 import { prefs } from "../data/prefs";
+const DAY_MS = 86_400_000;
 
 /** Soutěž na obrazovce Živě. */
 export interface LiveComp { svaz: string; rocnik: number; soutez: string; label: string; mine?: boolean }
@@ -1501,6 +1503,8 @@ export class AppVm {
   // ---------- vyhledávání na STIS
   // ---------- karta Hráči → Hledat (nic se nenačítá samo)
   playersTab: "mine" | "search" = "mine";
+  /** procházení svazů v Hledat → Soutěže (null = přehled republika + kraje) */
+  browseSvaz: string | null = null;
   compView: "tab" | "los" = "tab";
   browse: { kind: "p" | "o" | "s"; query: string; players: SearchPlayer[] | null; clubs: SearchClub[] | null; loading: boolean; err: string | null } =
     { kind: "p", query: "", players: null, clubs: null, loading: false, err: null };
@@ -1517,14 +1521,17 @@ export class AppVm {
     const out = new Map<string, { svaz: string; rocnik: number; soutez: string; name: string }>();
     // náhradní názvy (dokud nebyl znám skutečný) se nepočítají
     const placeholder = (n: string | null | undefined) => !n || /– soutěž$|^Soutěž družstva |^Soutěž( \d+)?$|^(tabulka|tabulky|zobrazit|detail)$/i.test(n.trim());
-    // plný název („3.liga mužů skupina B“) má přednost před zkratkou („3LMB“)
-    const score = (n: string) => (!n ? 0 : /\s/.test(n) && n.length > 6 ? 2 : 1);
+    // název z katalogu STIS (oficiální plný) > plný název odjinud > zkratka
+    const official = new Set<string>();
+    const score = (n: string) => (!n ? 0 : official.has(n) ? 3 : /\s/.test(n) && n.length > 6 ? 2 : 1);
     const add = (r: TeamRef | null | undefined, name0: string | null | undefined) => {
       if (!r?.soutez || !r.svaz) return;
       const name = placeholder(name0) ? "" : name0!.trim();
       const k = this.compKey(r), cur = out.get(k);
       if (!cur || score(name) > score(cur.name)) out.set(k, { svaz: r.svaz, rocnik: r.rocnik, soutez: r.soutez, name: name || cur?.name || "" });
     };
+    const cur = Stis.currentRocnik();
+    for (const e of CompTree.entries(this.compTree(cur) ?? { rocnik: cur, svazy: {} })) { official.add(e.name); add({ id: "", name: "", svaz: e.svaz, rocnik: e.rocnik, soutez: e.soutez }, e.name); }
     for (const c of this.next) add(c.myTeam.ref, c.myTeam.competition);
     for (const p of [this.me, ...this.players.values()]) for (const s of p?.seasons ?? []) for (const t of s.teams) add(t.ref, t.competition);
     for (const c of this.clubPages.values()) for (const [k, n] of Object.entries(c.comps ?? {})) { const [svaz, rocnik, soutez] = k.split("|"); add({ id: "", name: "", svaz, rocnik: +rocnik, soutez }, n); }
@@ -1540,7 +1547,7 @@ export class AppVm {
     for (const [k, n] of Object.entries(cat.items)) { const [svaz, rocnik, soutez] = k.split("|"); add({ id: "", name: "", svaz, rocnik: +rocnik, soutez }, n); }
     let changed = false;
     for (const c of out.values()) {
-      if (!c.name) continue;
+      if (!c.name || official.has(c.name)) continue; // katalog STIS se do vlastního katalogu neukládá
       // zkratky celostátních lig rozepsat: 2LMB → 2. liga mužů skupina B
       if (score(c.name) < 2) c.name = MatchFormats.fullCompName(c.name);
       if (c.rocnik !== cat.rocnik) continue;
@@ -1548,8 +1555,43 @@ export class AppVm {
       if (cat.items[k] !== c.name) { cat.items[k] = c.name; changed = true; }
     }
     if (changed) prefs.compCatalogJson = JSON.stringify(cat);
+    // soutěž aktuálního ročníku, kterou katalog nezná (nová, play-off, pohár) → katalog se dotáhne (nejvýš jednou denně)
+    if (this.treeCache?.t && Array.from(out.values()).some((c) => c.rocnik === cur && !this.treeCache!.idx.has(c.soutez))) this.refreshCompTree(false);
     return Array.from(out.values()).sort((a, b) => b.rocnik - a.rocnik || a.name.localeCompare(b.name, "cs"));
   }
+  // ---------- katalog svazů a soutěží (STIS oblast) – uložený na celou sezónu
+  private treeCache: { r: number; t: CompTreeData | null; idx: Map<string, CompEntry> } | null = null;
+  treeLoading = false;
+  treeErr: string | null = null;
+  /** Strom svazů a soutěží ročníku: uložený → vestavěný → (loňský jako výchozí). */
+  compTree(rocnik = Stis.currentRocnik()): CompTreeData | null {
+    if (this.treeCache?.r === rocnik) return this.treeCache.t;
+    let t: CompTreeData | null = null;
+    try { const s = JSON.parse(prefs.compTreeJson || "null"); if (s?.rocnik === rocnik && s.svazy) t = s; } catch { /* */ }
+    t ??= CompTree.seed(rocnik);
+    const idx = new Map<string, CompEntry>();
+    if (t) for (const e of CompTree.entries(t)) idx.set(e.soutez, e);
+    this.treeCache = { r: rocnik, t, idx };
+    if (!t && rocnik === Stis.currentRocnik()) this.refreshCompTree(false);
+    return t;
+  }
+  /** Soutěž v katalogu podle čísla (čísla soutěží jsou v ročníku jedinečná). */
+  treeEntry(soutez: string, rocnik = Stis.currentRocnik()): CompEntry | null {
+    this.compTree(rocnik);
+    return this.treeCache?.idx.get(soutez) ?? null;
+  }
+  /** Stáhne katalog znovu (ručně, na začátku sezóny, nebo když se objeví neznámá soutěž – nejvýš jednou denně). */
+  refreshCompTree(manual: boolean) {
+    const r = Stis.currentRocnik(), day = new Date().toISOString().slice(0, 10);
+    if (this.treeLoading || (!manual && prefs.compTreeTried === `${r}|${day}`)) return;
+    prefs.compTreeTried = `${r}|${day}`;
+    this.treeLoading = true; this.treeErr = null; this.emit();
+    this.repo.compTree(r, manual ? 0 : DAY_MS).then((t) => {
+      if (t) { prefs.compTreeJson = JSON.stringify(t); this.treeCache = null; this.knownComps(); }
+      else this.treeErr = "Seznam soutěží se nepodařilo přečíst.";
+    }, (e) => { this.treeErr = err(e); }).finally(() => { this.treeLoading = false; this.emit(); });
+  }
+
   /** Katalog soutěží aktuálního ročníku (nový ročník = prázdný katalog). */
   private compCatalog(): { rocnik: number; items: Record<string, string> } {
     const rocnik = Stis.currentRocnik();
