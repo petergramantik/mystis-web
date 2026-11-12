@@ -29,7 +29,7 @@ export const MAX_WATCHED = 5;
 export type BoardStatus = { kind: "future" | "live" | "done"; text: string; h: number | null; a: number | null; sub?: string };
 
 export type Screen =
-  | { t: "Overview" } | { t: "Ladder" } | { t: "Str" } | { t: "Matches" } | { t: "Opponents" }
+  | { t: "Overview" } | { t: "Ladder" } | { t: "Comps" } | { t: "Matches" } | { t: "Opponents" }
   | { t: "Club"; name: string } | { t: "H2H"; key: string } | { t: "NextMatch" } | { t: "Captain" }
   | { t: "Compare"; a: string | null; b: string | null } | { t: "Records" } | { t: "Settings" }
   | { t: "Player"; path: string; name?: string; ask?: boolean } | { t: "Live"; team: number }
@@ -48,7 +48,7 @@ export type Screen =
   | { t: "Model"; section?: string | null };
 
 export const S = {
-  Overview: { t: "Overview" } as Screen, Ladder: { t: "Ladder" } as Screen, Str: { t: "Str" } as Screen,
+  Overview: { t: "Overview" } as Screen, Ladder: { t: "Ladder" } as Screen, Comps: { t: "Comps" } as Screen,
   Matches: { t: "Matches" } as Screen, Opponents: { t: "Opponents" } as Screen, NextMatch: { t: "NextMatch" } as Screen,
   Captain: { t: "Captain" } as Screen, Records: { t: "Records" } as Screen, Settings: { t: "Settings" } as Screen,
 };
@@ -1503,11 +1503,17 @@ export class AppVm {
   // ---------- vyhledávání na STIS
   // ---------- karta Hráči → Hledat (nic se nenačítá samo)
   playersTab: "mine" | "search" = "mine";
+  compsTab: "mine" | "all" = "mine";
+  /** Můj profil (dřív karta STR). */
+  openMyProfile() { if (this.me) this.go({ t: "Player", path: this.me.path }); }
   /** procházení svazů v Hledat → Soutěže (null = přehled republika + kraje) */
   browseSvaz: string | null = null;
   compView: "tab" | "los" = "tab";
   browse: { kind: "p" | "o" | "s"; query: string; players: SearchPlayer[] | null; clubs: SearchClub[] | null; loading: boolean; err: string | null } =
     { kind: "p", query: "", players: null, clubs: null, loading: false, err: null };
+  /** hledání na kartě Soutěže (oddělené od hledání hráčů) */
+  browseComps: { kind: "p" | "o" | "s"; query: string; players: SearchPlayer[] | null; clubs: SearchClub[] | null; loading: boolean; err: string | null } =
+    { kind: "s", query: "", players: null, clubs: null, loading: false, err: null };
   browseSearch() {
     const b = this.browse, q = b.query.trim();
     if (b.kind === "s" || q.length < 2) return;

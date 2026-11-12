@@ -1,7 +1,7 @@
 import { ModelToggle } from "../modelToggle";
 import { useEffect, useState } from "react";
 import { ModelLink } from "./Model";
-import { vm, S } from "../../app/vm";
+import { vm } from "../../app/vm";
 import { Clubs, Stis, type StandingRow, type StrLadder, type StrLadderRow } from "../../core/models";
 import { Stats, avg, maxBy, type LadderEntry } from "../../core/stats";
 import type { SeasonPrediction } from "../../core/season";
@@ -14,11 +14,12 @@ export function shortTeam(team: string, club: string): string {
 
 /** Záložka Žebříčky: tabulka soutěže, oficiální žebříček STR a interní žebříček oddílu. */
 export function LadderScreen() {
-  const tab = vm.ladderTab;
+  // tabulky soutěží jsou na kartě Soutěže, tady jen pořadí hráčů
+  const tab = vm.ladderTab === "tabulka" ? "interni" : vm.ladderTab;
   return (
     <div className="col g10">
-      <div className="px16"><Segmented options={[["tabulka", "Tabulka"], ["stis", "Žebříček STIS"], ["interni", "Interní"]]} selected={tab} onSelect={(k) => vm.set("ladderTab", k)} /></div>
-      {tab === "tabulka" ? <CompetitionView kind="tabulka" /> : tab === "stis" ? <CompetitionView kind="stis" /> : <InternalLadder />}
+      <div className="px16"><Segmented options={[["interni", "Interní žebříček"], ["stis", "Žebříček STIS"]]} selected={tab} onSelect={(k) => vm.set("ladderTab", k)} /></div>
+      {tab === "stis" ? <CompetitionView kind="stis" /> : <InternalLadder />}
     </div>
   );
 }
@@ -58,7 +59,7 @@ export function selectedComp() {
   return list.find((c) => c.soutez === vm.compId) ?? list.find((c) => c.soutez === mainSoutez) ?? list[0] ?? null;
 }
 
-function CompetitionView({ kind }: { kind: "tabulka" | "stis" }) {
+export function CompetitionView({ kind }: { kind: "tabulka" | "stis" }) {
   const me = vm.me;
   const comps = competitions();
   const seasons = Array.from(comps.keys()).sort((a, b) => b - a);
@@ -242,7 +243,7 @@ function OfficialLadder({ comp, data, loading }: { comp: Comp; data: StrLadder |
               return (
                 <div key={i}>
                   <div className={"row" + (r.path ? " clickable" : "")} style={{ background: mine ? C.Tint : "#fff", padding: "9px 14px" }}
-                    onClick={() => { if (isMe) vm.tab(S.Str); else if (r.path) vm.go({ t: "Player", path: r.path }); }}>
+                    onClick={() => { if (isMe) vm.openMyProfile(); else if (r.path) vm.go({ t: "Player", path: r.path }); }}>
                     <BigNumber text={r.rank != null ? `${r.rank}` : "–"} size={18} color={mine ? C.Blue : C.Ink} style={{ width: 34, flex: "none" }} />
                     <div className="col w1">
                       <T size={15} bold={mine} semi={!mine} lines={1}>{r.name + (isMe ? " (vy)" : "")}</T>
@@ -407,7 +408,7 @@ function InternalLadder() {
           return (
             <div key={(e.id ?? e.name) + i}>
               <div className="row clickable" style={{ background: mine ? C.Tint : "#fff", padding: "9px 14px" }}
-                onClick={() => { if (mine) vm.tab(S.Str); else if (e.path != null) setChosen(e); }}>
+                onClick={() => { if (mine) vm.openMyProfile(); else if (e.path != null) setChosen(e); }}>
                 <BigNumber text={sort === "str" ? `${rank}` : `${i + 1}`} color={rank <= 3 && sort === "str" ? C.Orange : C.Ink} size={20} style={{ width: 34, flex: "none" }} />
                 <div className="col w1">
                   <T size={16} bold={mine} semi={!mine} lines={1}>{e.name + (mine ? " (vy)" : "")}</T>

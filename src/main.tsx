@@ -1,4 +1,4 @@
-import { BrowseClubScreen, BrowseCompScreen, PlayersScreen } from "./ui/screens/Browse";
+import { BrowseClubScreen, BrowseCompScreen, CompsScreen, PlayersScreen } from "./ui/screens/Browse";
 import { IS_DEV, SP } from "./app/channel";
 import { AdminStatsScreen } from "./ui/screens/AdminStats";
 import { followChannelChoice, switchChannel } from "./app/switch";
@@ -10,7 +10,6 @@ import { vm, S, type Screen } from "./app/vm";
 import { Dialog, Icon, Muted, OButton, PrimaryButton } from "./ui/components";
 import { OnboardingScreen, OverviewScreen } from "./ui/screens/Overview";
 import { LadderScreen } from "./ui/screens/Ladder";
-import { StrScreen } from "./ui/screens/StrScreen";
 import { MatchesScreen } from "./ui/screens/Matches";
 import { ClubScreen, H2HScreen } from "./ui/screens/Opponents";
 import { FixtureScreen, NextMatchScreen, PredictionScreen } from "./ui/screens/NextMatch";
@@ -31,16 +30,16 @@ import "./ui/app.css";
 const TABS: [Screen, string, string][] = [
   [S.Overview, "Přehled", "home"],
   [S.Ladder, "Žebříčky", "leaderboard"],
-  [S.Str, "STR", "chart"],
   [S.Matches, "Utkání", "list"],
   [S.Opponents, "Hráči", "search"],
+  [S.Comps, "Soutěže", "trophy"],
 ];
 
 function title(s: Screen): string {
   switch (s.t) {
     case "Overview": return "MySTIS";
     case "Ladder": return "Žebříčky";
-    case "Str": return "Vývoj STR";
+    case "Comps": return "Soutěže";
     case "Matches": return "Utkání";
     case "Opponents": return "Hráči";
     case "BrowseClub": return "Oddíl";
@@ -72,7 +71,7 @@ function Body({ s }: { s: Screen }) {
   switch (s.t) {
     case "Overview": return <OverviewScreen />;
     case "Ladder": return <LadderScreen />;
-    case "Str": return <StrScreen />;
+    case "Comps": return <CompsScreen />;
     case "Matches": return <MatchesScreen />;
     case "Opponents": return <PlayersScreen />;
     case "BrowseClub": return <BrowseClubScreen path={s.path} name={s.name} />;

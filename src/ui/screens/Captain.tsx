@@ -61,7 +61,7 @@ export function CaptainScreen() {
           return (
             <div key={i}>
               <div className="row clickable" style={{ background: inLineup ? C.Tint : "#fff", padding: "10px 14px" }}
-                onClick={() => { if (p.path) { if (p.id === me.id) vm.tab(S.Str); else vm.go({ t: "Player", path: p.path }); } }}>
+                onClick={() => { if (p.path) { if (p.id === me.id) vm.openMyProfile(); else vm.go({ t: "Player", path: p.path }); } }}>
                 <div className="col w1">
                   <T semi lines={1}>{p.name}</T>
                   {p.ranking && <Muted text={p.ranking} size={12} maxLines={1} />}

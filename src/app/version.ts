@@ -2,12 +2,21 @@
 import { IS_DEV } from "./channel";
 
 export const PROD_VERSION = "2.14.1";
-export const DEV_VERSION = "2.15-dev.15";
+export const DEV_VERSION = "2.15-dev.16";
 export const APP_VERSION = IS_DEV ? DEV_VERSION : PROD_VERSION;
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.15-dev.16", date: "12. 11. 2026", title: "Nové spodní menu",
+    items: [
+      "Spodní menu: Přehled · Žebříčky · Utkání · Hráči · Soutěže",
+      "Karta Soutěže: Moje soutěže (tabulky, rozpis, predikce) a Všechny soutěže republiky",
+      "Žebříčky jen s pořadím hráčů (interní žebříček, žebříček STIS); Hráči → Hledat jen hráči a oddíly",
+      "Vývoj STR (graf s obdobím, predikce na konec sezóny, STR podle STIS) je součástí profilu – i u ostatních hráčů",
+    ],
+  },
   {
     version: "2.15-dev.15", date: "12. 11. 2026", title: "Hledání soutěží podle zkratek",
     items: [

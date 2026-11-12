@@ -5,9 +5,9 @@ import { vm, S } from "../../app/vm";
 import { Stis, type Match, type PlayerPage, type SeasonCard, type TeamMembership } from "../../core/models";
 import { Stats } from "../../core/stats";
 import {
-  AppCard, Avatar, BigNumber, C, Divider, Empty, FormDots, FormPerf, KeyValue, ListCard, Loading, MatchRow, Muted, NavyHeader, OButton, PrimaryButton, Dialog, SectionTitle, StatTile, StrChart, T, TileRow, signedInt,
+  AppCard, Avatar, BigNumber, C, Divider, Empty, FormDots, FormPerf, KeyValue, ListCard, Loading, MatchRow, Muted, NavyHeader, OButton, PrimaryButton, Dialog, SectionTitle, StatTile, T, TileRow, dec1, signedInt,
 } from "../components";
-import { strPoints } from "./StrScreen";
+import { StrPanel, strPoints } from "./StrScreen";
 
 const seasonLabel = (y: number) => `${y}/${String((y + 1) % 100).padStart(2, "0")}`;
 const rec = (ms: Match[]) => { const w = ms.filter((m) => m.won).length; return { w, l: ms.length - w, pct: ms.length ? w / ms.length : null }; };
@@ -87,7 +87,7 @@ export function ProfileScreen({ path, name, ask = false }: { path: string; name?
           <OButton text="Sdílet" onClick={() => setShareOpen(true)} style={{ flex: isMe ? 1 : "none" }} />
         </div>
         {shareOpen && <ShareSheet opts={shareOptions({ t: "Player", path })} onClose={() => setShareOpen(false)} />}
-        <AppCard><StrChart series={[{ color: isMe ? C.Blue : C.Orange, points: strPoints(p, "vse") }]} height={190} /></AppCard>
+        <StrPanel p={p} isMe={isMe} />
         {sec?.forma}
         <SectionTitle text="Poslední zápasy" />
         <ListCard>{ch.slice(-10).reverse().map((m, i) => <MatchRow key={i} m={m} onClick={() => {}} />)}</ListCard>
@@ -103,6 +103,12 @@ export function ProfileScreen({ path, name, ask = false }: { path: string; name?
             {jumps && <Fact label="Největší skok STR" value={signedInt(jumps[1] ?? 0)} sub={seasonLabel(jumps[0])} />}
           </div>
           {clubs.length > 0 && <Muted size={12} maxLines={3} text={`Oddíly: ${clubs.join(", ")}`} />}
+          {(p.ster.stabil != null || p.ster.min != null || p.ster.peak != null) && <>
+            <Muted size={12} text="STR podle STIS" style={{ marginTop: 4 }} />
+            {p.ster.stabil != null && <KeyValue label="Stabilní STR" value={dec1(p.ster.stabil)} />}
+            {p.ster.min != null && <KeyValue label="Rozpětí (min…max)" value={`${p.ster.min} … ${p.ster.max}`} />}
+            {p.ster.peak != null && <KeyValue label="Nejvyšší dosažené" value={`${p.ster.peak}${p.ster.peakDate ? ` (${p.ster.peakDate})` : ""}`} valueColor={C.Win} />}
+          </>}
         </AppCard>
         {isMe ? <>{sec?.rekordy}{sec?.sezony}</> : <>{sec?.sezony}{sec?.rekordy}</>}
         <div className="row clickable" onClick={() => setSeasonsOpen(!seasonsOpen)} style={{ padding: "8px 4px 0" }}>

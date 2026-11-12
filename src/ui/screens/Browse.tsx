@@ -10,7 +10,7 @@ import {
   SectionTitle, Segmented, T, TextField,
 } from "../components";
 import { OpponentsScreen } from "./Opponents";
-import { StandingsTable } from "./Ladder";
+import { CompetitionView, StandingsTable } from "./Ladder";
 
 type CompRef = { svaz: string; rocnik: number; soutez: string };
 const season = (y: number) => `${y}/${String((y + 1) % 100).padStart(2, "0")}`;
@@ -39,8 +39,22 @@ function openPlayer(path: string, name: string) { vm.addBrowseRecent("p", path, 
 function openClub(path: string, name: string) { vm.addBrowseRecent("o", path, name); vm.go({ t: "BrowseClub", path, name }); }
 function openComp(c: CompRef & { name: string }) { vm.addBrowseRecent("s", `${c.svaz}|${c.rocnik}|${c.soutez}`, c.name); vm.go({ t: "BrowseComp", ...c }); }
 
-function BrowseView() {
-  const b = vm.browse;
+/** Karta Soutěže: Moje soutěže (tabulky, rozpis, predikce) a všechny soutěže republiky. */
+export function CompsScreen() {
+  const tab = vm.compsTab;
+  return (
+    <div className="col g10">
+      <div className="px16"><Segmented options={[["mine", "Moje soutěže"], ["all", "Všechny soutěže"]]} selected={tab} onSelect={(k) => { vm.compsTab = k as "mine" | "all"; vm.emit(); }} /></div>
+      {tab === "mine" ? <CompetitionView kind="tabulka" /> : <BrowseView soutezeOnly />}
+    </div>
+  );
+}
+
+function BrowseView({ soutezeOnly = false }: { soutezeOnly?: boolean }) {
+  // karta Hráči hledá hráče a oddíly, karta Soutěže soutěže (sdílený stav hledání, každá svůj druh)
+  const b0 = vm.browse;
+  const b = soutezeOnly ? vm.browseComps : b0;
+  if (!soutezeOnly && b0.kind === "s") b0.kind = "p";
   const set = (p: Partial<typeof b>) => { Object.assign(b, p); vm.emit(); };
   const link = Stis.normalizeInput(b.query);
   // vložený odkaz ze STIS: hráč / oddíl / soutěž
@@ -55,7 +69,7 @@ function BrowseView() {
   const q = CompTree.norm(b.query);
   const comps = b.kind === "s" ? comps0.filter((c) => c.rocnik === rocnik && (!q || compFromLink
     || [c.name, vm.treeEntry(c.soutez)?.svazName ?? "", ...vm.compAliases(c)].some((x) => CompTree.norm(x).includes(q)))) : [];
-  const recent = vm.browseRecent();
+  const recent = vm.browseRecent().filter((r) => (soutezeOnly ? r.k === "s" : r.k !== "s"));
   const go = () => {
     if (link?.kind === "player") { openPlayer(link.path, "Hráč"); return; }
     if (compFromLink) { openComp({ ...compFromLink, name: comps.find((c) => c.soutez === compFromLink.soutez)?.name ?? "Soutěž" }); return; }
@@ -65,7 +79,7 @@ function BrowseView() {
   };
   return (
     <div className="col g10 px16">
-      <Segmented options={[["p", "Hráči"], ["o", "Oddíly"], ["s", "Soutěže"]]} selected={b.kind} onSelect={(k) => set({ kind: k as "p" | "o" | "s", err: null })} />
+      {!soutezeOnly && <Segmented options={[["p", "Hráči"], ["o", "Oddíly"]]} selected={b.kind === "s" ? "p" : b.kind} onSelect={(k) => set({ kind: k as "p" | "o", err: null })} />}
       <TextField value={b.query} onChange={(v) => set({ query: v })} icon="search" onEnter={go}
         label={b.kind === "p" ? "Jméno hráče nebo odkaz ze STIS" : b.kind === "o" ? "Název oddílu nebo odkaz ze STIS" : "Název soutěže nebo odkaz ze STIS"} />
       {b.kind !== "s" && <PrimaryButton text={b.loading ? "Hledám…" : "Hledat na STIS"} onClick={go} enabled={!b.loading && b.query.trim().length >= 2} />}

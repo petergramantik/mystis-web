@@ -114,7 +114,7 @@ export function OverviewScreen() {
           </div>
           <button className="iconbtn" style={{ color: "#fff" }} onClick={() => setSwitching(true)} aria-label="Přepnout hráče"><Icon name="swap" /></button>
         </div>
-        <div className="rowb clickable" onClick={() => vm.tab(S.Str)} aria-label="Vývoj STR">
+        <div className="rowb clickable" onClick={() => vm.openMyProfile()} aria-label="Vývoj STR">
           <div className="col w1">
             <div style={{ width: "calc(100% + 150px)", position: "relative", zIndex: 1 }}>
               <Marquee text={provisional == null ? "STR ›" : "STR · NEOFICIÁLNÍ ODHAD ›"} color={C.MutedOnNavy} size={13} />
@@ -227,7 +227,7 @@ export function OverviewScreen() {
           onSelect={(k) => { const i = parseInt(k, 10); if (i === vm.nextSelected) vm.go({ t: "Team", team: i }); else vm.selectTeam(i); }} />}
         <MatchPager ctx={nextCtx} />
         <LastUtkaniCard />
-        <AppCard onClick={() => vm.tab(S.Str)}>
+        <AppCard onClick={() => vm.openMyProfile()}>
           <Muted text="Forma · posledních 8" size={13} />
           <FormDots results={form.last.map((m) => m.won)} />
           <FormPerf f={form} prefix={false} />
