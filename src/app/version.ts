@@ -2,12 +2,16 @@
 import { IS_DEV } from "./channel";
 
 export const PROD_VERSION = "2.14.1";
-export const DEV_VERSION = "2.15-dev.22";
+export const DEV_VERSION = "2.15-dev.23";
 export const APP_VERSION = IS_DEV ? DEV_VERSION : PROD_VERSION;
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.15-dev.23", date: "12. 11. 2026", title: "Celé popisy",
+    items: ["Zkrácené popisy se po klepnutí rozbalí celé, dalším klepnutím sbalí"],
+  },
   {
     version: "2.15-dev.22", date: "12. 11. 2026", title: "Živě",
     items: ["Přidaná soutěž do Živě načte i tabulku – detail soutěže je hned kompletní"],

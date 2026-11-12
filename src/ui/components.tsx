@@ -60,10 +60,18 @@ export function BigNumber({ text, color = C.Ink, size = 28, style }: { text: str
 }
 
 export function Muted({ text, color = C.Muted, size = 13, maxLines = 2, style, className }: { text: ReactNode; color?: string; size?: number; maxLines?: number; style?: CSSProperties; className?: string }) {
-  const clamp: CSSProperties = maxLines === 1
+  // zkrácený text se klepnutím rozbalí celý (a zase sbalí); ne uvnitř klikatelných řádků, ty mají vlastní akci
+  const [open, setOpen] = useState(false);
+  const clamp: CSSProperties = open ? {} : maxLines === 1
     ? { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }
     : { display: "-webkit-box", WebkitLineClamp: maxLines, WebkitBoxOrient: "vertical", overflow: "hidden" };
-  return <div className={className} style={{ color, fontSize: size, lineHeight: 1.35, ...clamp, ...style }}>{text}</div>;
+  const onClick = (e: { currentTarget: HTMLDivElement }) => {
+    const el = e.currentTarget;
+    if (el.parentElement?.closest(".clickable, button, a")) return;
+    if (open) { setOpen(false); return; }
+    if (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1) setOpen(true);
+  };
+  return <div className={className} onClick={onClick} style={{ color, fontSize: size, lineHeight: 1.35, ...clamp, ...style }}>{text}</div>;
 }
 
 export function T({ children, size = 14, bold, semi, color, style, lines, className, center, end }: {
