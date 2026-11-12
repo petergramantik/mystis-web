@@ -92,7 +92,7 @@ export function ProfileScreen({ path, name, ask = false }: { path: string; name?
             {p.ster.min != null && <span><span style={{ color: C.MutedOnNavy }}>min / max: </span><b style={{ color: "#fff" }}>{p.ster.min} / {p.ster.max}</b></span>}
           </div>
         )}
-        <a href={Stis.BASE + p.path} target="_blank" rel="noopener" style={{ color: "#AFC3EE", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>Otevřít na STIS ↗</a>
+        <a href={Stis.BASE + p.path} target="_blank" rel="noopener" style={{ color: "#AFC3EE", fontSize: 13, fontWeight: 600, textDecoration: "none", alignSelf: "center", textAlign: "center" }}>Otevřít na STIS ↗</a>
       </NavyHeader>
       <div className="col g12 px16">
         <div className="row g8">
@@ -126,6 +126,7 @@ export function ProfileScreen({ path, name, ask = false }: { path: string; name?
           </div>
           <span style={{ color: C.Muted, fontSize: 22, transform: seasonsOpen ? "rotate(180deg)" : undefined, transition: "transform .15s" }}>⌄</span>
         </div>
+        {seasonsOpen && seasons.length > 1 && <Muted size={12} maxLines={3} style={{ padding: "0 4px" }} text="Starší sezóny zahrnují jen družstva, za která hráč odehrál aspoň jeden zápas." />}
         {seasonsOpen && !seasons.length && <Empty text="STIS neuvádí žádné sezóny." />}
         {seasonsOpen && seasons.map((s) => <SeasonBlock key={s.year} s={s} matches={bySeason.get(s.year) ?? []} newest={s.year === newest} isMe={isMe} />)}
         {!isMe && <div style={{ textAlign: "center" }}><span className="clickable" onClick={() => setSwitchAsk(true)} style={{ color: C.Muted, fontSize: 13, fontWeight: 600, textDecoration: "underline" }}>Přepnout aplikaci na tohoto hráče</span></div>}
