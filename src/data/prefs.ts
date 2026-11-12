@@ -66,6 +66,8 @@ export const prefs = {
   get remindedMatch() { return get("reminded_match"); },
   set remindedMatch(v: string | null) { set("reminded_match", v); },
   /** Naposledy použité profily: [cesta, jméno], nejnovější první. */
+  get compAliasesJson() { return get("comp_aliases") ?? ""; },
+  set compAliasesJson(v: string) { set("comp_aliases", v); },
   get compTreeJson() { return get("comp_tree") ?? ""; },
   set compTreeJson(v: string) { set("comp_tree", v); },
   get compTreeTried() { return get("comp_tree_tried") ?? ""; },

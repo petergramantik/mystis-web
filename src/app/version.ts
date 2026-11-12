@@ -2,12 +2,19 @@
 import { IS_DEV } from "./channel";
 
 export const PROD_VERSION = "2.14.1";
-export const DEV_VERSION = "2.15-dev.14";
+export const DEV_VERSION = "2.15-dev.15";
 export const APP_VERSION = IS_DEV ? DEV_VERSION : PROD_VERSION;
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.15-dev.15", date: "12. 11. 2026", title: "Hledání soutěží podle zkratek",
+    items: [
+      "Soutěže lze hledat i podle zkratek (K2C, OS 1, 2LMB…); zkratka je vidět i ve výsledku",
+      "Hledání ignoruje mezery, tečky, velikost písmen a diakritiku („OL 1“ = „ol1“)",
+    ],
+  },
   {
     version: "2.15-dev.14", date: "12. 11. 2026", title: "Všechny soutěže republiky",
     items: [

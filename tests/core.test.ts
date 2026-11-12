@@ -462,6 +462,8 @@ async function main() {
     const ents = CompTree.entries(tree);
     check("katalog soutěží 2026", ents.length > 300 && ents.some((e) => e.soutez === "6561" && e.name === "2.liga mužů skupina B") && ents.some((e) => e.soutez === "6522" && e.svaz === "420104"), () => String(ents.length));
     check("katalog: okres má kraj", ents.find((e) => e.soutez === "6681")?.kraj === "420104");
+    check("odvozené zkratky", CompTree.derivedCode("2.liga mužů skupina B") === "2LMB" && CompTree.derivedCode("Extraliga žen") === "ELZ" && CompTree.derivedCode("1.liga mužů") === "1LM" && CompTree.derivedCode("Divize") == null);
+    check("normalizace hledání", CompTree.norm("OL 1") === CompTree.norm("ol1") && CompTree.norm("Krajská soutěž II. třídy") === "krajskasoutezIItridy".toLowerCase());
     check("parser oblasti", CompTree.parse(`<script> var menu_settings = {"svazy":{"420000":{"id":"420000","nazev":"ČAST","typ":"A","souteze":[{"id_soutez":"1","nazev":"X","kat":"male"}]}},"select":{}} ;\n</script>`, 2026)?.svazy["420000"].souteze[0].nazev === "X");
     check("byName", MatchFormats.byName("3LMB")?.key === "14_8" && MatchFormats.byName("Extraliga žen")?.key === "10_6_dl" && MatchFormats.byName("OS 1") == null);
   }

@@ -40,6 +40,18 @@ export const CompTree = {
     }
     return null;
   },
+  /** Zkratka celostátní ligy z plného názvu: „2.liga mužů skupina B“ → 2LMB, „Extraliga žen“ → ELZ. */
+  derivedCode(name: string): string | null {
+    const n = name.trim();
+    const m = /^(\d)\.\s*liga\s+(muž|žen)\S*(?:\s+skupina\s+([A-Z]))?$/i.exec(n);
+    if (m) return `${m[1]}L${/muž/i.test(m[2]) ? "M" : "Z"}${m[3] ? m[3].toUpperCase() : ""}`;
+    const e = /^extraliga\s+(muž|žen)/i.exec(n);
+    return e ? `EL${/muž/i.test(e[1]) ? "M" : "Z"}` : null;
+  },
+  /** Normalizace pro hledání: bez diakritiky, mezer, teček a pomlček, malými písmeny („OL 1“ = „ol1“). */
+  norm(s: string): string {
+    return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[\s.,\-–_/]+/g, "");
+  },
   /** Kategorie soutěže česky. */
   katLabel(k: string): string {
     if (k === "male") return "Muži";

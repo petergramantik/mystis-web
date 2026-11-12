@@ -1524,9 +1524,16 @@ export class AppVm {
     // název z katalogu STIS (oficiální plný) > plný název odjinud > zkratka
     const official = new Set<string>();
     const score = (n: string) => (!n ? 0 : official.has(n) ? 3 : /\s/.test(n) && n.length > 6 ? 2 : 1);
+    const aliases = this.compAliasStore();
+    let aliasChanged = false;
     const add = (r: TeamRef | null | undefined, name0: string | null | undefined) => {
       if (!r?.soutez || !r.svaz) return;
       const name = placeholder(name0) ? "" : name0!.trim();
+      // zkratky (K2C, OS 1, RP2) si pamatuje pro hledání
+      if (name && r.rocnik === aliases.rocnik && !official.has(name) && score(name) === 1) {
+        const k = `${r.svaz}|${r.rocnik}|${r.soutez}`, l = aliases.items[k] ?? [];
+        if (!l.includes(name)) { aliases.items[k] = [...l, name].slice(-4); aliasChanged = true; }
+      }
       const k = this.compKey(r), cur = out.get(k);
       if (!cur || score(name) > score(cur.name)) out.set(k, { svaz: r.svaz, rocnik: r.rocnik, soutez: r.soutez, name: name || cur?.name || "" });
     };
@@ -1555,6 +1562,7 @@ export class AppVm {
       if (cat.items[k] !== c.name) { cat.items[k] = c.name; changed = true; }
     }
     if (changed) prefs.compCatalogJson = JSON.stringify(cat);
+    if (aliasChanged) prefs.compAliasesJson = JSON.stringify(aliases);
     // soutěž aktuálního ročníku, kterou katalog nezná (nová, play-off, pohár) → katalog se dotáhne (nejvýš jednou denně)
     if (this.treeCache?.t && Array.from(out.values()).some((c) => c.rocnik === cur && !this.treeCache!.idx.has(c.soutez))) this.refreshCompTree(false);
     return Array.from(out.values()).sort((a, b) => b.rocnik - a.rocnik || a.name.localeCompare(b.name, "cs"));
@@ -1590,6 +1598,19 @@ export class AppVm {
       if (t) { prefs.compTreeJson = JSON.stringify(t); this.treeCache = null; this.knownComps(); }
       else this.treeErr = "Seznam soutěží se nepodařilo přečíst.";
     }, (e) => { this.treeErr = err(e); }).finally(() => { this.treeLoading = false; this.emit(); });
+  }
+
+  private compAliasStore(): { rocnik: number; items: Record<string, string[]> } {
+    const rocnik = Stis.currentRocnik();
+    try { const c = JSON.parse(prefs.compAliasesJson || "null"); if (c && c.rocnik === rocnik && c.items) return c; } catch { /* */ }
+    return { rocnik, items: {} };
+  }
+  /** Zkratky soutěže: ze STIS (K2C, OS 1…) a odvozené u celostátních lig (2LMB). */
+  compAliases(c: { svaz: string; rocnik: number; soutez: string; name: string }): string[] {
+    const out = [...(this.compAliasStore().items[`${c.svaz}|${c.rocnik}|${c.soutez}`] ?? [])];
+    const d = CompTree.derivedCode(c.name);
+    if (d && !out.some((x) => CompTree.norm(x) === CompTree.norm(d))) out.unshift(d);
+    return out;
   }
 
   /** Katalog soutěží aktuálního ročníku (nový ročník = prázdný katalog). */

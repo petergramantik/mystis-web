@@ -3,7 +3,6 @@ import { CompTree, type TreeComp, type TreeSvaz } from "../../core/compTree";
 // Karta „Hráči“: Moji soupeři + Hledat (kohokoli – hráče, oddíl, soutěž). Data ze STIS se načítají jen na vyžádání.
 import { vm } from "../../app/vm";
 import { Stis, type TeamRef } from "../../core/models";
-import { Stats } from "../../core/stats";
 import { MatchFormats } from "../../core/live";
 import { fmtShort, ldtDate } from "../../core/dates";
 import {
@@ -52,8 +51,10 @@ function BrowseView() {
   // jen soutěže aktuálního ročníku (starší lze otevřít vloženým odkazem ze STIS)
   const rocnik = Stis.currentRocnik();
   const comps0 = vm.knownComps();
-  const q = Stats.fold(b.query.trim());
-  const comps = b.kind === "s" ? comps0.filter((c) => c.rocnik === rocnik && (!q || compFromLink || Stats.fold(`${c.name} ${vm.treeEntry(c.soutez)?.svazName ?? ""}`).includes(q))) : [];
+  // hledání bez ohledu na mezery, tečky, velikost písmen a diakritiku („OL 1“ = „ol1“), i podle zkratek
+  const q = CompTree.norm(b.query);
+  const comps = b.kind === "s" ? comps0.filter((c) => c.rocnik === rocnik && (!q || compFromLink
+    || [c.name, vm.treeEntry(c.soutez)?.svazName ?? "", ...vm.compAliases(c)].some((x) => CompTree.norm(x).includes(q)))) : [];
   const recent = vm.browseRecent();
   const go = () => {
     if (link?.kind === "player") { openPlayer(link.path, "Hráč"); return; }
@@ -113,7 +114,7 @@ function BrowseView() {
       {b.kind === "s" && !compFromLink && (b.query.trim() ? (
         <ListCard>
           {!comps.length && <Empty text="Žádná soutěž neodpovídá hledání." />}
-          {comps.slice(0, 150).map((c) => <CompRow key={`${c.svaz}|${c.soutez}`} c={c} sub={vm.treeEntry(c.soutez)?.svazName ?? season(c.rocnik)} />)}
+          {comps.slice(0, 150).map((c) => <CompRow key={`${c.svaz}|${c.soutez}`} c={c} sub={[...vm.compAliases(c).slice(0, 2), vm.treeEntry(c.soutez)?.svazName ?? season(c.rocnik)].join(" · ")} />)}
         </ListCard>
       ) : <SvazBrowser />)}
       {!b.loading && recent.length > 0 && ((b.kind === "p" && !b.players) || (b.kind === "o" && !b.clubs) || b.kind === "s") && (
