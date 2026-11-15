@@ -7,11 +7,12 @@
 //  - sdílená mezipaměť (Cache API): aplikace v hlavičce X-Max-Age řekne, jak stará kopie jí stačí (s);
 //    stejné stránky pro víc uživatelů se ze STIS stahují jen jednou (bez hlavičky = vždy čerstvě)
 //  - stejná stránka stahovaná souběžně se stahuje jen jednou, nejvýš 6 souběžných dotazů na STIS
-//  - dotazy na STIS vždy mimo mezipaměť Cloudflare, čas stažení v X-Fetched-At, hlavičky STIS v X-Stis-Cache
+//  - čas stažení ze STIS v X-Fetched-At, hlavičky mezipaměti STIS v X-Stis-Cache (diagnostika)
 //  - odpověď jako text -> Cloudflare ji komprimuje (bajty se nemění, smíšené kódování zůstává)
 //  - počítadlo zařízení odolné proti limitu zápisů KV (volitelné vzorkování proměnnou SAMPLE)
 // 2.1: bez hlaviček Cache-Control/Pragma v dotazu na STIS (podezření na odmítání 403)
-const VERSION = "2.1";
+// 2.2: dotaz na STIS přesně jako ve verzi 1 (bez volby cache: "no-store") – hledání vracelo 403
+const VERSION = "2.2";
 
 const BASE = "https://stis.ping-pong.cz";
 
@@ -115,16 +116,6 @@ async function withSlot(fn) {
   try { return await fn(); } finally { active--; const w = waiters.shift(); if (w) w(); }
 }
 
-/** Dotaz na STIS vždy mimo mezipaměť Cloudflare (živé zápisy musí být čerstvé). */
-async function stisFetch(target, init) {
-  try { return await fetch(target, { ...init, cache: "no-store" }); }
-  catch (e) {
-    // starší runtime nezná volbu cache -> zakázat ukládání přes cf
-    if (!(e instanceof TypeError)) throw e;
-    return fetch(target, { ...init, cf: { cacheTtlByStatus: { "100-599": -1 }, cacheEverything: false } });
-  }
-}
-
 async function fromStis(path, method0, bodyP, jar, referer) {
   let method = method0 === "POST" ? "POST" : "GET";
   let body = bodyP ? await bodyP : undefined;
@@ -139,7 +130,9 @@ async function fromStis(path, method0, bodyP, jar, referer) {
     if (jar.size) h["Cookie"] = [...jar].map(([k, v]) => k + "=" + v).join("; ");
     if (referer) { h["Referer"] = referer; h["Origin"] = BASE; }
     if (method === "POST") h["Content-Type"] = "application/x-www-form-urlencoded";
-    resp = await stisFetch(target, { method, headers: h, body, redirect: "manual" });
+    // dotaz stejný jako ve verzi 1 (STIS stránky Cloudflare neukládá: cf-cache-status=DYNAMIC);
+    // volby cache / hlavičky no-cache vedly u STIS k odmítnutí 403
+    resp = await fetch(target, { method, headers: h, body, redirect: "manual" });
     for (const c of setCookies(resp.headers)) {
       const kv = c.split(";")[0];
       const i = kv.indexOf("=");
