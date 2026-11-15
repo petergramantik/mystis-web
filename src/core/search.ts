@@ -34,8 +34,11 @@ const trimChars = (s: string, chars: string, start: boolean, end: boolean) => {
 const before = (s: string, d: string) => { const i = s.indexOf(d); return i >= 0 ? s.substring(0, i) : s; };
 
 export const Search = {
-  playersPath: (query: string) => "/hledat?soso=on&s=" + encode(query),
-  clubsPath: (query: string) => "/hledat?sklu=on&s=" + encode(query),
+  // STIS (11/2026) vrací výsledky jen s úplnou sadou voleb formuláře (osoby, kluby, oblasti, soutěže);
+  // s jedinou volbou přesměruje na hlavní stránku. Z výsledků se pak berou jen odkazy daného druhu.
+  allPath: (query: string) => "/hledat?soso=on&sklu=on&sobla=on&ssout=on&s=" + encode(query),
+  playersPath: (query: string) => Search.allPath(query),
+  clubsPath: (query: string) => Search.allPath(query),
 
   players(html: string): SearchPlayer[] {
     const links = findAll(PLAYER_LINK, html);

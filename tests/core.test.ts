@@ -369,7 +369,7 @@ async function main() {
   check("search label", sp1[2].label === "Novák Václav (2016) · TJ Sokol Hospříz, z.s.", () => sp1[2].label);
   const sc1 = Search.clubs(hled);
   check("search clubs", sc1.length === 1 && sc1[0].name === "TJ Vlast Ježov" && sc1[0].id === "420104012");
-  check("search path", Search.playersPath("Novák Jan") === "/hledat?soso=on&s=Novak+Jan" && Search.clubsPath("Ježov") === "/hledat?sklu=on&s=Jezov", () => Search.playersPath("Novák Jan"));
+  check("search path", Search.playersPath("Novák Jan") === "/hledat?soso=on&sklu=on&sobla=on&ssout=on&s=Novak+Jan" && Search.clubsPath("Ježov") === "/hledat?soso=on&sklu=on&sobla=on&ssout=on&s=Jezov", () => Search.playersPath("Novák Jan"));
 
   // ---------- stabilní sestava
   check("stable", Stability.isStable(3, 9, 0, 0) && !Stability.isStable(2, 9, 0, 0) && Stability.isStable(1, 2, 0, 0) && !Stability.isStable(0, 2, 5, 18) && Stability.isStable(0, 2, 6, 18));
