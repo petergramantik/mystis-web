@@ -65,7 +65,7 @@ export function LiveScreen({ team }: { team: number }) {
     // každou sekundu kontrola, zda od poslední aktualizace uplynula perioda (jen když je aplikace na obrazovce)
     const check = () => {
       if (!vm.appVisible || !vm.zapisNeedsPolling(path)) return;
-      if (!vm.liveLoadingKeys.get(tk) && Date.now() - (vm.liveUpdated.get(tk) ?? 0) >= LIVE_PERIOD) vm.loadLive(tk, path, true);
+      if (!vm.liveLoadingKeys.get(tk) && Date.now() - vm.liveAttemptAt(tk) >= LIVE_PERIOD) vm.loadLive(tk, path, true);
     };
     const id = setInterval(check, 1000);
     document.addEventListener("visibilitychange", check);
@@ -148,7 +148,7 @@ export function LiveScreen({ team }: { team: number }) {
         <Muted text={`Utkání družstva ${ctx.myTeam.name}`} size={13} />
         <Segmented options={[["zapis", "Zápis ze STIS"], ["manual", "Ruční sestavy"]]} selected={mode} onSelect={setMode} />
         {mode === "zapis" && found && vm.zapisNeedsPolling(found) && <>
-          <LiveStatus busy={liveBusy} first={!z} at={vm.zapisDataAt(found)} period={LIVE_PERIOD} error={vm.liveErrors.get(tk)} onRetry={() => vm.loadLive(tk, found, true, true)} />
+          <LiveStatus busy={liveBusy} first={!z} at={vm.zapisDataAt(found)} last={vm.liveAttemptAt(tk)} period={LIVE_PERIOD} error={vm.liveErrors.get(tk)} onRetry={() => vm.loadLive(tk, found, true, true)} />
           {IS_DEV && <DevLiveInfo path={found} />}
         </>}
         {mode === "zapis" ? (
@@ -478,7 +478,7 @@ export function LiveTopRing({ team, fallback }: { team: number; fallback: ReactN
   if (!ctx || !link || (z && !vm.zapisNeedsPolling(link))) return <>{fallback}</>;
   return (
     <div style={{ width: 44, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
-      <CountdownRing dark next={(vm.liveUpdated.get(tk) ?? 0) + LIVE_PERIOD} period={LIVE_PERIOD} busy={vm.liveLoadingKeys.get(tk) === true} onClick={() => vm.loadLive(tk, link, true, true)} />
+      <CountdownRing dark next={vm.liveAttemptAt(tk) + LIVE_PERIOD} period={LIVE_PERIOD} busy={vm.liveLoadingKeys.get(tk) === true} onClick={() => vm.loadLive(tk, link, true, true)} />
     </div>
   );
 }

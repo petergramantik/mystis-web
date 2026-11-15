@@ -14,7 +14,8 @@
 // 2.2: dotaz na STIS přesně jako ve verzi 1 (bez volby cache: "no-store") – hledání vracelo 403
 // 2.3: ochrana před limitem STIS – při odmítnutí (403/429/5xx) poslední kopie z mezipaměti (X-Stale: 1),
 //      po odmítnutí minutu přestávka (stránky s kopií se berou z mezipaměti), běžné stránky sdílené i při cookies
-const VERSION = "2.3";
+// 2.4: cookies relace se STIS posílají vždy (bez nich STIS odpovídá 403); sdílení mezipaměti zůstává
+const VERSION = "2.4";
 
 const BASE = "https://stis.ping-pong.cz";
 
@@ -193,9 +194,8 @@ export default {
     const isGet = req.method !== "POST";
     // sdílená mezipaměť jen pro běžné GET bez cookies (hledání a formuláře nikdy)
     const maxAge = parseInt(req.headers.get("X-Max-Age") || "0", 10) || 0;
-    // běžné stránky jsou veřejné – cookies (relace z hledání) se k nim neposílají, takže je lze sdílet
+    // běžné stránky jsou veřejné (obsah nezávisí na relaci) -> sdílené; cookies relace se STIS ale posílají vždy (bez nich 403)
     const shareable = isGet && !referer && !url.pathname.startsWith("/hledat") && !url.search.includes("nuser");
-    if (shareable) jar.clear();
     const cacheKey = new Request("https://cache.mystis.invalid" + path);
     const cache = typeof caches !== "undefined" ? caches.default : null;
     let cached = null;
@@ -207,7 +207,8 @@ export default {
       if (cached && Date.now() < blockedUntil) return out(cached.body, staleHeaders(cached.headers), "STALE");
     }
     // stejná stránka stahovaná souběžně -> jedno stažení ze STIS
-    const flightKey = shareable ? path : null;
+    // souběžné stahování sdílet jen bez cookies (jinak by si uživatelé předali cizí relaci)
+    const flightKey = shareable && !jar.size ? path : null;
     let task = flightKey ? inflight.get(flightKey) : null;
     if (!task) {
       task = withSlot(() => fromStis(path, req.method, isGet ? undefined : req.text(), jar, referer));
@@ -229,6 +230,7 @@ export default {
     if (shareable && cache && r.status === 200 && r.bytes.byteLength > 2000) {
       const ttl = path.startsWith("/zapis/") ? 90 * 86400 : 2 * 86400;
       const h = new Headers(headers); h.set("Cache-Control", "public, max-age=" + ttl); h.set("Content-Type", "application/octet-stream");
+      h.delete("X-Stis-Cookie"); // relace jednoho uživatele se nesmí dostat k ostatním
       try { await cache.put(cacheKey, new Response(r.bytes.slice(0), { headers: h })); } catch { /* */ }
     }
     return out(r.bytes, headers, "MISS");

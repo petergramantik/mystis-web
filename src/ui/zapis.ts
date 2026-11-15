@@ -11,7 +11,7 @@ export function useZapisRefresh(path: string) {
     vm.loadZapis(path);
     const tick = () => {
       if (!vm.appVisible || !vm.zapisNeedsPolling(path) || vm.zapisBusy(path)) return;
-      if (Date.now() - vm.zapisLoadedAt(path) >= vm.livePeriod) vm.loadZapis(path, false, true);
+      if (Date.now() - vm.zapisAttemptAt(path) >= vm.livePeriod) vm.loadZapis(path, false, true);
     };
     const t = setInterval(tick, 10_000);
     const vis = () => tick();

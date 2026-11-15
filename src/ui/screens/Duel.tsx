@@ -164,7 +164,7 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
   return (
     <div className={"col g12" + (busy ? " stale" : "")}>
       {polling && <div className="px16" style={{ marginTop: 8 }}>
-        <LiveStatus busy={busy} at={vm.zapisDataAt(path)} period={vm.livePeriod} error={vm.zapisErrors.get(path)} onRetry={() => vm.loadZapis(path, false, true, true)} />
+        <LiveStatus busy={busy} at={vm.zapisDataAt(path)} last={vm.zapisAttemptAt(path)} period={vm.livePeriod} error={vm.zapisErrors.get(path)} onRetry={() => vm.loadZapis(path, false, true, true)} />
         {IS_DEV && <DevLiveInfo path={path} />}
       </div>}
       <NavyHeader>

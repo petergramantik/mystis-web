@@ -467,6 +467,7 @@ export class AppVm {
     if (this.liveLoadingKeys.get(key)) return;
     this.liveLinks.set(key, link);
     this.liveLoadingKeys.set(key, true);
+    this.liveAttempt.set(key, Date.now());
     this.liveErrors.delete(key);
     this.emit();
     (async () => {
@@ -1284,11 +1285,13 @@ export class AppVm {
     prefs.liveCompsJson = JSON.stringify(extra.filter((x) => this.compKey(x) !== this.compKey(c)));
     this.emit();
   }
+  /** poslední pokus o načtení rozpisu (i neúspěšný) – obnova se plánuje od něj */
+  compLosAttempt = new Map<string, number>();
   loadCompLos(c: { svaz: string; rocnik: number; soutez: string }, force = false) {
     const k = this.compKey(c);
     if (this.compLosLoading.has(k)) return;
     if (!force && this.compLos.has(k) && Date.now() - (this.compLosAt.get(k) ?? 0) < 3 * 60_000) return;
-    this.compLosLoading.add(k); this.emit();
+    this.compLosLoading.add(k); this.compLosAttempt.set(k, Date.now()); this.emit();
     this.repo.competitionLos(c, force ? 60_000 : 5 * 60_000).then((l) => {
       this.compLos.set(k, l); this.compLosAt.set(k, Date.now());
       this.ensureCompFormat(c, l);
@@ -1897,6 +1900,11 @@ export class AppVm {
   /** Kdy jsou zobrazená data zápisu ze STIS (čas stažení Workerem, jinak čas načtení). */
   zapisDataAt(path: string): number { return this.fetcher.meta(path)?.stisAt ?? this.zapisFetched.get(path) ?? 0; }
   zapisLoadedAt(path: string): number { return this.zapisFetched.get(path) ?? 0; }
+  /** poslední pokus o načtení (i neúspěšný) – podle něj se plánuje další obnova, ať se po chybě nezkouší každou sekundu */
+  private zapisAttempt = new Map<string, number>();
+  zapisAttemptAt(path: string): number { return Math.max(this.zapisAttempt.get(path) ?? 0, this.zapisFetched.get(path) ?? 0); }
+  liveAttempt = new Map<string, number>();
+  liveAttemptAt(key: string): number { return Math.max(this.liveAttempt.get(key) ?? 0, this.liveUpdated.get(key) ?? 0); }
   /** Obnova živých dat: každé 3 minuty (s náhodným posunem, ať se uživatelé neptají najednou). */
   readonly livePeriod = 180_000 + Math.floor(Math.random() * 20_000);
   get appVisible() { return typeof document === "undefined" || document.visibilityState !== "hidden"; }
@@ -1945,6 +1953,7 @@ export class AppVm {
     const have = this.zapisy.get(path);
     if (have && !force && (!this.zapisNeedsPolling(path) || Date.now() - (this.zapisFetched.get(path) ?? 0) < 60_000)) return;
     this.zapisLoading.add(path);
+    this.zapisAttempt.set(path, Date.now());
     if (track) this.stepsAdd(1, "Načítám zápisy utkání…");
     this.emit();
     (async () => {
@@ -2138,7 +2147,7 @@ export class AppVm {
       const key = this.teamKey(c);
       const link = this.liveLinks.get(key);
       if (!link) { this.autoFindZapis(i); return; }
-      if (Date.now() - (this.liveUpdated.get(key) ?? 0) < this.livePeriod - 5_000) return; // obnovila ho právě obrazovka Živé utkání
+      if (Date.now() - this.liveAttemptAt(key) < this.livePeriod - 5_000) return; // obnovila ho právě obrazovka Živé utkání (nebo se o to nedávno pokusila)
       this.loadLive(key, link, true);
     });
   }

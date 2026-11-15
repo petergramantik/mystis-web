@@ -558,7 +558,7 @@ function LastUtkaniCard() {
       {(last.running || (last.unofficial && last.zapisPath && vm.zapisNeedsPolling(last.zapisPath))) && last.zapisPath && (() => {
         const tk = vm.next[liveTeam] ? vm.teamKey(vm.next[liveTeam]) : "";
         const busy = vm.liveLoadingKeys.get(tk) === true || vm.zapisBusy(last.zapisPath);
-        return <LiveStatus busy={busy} at={vm.zapisDataAt(last.zapisPath)} period={vm.livePeriod} error={vm.liveLinks.get(tk) === last.zapisPath ? vm.liveErrors.get(tk) ?? vm.zapisErrors.get(last.zapisPath) : vm.zapisErrors.get(last.zapisPath)}
+        return <LiveStatus busy={busy} at={vm.zapisDataAt(last.zapisPath)} last={Math.max(vm.liveAttemptAt(tk), vm.zapisAttemptAt(last.zapisPath))} period={vm.livePeriod} error={vm.liveLinks.get(tk) === last.zapisPath ? vm.liveErrors.get(tk) ?? vm.zapisErrors.get(last.zapisPath) : vm.zapisErrors.get(last.zapisPath)}
           onRetry={() => (tk && vm.liveLinks.get(tk) === last.zapisPath ? vm.loadLive(tk, last.zapisPath, true, true) : vm.loadZapis(last.zapisPath, false, true, true))} />;
       })()}
       {pages.length > 1 && (

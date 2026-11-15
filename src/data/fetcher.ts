@@ -167,8 +167,23 @@ export class WebFetcher implements Fetcher {
     }
   }
 
+  private lastRenew = 0;
+  /** STIS odpovídá 403 bez platné relace (cookie) – založit novou (nejvýš jednou za 20 s) a zkusit znovu. */
+  private async renewSession(): Promise<boolean> {
+    if (Date.now() - this.lastRenew < 20_000) return false;
+    this.lastRenew = Date.now();
+    this.cookie = "";
+    try { sessionStorage.removeItem(SP + "cookie"); } catch { /* */ }
+    try { await this.call("/?nuser=1", null, null); this.sessionReady = true; return true; } catch { return false; }
+  }
+
   private async download(path: string, maxAgeMs = 0): Promise<string> {
-    let html = (await this.call(path, null, null, maxAgeMs))[0];
+    let html: string;
+    try { html = (await this.call(path, null, null, maxAgeMs))[0]; }
+    catch (e) {
+      if (!(e instanceof FetchError && e.kind === "http" && /403/.test(e.message)) || !(await this.renewSession())) throw e;
+      html = (await this.call(path, null, null, maxAgeMs))[0];
+    }
     if (Parsers.isGate(html)) {
       const sep = path.includes("?") ? "&" : "?";
       html = (await this.call(path + sep + "nuser=1", null, null))[0];

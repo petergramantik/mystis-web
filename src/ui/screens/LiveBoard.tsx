@@ -52,7 +52,10 @@ export function LiveBoard() {
     // obnova rozpisů po 3 minutách, jen když je aplikace na obrazovce
     const tick = () => {
       if (!vm.appVisible) return;
-      for (const c of vm.liveComps()) if (Date.now() - (vm.compLosAt.get(vm.compKey(c)) ?? 0) >= vm.livePeriod) vm.loadCompLos(c, true);
+      for (const c of vm.liveComps()) {
+        const k = vm.compKey(c);
+        if (Date.now() - Math.max(vm.compLosAt.get(k) ?? 0, vm.compLosAttempt.get(k) ?? 0) >= vm.livePeriod) vm.loadCompLos(c, true);
+      }
     };
     const t = setInterval(tick, 10_000);
     document.addEventListener("visibilitychange", tick);
@@ -67,7 +70,7 @@ export function LiveBoard() {
     for (const p of livePaths) vm.loadZapis(p);
     const tick = () => {
       if (!vm.appVisible) return;
-      for (const p of livePaths) if (vm.zapisNeedsPolling(p) && Date.now() - vm.zapisLoadedAt(p) >= vm.livePeriod) vm.loadZapis(p, false, true);
+      for (const p of livePaths) if (vm.zapisNeedsPolling(p) && Date.now() - vm.zapisAttemptAt(p) >= vm.livePeriod) vm.loadZapis(p, false, true);
     };
     const t = setInterval(tick, 10_000);
     document.addEventListener("visibilitychange", tick);
@@ -89,7 +92,7 @@ export function LiveBoard() {
   const refreshAll = () => { for (const c of comps) vm.loadCompLos(c, true); for (const p of livePaths) vm.loadZapis(p, false, true, true); };
   return (
     <div className={"col g10 px16" + (boardBusy && boardAt ? " stale" : "")}>
-      {vm.liveDay === 0 && any && <LiveStatus busy={boardBusy} first={!boardAt} at={boardAt} period={vm.livePeriod} onRetry={refreshAll} />}
+      {vm.liveDay === 0 && any && <LiveStatus busy={boardBusy} first={!boardAt} at={boardAt} last={Math.max(0, ...comps.map((c) => vm.compLosAttempt.get(vm.compKey(c)) ?? 0))} period={vm.livePeriod} onRetry={refreshAll} />}
       <div className="row g8">
         <div style={{ flex: 1 }}><Chips options={[["-1", "Včera"], ["0", "Dnes"], ["1", "Zítra"]]} selected={String(vm.liveDay)} onSelect={(k) => { vm.liveDay = parseInt(k, 10); vm.emit(); }} /></div>
         <OButton text="+ Soutěž" onClick={() => setAdding(true)} />
@@ -389,7 +392,7 @@ export function WatchScreen({ k, shared }: { k: string; shared?: string }) {
           onClick: () => vm.openCompetition({ id: "", name: "", svaz: comp.svaz, rocnik: comp.rocnik, soutez: comp.soutez }, compName, "", "tabulka") } : null} />
       <div className={"col g12 px16" + (path && vm.zapisBusy(path) && z ? " stale" : "")}>
         <SoundUnlockBar />
-        {path && vm.zapisNeedsPolling(path) && <LiveStatus busy={vm.zapisBusy(path)} first={!z} at={vm.zapisDataAt(path)} period={vm.livePeriod}
+        {path && vm.zapisNeedsPolling(path) && <LiveStatus busy={vm.zapisBusy(path)} first={!z} at={vm.zapisDataAt(path)} last={vm.zapisAttemptAt(path)} period={vm.livePeriod}
           error={vm.zapisErrors.get(path)} onRetry={() => vm.loadZapis(path, false, true, true)} />}
         {path && IS_DEV && <DevLiveInfo path={path} />}
         <AppCard>

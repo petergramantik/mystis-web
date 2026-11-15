@@ -589,13 +589,14 @@ export function FormPerf({ f, size = 13, dark = false, prefix = true }: { f: For
  * Stav živých dat: zřetelný pruh při načítání (zobrazená data jsou stará), čas stavu ze STIS,
  * odpočet do další obnovy a chyba s tlačítkem „Zkusit hned“.
  */
-export function LiveStatus({ busy, at, period, error, onRetry, dark = false, first = false }: {
-  busy: boolean; at: number; period: number; error?: string | null; onRetry: () => void; dark?: boolean; first?: boolean;
+export function LiveStatus({ busy, at, last, period, error, onRetry, dark = false, first = false }: {
+  /** last = poslední pokus o načtení (i neúspěšný) – od něj se počítá další obnova */
+  busy: boolean; at: number; last?: number; period: number; error?: string | null; onRetry: () => void; dark?: boolean; first?: boolean;
 }) {
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(t); }, []);
   const hm = (t: number) => { const d = new Date(t); return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`; };
-  const left = Math.max(0, Math.round((at + period - Date.now()) / 1000));
+  const left = Math.max(0, Math.round((Math.max(at, last ?? 0) + period - Date.now()) / 1000));
   const mm = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
   if (busy) return (
     <div className="livebar busy">
