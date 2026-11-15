@@ -105,7 +105,12 @@ export function ProfileScreen({ path, name, ask = false }: { path: string; name?
         <StrPanel p={p} isMe={isMe} seasonChange={sezChange} />
         {sec?.forma}
         <SectionTitle text="Poslední zápasy" />
-        <ListCard>{ch.slice(-10).reverse().map((m, i) => <MatchRow key={i} m={m} onClick={() => {}} />)}</ListCard>
+        <ListCard>{ch.slice(-10).reverse().map((m, i) => <MatchRow key={i} m={m} onClick={() => {
+          // vzájemné zápasy se soupeřem: můj profil -> moje H2H, cizí profil -> dvojice hráč × soupeř
+          if (isMe) vm.go({ t: "H2H", key: m.opponentKey });
+          else if (m.opponentId) vm.go({ t: "Duel", aId: p.id, aName: p.name, bId: m.opponentId, bName: m.opponent });
+          else if (m.zapisPath) vm.go({ t: "ZapisDetail", path: m.zapisPath, myTeam: m.myTeam });
+        }} />)}</ListCard>
         <Muted size={11} text={`Sezóna ${seasonLabel(lastSeason)} je nejnovější se zápasy.`} />
         {sec?.souperi}
         {sec?.wins}
