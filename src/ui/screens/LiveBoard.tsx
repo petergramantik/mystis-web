@@ -14,6 +14,8 @@ import { hhmmLdt } from "../fmt";
 import { GameRow, ScoreHeader, lineupsPending } from "./LiveMatch";
 import { useZapisStr } from "./Duel";
 import { useZapisRefresh } from "../zapis";
+import { IS_DEV } from "../../app/channel";
+import { DevLiveInfo } from "./Duel";
 import { SoundUnlockBar } from "../soundbar";
 
 type Status = BoardStatus;
@@ -385,8 +387,11 @@ export function WatchScreen({ k, shared }: { k: string; shared?: string }) {
         emptyText={pending ? "Sestavy dvouher zatím nejsou zapsané – predikce se ukáže po jejich doplnění." : games.length && !strs.ready ? `Načítám STR hráčů… (${strs.done}/${strs.total})` : undefined}
         comp={comp ? { text: [compName, m?.round ? `${m.round}. kolo` : null].filter((x) => x).join(" · "),
           onClick: () => vm.openCompetition({ id: "", name: "", svaz: comp.svaz, rocnik: comp.rocnik, soutez: comp.soutez }, compName, "", "tabulka") } : null} />
-      <div className="col g12 px16">
+      <div className={"col g12 px16" + (path && vm.zapisBusy(path) && z ? " stale" : "")}>
         <SoundUnlockBar />
+        {path && vm.zapisNeedsPolling(path) && <LiveStatus busy={vm.zapisBusy(path)} first={!z} at={vm.zapisDataAt(path)} period={vm.livePeriod}
+          error={vm.zapisErrors.get(path)} onRetry={() => vm.loadZapis(path, false, true, true)} />}
+        {path && IS_DEV && <DevLiveInfo path={path} />}
         <AppCard>
           <div className="row">
             <div className="col w1">
