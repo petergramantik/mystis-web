@@ -10,7 +10,8 @@
 //  - dotazy na STIS vždy mimo mezipaměť Cloudflare, čas stažení v X-Fetched-At, hlavičky STIS v X-Stis-Cache
 //  - odpověď jako text -> Cloudflare ji komprimuje (bajty se nemění, smíšené kódování zůstává)
 //  - počítadlo zařízení odolné proti limitu zápisů KV (volitelné vzorkování proměnnou SAMPLE)
-const VERSION = "2";
+// 2.1: bez hlaviček Cache-Control/Pragma v dotazu na STIS (podezření na odmítání 403)
+const VERSION = "2.1";
 
 const BASE = "https://stis.ping-pong.cz";
 
@@ -134,8 +135,6 @@ async function fromStis(path, method0, bodyP, jar, referer) {
       "User-Agent": "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36 MySTIS/1.0",
       "Accept-Language": "cs-CZ,cs;q=0.9",
       "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Cache-Control": "no-cache",
-      "Pragma": "no-cache",
     };
     if (jar.size) h["Cookie"] = [...jar].map(([k, v]) => k + "=" + v).join("; ");
     if (referer) { h["Referer"] = referer; h["Origin"] = BASE; }

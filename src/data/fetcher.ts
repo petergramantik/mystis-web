@@ -158,16 +158,27 @@ export class WebFetcher implements Fetcher {
       void idbPut(path, ne);
       return html;
     } catch (err) {
-      if (e) return e.html;
+      // běžná data: při chybě poslední uložená kopie (offline režim);
+      // živá a ručně obnovovaná data (krátká platnost) nesmí potichu vrátit starou kopii – volající ukáže chybu
+      if (e && (maxAgeMs > 2 * 60_000 || (err instanceof FetchError && err.kind === "offline"))) return e.html;
       throw err;
     }
   }
 
   private async download(path: string, maxAgeMs = 0): Promise<string> {
-    let html = (await this.call(path, null, null, maxAgeMs))[0];
+    let html: string;
+    try { html = (await this.call(path, null, null, maxAgeMs))[0]; }
+    catch (e) {
+      // STIS bez relace může odpovědět 403 – zkusit jednou s ?nuser=1 (stejně jako u prázdné „brány“)
+      if (!(e instanceof FetchError && e.kind === "http" && /403/.test(e.message)) || path.includes("nuser=")) throw e;
+      const sep = path.includes("?") ? "&" : "?";
+      html = (await this.call(path + sep + "nuser=1", null, null, 0))[0];
+      const m = this.metas.get(path + sep + "nuser=1"); if (m) this.metas.set(path, m);
+    }
     if (Parsers.isGate(html)) {
       const sep = path.includes("?") ? "&" : "?";
       html = (await this.call(path + sep + "nuser=1", null, null))[0];
+      const m = this.metas.get(path + sep + "nuser=1"); if (m) this.metas.set(path, m);
     }
     if (Parsers.isGate(html)) throw new FetchError("STIS vrátil prázdnou stránku", "gate");
     return html;
@@ -217,10 +228,11 @@ export class WebFetcher implements Fetcher {
     }
     const pv = Number(resp.headers.get("X-Proxy-Version") ?? "0") || 0;
     if (pv !== this.proxyV) { this.proxyV = pv; try { localStorage.setItem(SP + "proxy_v", String(pv)); } catch { /* */ } }
-    const stisAt = Number(resp.headers.get("X-Fetched-At") ?? "0") || Date.now();
-    this.metas.set(p.split("#")[0], { at: Date.now(), stisAt, stisCache: resp.headers.get("X-Stis-Cache") ?? "", cache: resp.headers.get("X-Cache") ?? "" });
     const status = Number(resp.headers.get("X-Stis-Status") ?? "200");
     if (status >= 400) throw new FetchError(`STIS odpověděl ${status}`, "http");
+    // čas dat jen u úspěšné odpovědi (jinak by stará data vypadala jako čerstvá)
+    const stisAt = Number(resp.headers.get("X-Fetched-At") ?? "0") || Date.now();
+    this.metas.set(p.split("#")[0], { at: Date.now(), stisAt, stisCache: resp.headers.get("X-Stis-Cache") ?? "", cache: resp.headers.get("X-Cache") ?? "" });
     const bytes = new Uint8Array(await resp.arrayBuffer());
     const final = (resp.headers.get("X-Final-Url") ?? p).split("?")[0];
     return [Html.decodeMixed(bytes), final];

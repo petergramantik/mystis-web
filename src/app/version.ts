@@ -1,13 +1,17 @@
 // Verze aplikace a „Co je nového“. Produkce: PROD_VERSION; vývojová verze (/dev/): DEV_VERSION (např. 2.15-dev.3).
 import { IS_DEV } from "./channel";
 
-export const PROD_VERSION = "2.15.8";
+export const PROD_VERSION = "2.15.9";
 export const DEV_VERSION = "2.16-dev.1";
 export const APP_VERSION = IS_DEV ? DEV_VERSION : PROD_VERSION;
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.15.9", date: "15. 11. 2026", title: "Spolehlivější načítání",
+    items: ["Když STIS stránku odmítne, aplikace to u živých dat přizná a nevydává starý stav za aktuální; jeden automatický nový pokus"],
+  },
   {
     version: "2.15.8", date: "15. 11. 2026", title: "Rychlejší načítání a spolehlivé živé utkání",
     items: [
