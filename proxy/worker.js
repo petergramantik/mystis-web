@@ -12,7 +12,9 @@
 //  - počítadlo zařízení odolné proti limitu zápisů KV (volitelné vzorkování proměnnou SAMPLE)
 // 2.1: bez hlaviček Cache-Control/Pragma v dotazu na STIS (podezření na odmítání 403)
 // 2.2: dotaz na STIS přesně jako ve verzi 1 (bez volby cache: "no-store") – hledání vracelo 403
-const VERSION = "2.2";
+// 2.3: ochrana před limitem STIS – při odmítnutí (403/429/5xx) poslední kopie z mezipaměti (X-Stale: 1),
+//      po odmítnutí minutu přestávka (stránky s kopií se berou z mezipaměti), běžné stránky sdílené i při cookies
+const VERSION = "2.3";
 
 const BASE = "https://stis.ping-pong.cz";
 
@@ -20,7 +22,7 @@ const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, X-Stis-Cookie, X-Stis-Referer, X-Max-Age",
-  "Access-Control-Expose-Headers": "X-Final-Url, X-Stis-Cookie, X-Stis-Status, X-Fetched-At, X-Stis-Cache, X-Cache, X-Proxy-Version",
+  "Access-Control-Expose-Headers": "X-Final-Url, X-Stis-Cookie, X-Stis-Status, X-Fetched-At, X-Stis-Cache, X-Cache, X-Proxy-Version, X-Stale",
 };
 
 function parseCookies(str) {
@@ -107,6 +109,14 @@ ${N > 1 ? `<p style="color:#667;font-size:13px">Odhad ze vzorku: počítá se ka
 
 // ---------- stahování ze STIS
 const inflight = new Map();
+/** do kdy po odmítnutí STIS šetřit dotazy (v rámci jedné instance Workeru) */
+let blockedUntil = 0;
+function staleHeaders(h) {
+  const n = new Headers(h);
+  n.set("X-Stale", "1");
+  n.set("X-Stis-Status", "200");
+  return n;
+}
 let active = 0;
 const waiters = [];
 /** nejvýš 6 souběžných dotazů na STIS z jedné instance Workeru */
@@ -183,15 +193,18 @@ export default {
     const isGet = req.method !== "POST";
     // sdílená mezipaměť jen pro běžné GET bez cookies (hledání a formuláře nikdy)
     const maxAge = parseInt(req.headers.get("X-Max-Age") || "0", 10) || 0;
-    const shareable = isGet && !jar.size && !referer && !url.pathname.startsWith("/hledat") && !url.search.includes("nuser");
+    // běžné stránky jsou veřejné – cookies (relace z hledání) se k nim neposílají, takže je lze sdílet
+    const shareable = isGet && !referer && !url.pathname.startsWith("/hledat") && !url.search.includes("nuser");
+    if (shareable) jar.clear();
     const cacheKey = new Request("https://cache.mystis.invalid" + path);
     const cache = typeof caches !== "undefined" ? caches.default : null;
-    if (shareable && cache && maxAge > 0) {
-      try {
-        const hitResp = await cache.match(cacheKey);
-        const at = Number(hitResp?.headers.get("X-Fetched-At") || 0);
-        if (hitResp && Date.now() - at <= maxAge * 1000) return out(hitResp.body, hitResp.headers, "HIT");
-      } catch { /* mezipaměť nedostupná */ }
+    let cached = null;
+    if (shareable && cache) {
+      try { cached = await cache.match(cacheKey); } catch { /* mezipaměť nedostupná */ }
+      const at = Number(cached?.headers.get("X-Fetched-At") || 0);
+      if (cached && maxAge > 0 && Date.now() - at <= maxAge * 1000) return out(cached.body, cached.headers, "HIT");
+      // přestávka po odmítnutí STIS: co máme v mezipaměti, bereme odtud
+      if (cached && Date.now() < blockedUntil) return out(cached.body, staleHeaders(cached.headers), "STALE");
     }
     // stejná stránka stahovaná souběžně -> jedno stažení ze STIS
     const flightKey = shareable ? path : null;
@@ -201,6 +214,11 @@ export default {
       if (flightKey) { inflight.set(flightKey, task); task.finally(() => inflight.delete(flightKey)); }
     }
     const r = await task;
+    if (r.status === 403 || r.status === 429 || r.status >= 500) {
+      blockedUntil = Date.now() + 60_000;
+      // odmítnutí: raději poslední kopii (s jejím časem) než chybu
+      if (cached) return out(cached.body, staleHeaders(cached.headers), "STALE");
+    }
     const headers = new Headers({
       "X-Final-Url": r.finalPath,
       "X-Stis-Status": String(r.status),

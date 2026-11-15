@@ -17,7 +17,7 @@ interface Entry { html: string; at: number }
 /** Zpracovaná (neměnná) data uložená vedle stránek – klíč začíná „~“, nemažou se. */
 interface DataEntry { data: unknown; at: number; html?: undefined }
 /** Diagnostika posledního stažení stránky (čas stažení ze STIS, hlavičky STIS, sdílená mezipaměť Workeru). */
-export interface FetchMeta { at: number; stisAt: number; stisCache: string; cache: string }
+export interface FetchMeta { at: number; stisAt: number; stisCache: string; cache: string; stale?: boolean }
 
 // ---------------------------------------------------------------- IndexedDB
 const DB = IDB;
@@ -198,7 +198,9 @@ export class WebFetcher implements Fetcher {
     if (this.cookie) headers["X-Stis-Cookie"] = this.cookie;
     if (referer) headers["X-Stis-Referer"] = referer;
     // sdílená mezipaměť Workeru: jak stará kopie stačí (jen nový Worker – starý by hlavičku v CORS odmítl)
-    if (this.proxyV >= 2 && !form && maxAgeMs > 0) headers["X-Max-Age"] = String(Math.floor(maxAgeMs / 1000));
+    // ruční Obnovit (0) u běžných stránek: stačí kopie mladší 1 min (sdílená) – šetří limit STIS; zápisy vždy čerstvě
+    const ma = maxAgeMs > 0 ? maxAgeMs : path.startsWith("/zapis/") ? 0 : 60_000;
+    if (this.proxyV >= 2 && !form && ma > 0) headers["X-Max-Age"] = String(Math.floor(ma / 1000));
     let body: string | undefined;
     if (form) {
       headers["Content-Type"] = "application/x-www-form-urlencoded";
@@ -227,7 +229,7 @@ export class WebFetcher implements Fetcher {
     if (status >= 400) throw new FetchError(`STIS odpověděl ${status}`, "http");
     // čas dat jen u úspěšné odpovědi (jinak by stará data vypadala jako čerstvá)
     const stisAt = Number(resp.headers.get("X-Fetched-At") ?? "0") || Date.now();
-    this.metas.set(p.split("#")[0], { at: Date.now(), stisAt, stisCache: resp.headers.get("X-Stis-Cache") ?? "", cache: resp.headers.get("X-Cache") ?? "" });
+    this.metas.set(p.split("#")[0], { at: Date.now(), stisAt, stisCache: resp.headers.get("X-Stis-Cache") ?? "", cache: resp.headers.get("X-Cache") ?? "", stale: resp.headers.get("X-Stale") === "1" });
     const bytes = new Uint8Array(await resp.arrayBuffer());
     const final = (resp.headers.get("X-Final-Url") ?? p).split("?")[0];
     return [Html.decodeMixed(bytes), final];

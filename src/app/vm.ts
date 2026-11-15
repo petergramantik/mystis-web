@@ -471,6 +471,7 @@ export class AppVm {
         if (z == null) this.liveErrors.set(key, "Zápis se nepodařilo přečíst.");
         else {
           this.zapisy.set(link, z); this.zapisFetched.set(link, Date.now());
+          if (this.fetcher.meta(link)?.stale) this.liveErrors.set(key, "STIS teď dočasně odmítá dotazy – zobrazena poslední dostupná kopie.");
           this.liveUpdated.set(key, Date.now());
           this.notifyLive(link, z);
           const ctx = this.next.find((c) => this.teamKey(c) === key);
@@ -1946,7 +1947,9 @@ export class AppVm {
         let z = have || force ? null : await this.repo.zapis(path);
         if (z && !have) this.zapisy.set(path, z);
         if (!z || this.zapisNeedsPolling(path)) z = await this.repo.zapis(path, exact ? 0 : force ? 45_000 : 60_000) ?? z;
-        this.zapisErrors.delete(path);
+        // Worker při odmítnutí STIS vrátí poslední kopii – přiznat to
+        if (this.fetcher.meta(path)?.stale) this.zapisErrors.set(path, "STIS teď dočasně odmítá dotazy – zobrazena poslední dostupná kopie.");
+        else this.zapisErrors.delete(path);
         if (z) {
           const wasRunning = !!have && !this.finished(have);
           this.zapisy.set(path, z); this.zapisFetched.set(path, Date.now());
