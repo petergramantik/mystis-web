@@ -160,21 +160,15 @@ export class WebFetcher implements Fetcher {
     } catch (err) {
       // běžná data: při chybě poslední uložená kopie (offline režim);
       // živá a ručně obnovovaná data (krátká platnost) nesmí potichu vrátit starou kopii – volající ukáže chybu
-      if (e && (maxAgeMs > 2 * 60_000 || (err instanceof FetchError && err.kind === "offline"))) return e.html;
+      // jen živá data (zápis / rozpis s platností do 1 min) chybu přiznají; ostatní (i ruční Obnovit) vezmou uloženou kopii
+      const live = maxAgeMs > 0 && maxAgeMs <= 60_000 || (maxAgeMs === 0 && path.startsWith("/zapis/"));
+      if (e && !live) return e.html;
       throw err;
     }
   }
 
   private async download(path: string, maxAgeMs = 0): Promise<string> {
-    let html: string;
-    try { html = (await this.call(path, null, null, maxAgeMs))[0]; }
-    catch (e) {
-      // STIS bez relace může odpovědět 403 – zkusit jednou s ?nuser=1 (stejně jako u prázdné „brány“)
-      if (!(e instanceof FetchError && e.kind === "http" && /403/.test(e.message)) || path.includes("nuser=")) throw e;
-      const sep = path.includes("?") ? "&" : "?";
-      html = (await this.call(path + sep + "nuser=1", null, null, 0))[0];
-      const m = this.metas.get(path + sep + "nuser=1"); if (m) this.metas.set(path, m);
-    }
+    let html = (await this.call(path, null, null, maxAgeMs))[0];
     if (Parsers.isGate(html)) {
       const sep = path.includes("?") ? "&" : "?";
       html = (await this.call(path + sep + "nuser=1", null, null))[0];
@@ -189,7 +183,8 @@ export class WebFetcher implements Fetcher {
     const now = Date.now();
     const at = Math.max(now, this.nextSlot);
     // Worker 2+ hlídá zátěž STIS sám (sdílená mezipaměť, nejvýš 6 souběžných dotazů) -> rychlejší načítání
-    this.nextSlot = at + (this.proxyV >= 2 ? 100 : 300);
+    // šetrně k STIS: nejvýš ~3 dotazy za sekundu (při hustším dotazování STIS odmítal 403)
+    this.nextSlot = at + 300;
     if (at > now) await sleep(at - now);
   }
 
