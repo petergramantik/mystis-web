@@ -149,7 +149,11 @@ export class AppVm {
     // karta Hráči: vždy začíná soutěží mého hlavního družstva (ruční volba platí jen do odchodu z karty)
     if (s.t === "Opponents") prefs.oppComp = null;
     // Přehled: poslední utkání zase od nejnovějšího
-    if (s.t === "Overview") this.lastSel = null;
+    if (s.t === "Overview") {
+      this.lastSel = null;
+      // visící chyby živých zápisů: hned zkusit znovu (po skončení utkání se už samy neobnovují)
+      for (const [k, l] of this.liveLinks) if (this.liveErrors.has(k)) this.loadLive(k, l, true);
+    }
     if (s.t === "Ladder" && this.me && !this.club.ladder.length) this.loadClub(false);
     this.stack = [...this.stack.filter((x) => !sameScreen(x, s)), s];
     this.trim(); this.emit(); this.scrollTop();
@@ -472,6 +476,7 @@ export class AppVm {
         else {
           this.zapisy.set(link, z); this.zapisFetched.set(link, Date.now());
           if (this.fetcher.meta(link)?.stale) this.liveErrors.set(key, "STIS teď dočasně odmítá dotazy – zobrazena poslední dostupná kopie.");
+          else this.zapisErrors.delete(link);
           this.liveUpdated.set(key, Date.now());
           this.notifyLive(link, z);
           const ctx = this.next.find((c) => this.teamKey(c) === key);
@@ -1949,7 +1954,11 @@ export class AppVm {
         if (!z || this.zapisNeedsPolling(path)) z = await this.repo.zapis(path, exact ? 0 : force ? 45_000 : 60_000) ?? z;
         // Worker při odmítnutí STIS vrátí poslední kopii – přiznat to
         if (this.fetcher.meta(path)?.stale) this.zapisErrors.set(path, "STIS teď dočasně odmítá dotazy – zobrazena poslední dostupná kopie.");
-        else this.zapisErrors.delete(path);
+        else {
+          this.zapisErrors.delete(path);
+          // úspěšné načtení ruší i chybu živého sledování stejného zápisu (jinak by zůstala viset)
+          for (const [k, l] of this.liveLinks) if (l === path) this.liveErrors.delete(k);
+        }
         if (z) {
           const wasRunning = !!have && !this.finished(have);
           this.zapisy.set(path, z); this.zapisFetched.set(path, Date.now());
