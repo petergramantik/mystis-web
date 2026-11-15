@@ -160,12 +160,12 @@ export function H2HScreen({ oppKey }: { oppKey: string }) {
     <div className="col g12">
       <NavyHeader>
         <div className="rowt">
-          <HeaderPlayer name={me.name} str={myStr} team={o.last?.myTeam ?? ""} color={C.Blue} />
+          <HeaderPlayer name={me.name} str={myStr} team={o.last?.myTeam ?? ""} color={C.Blue} onClick={() => vm.go({ t: "Player", path: me.path })} />
           <div className="col" style={{ alignItems: "center", paddingTop: 8, flex: "none" }}>
             <BigNumber text={`${o.wins} : ${o.losses}`} color="#fff" size={52} style={{ whiteSpace: "nowrap" }} />
             <Muted text={`sety ${o.setsFor} : ${o.setsAgainst}`} color={C.MutedOnNavy} />
           </div>
-          <HeaderPlayer name={o.name} str={oppStr} team={o.team} color={C.Orange} />
+          <HeaderPlayer name={o.name} str={oppStr} team={o.team} color={C.Orange} onClick={oppPath ? () => vm.go({ t: "Player", path: oppPath }) : null} />
         </div>
       </NavyHeader>
       <div className="col g12 px16">
