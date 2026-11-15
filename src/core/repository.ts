@@ -2,7 +2,7 @@
 import { CompTree, type CompTreeData } from "./compTree";
 import { Html, rx, findAll, find, g } from "./html";
 import { type LDate, type LDT, LDT_MAX, ldOf, ldtDate, nowLdt, today as todayFn } from "./dates";
-import { Clubs, Stis, type StrLadder, type TeamInfo, type ClubPage, type LosMatch, type PlayerPage, type RosterPlayer, type StandingRow, type TeamMembership, type TeamRef, type TeamRoster, type Zapis } from "./models";
+import { Clubs, Match, PlayerPage, Stis, Zapis, ZapisGame, type StrLadder, type TeamInfo, type ClubPage, type LosMatch, type RosterPlayer, type StandingRow, type TeamMembership, type TeamRef, type TeamRoster } from "./models";
 import { Parsers } from "./parsers";
 import { Search, type SearchClub, type SearchPlayer } from "./search";
 import { Stats, distinctBy, minBy } from "./stats";
@@ -11,6 +11,33 @@ import { Stats, distinctBy, minBy } from "./stats";
 export interface Fetcher {
   /** maxAgeMs = jak stará může být kopie v cache (0 = vždy stáhnout). */
   get(path: string, maxAgeMs: number): Promise<string>;
+  /** volitelně: kdy byla stránka naposledy stažena */
+  cachedAt?(path: string): Promise<number | null>;
+  /** volitelně: úložiště zpracovaných dat (neměnné zápisy, rozparsované profily) */
+  getData?<T>(key: string): Promise<{ data: T; at: number } | null>;
+  putData?(key: string, data: unknown, at?: number): void;
+}
+
+/** Obnoví prototypy tříd u dat z úložiště (IndexedDB ukládá jen vlastnosti). */
+function reviveZapis(o: any): Zapis {
+  const z = Object.setPrototypeOf(o, Zapis.prototype) as Zapis;
+  for (const gm of z.games) Object.setPrototypeOf(gm, ZapisGame.prototype);
+  return z;
+}
+function revivePlayer(o: any): PlayerPage {
+  const p = Object.setPrototypeOf(o, PlayerPage.prototype) as PlayerPage;
+  delete (p as any)._chron; delete (p as any)._chronSrc;
+  for (const m of p.matches) Object.setPrototypeOf(m, Match.prototype);
+  return p;
+}
+/** Dohraný zápis starší než 7 dní (STIS do té doby ještě opravuje) – už se nezmění. */
+export function zapisFinal(z: Zapis, now = Date.now()): boolean {
+  const m = /(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/.exec(z.dateText);
+  if (!m) return false;
+  const d = new Date(+m[3], +m[2] - 1, +m[1]).getTime();
+  if (now - d < 7 * DAY) return false;
+  const [h, a] = z.score;
+  return z.games.length > 0 && h + a > 0 && z.games.every((g) => g.result != null || g.wo);
 }
 
 export interface NextMatchContext {
@@ -40,11 +67,28 @@ export class StisRepository {
     return html;
   }
 
+  /** Uložený rozparsovaný profil bez ohledu na stáří (k okamžitému zobrazení, než dorazí čerstvý). */
+  async playerCached(path: string): Promise<{ page: PlayerPage; at: number } | null> {
+    if (!this.fetcher.getData) return null;
+    try {
+      const c = await this.fetcher.getData<PlayerPage>("p:" + Stis.canonicalPlayer(path));
+      return c ? { page: revivePlayer(c.data), at: c.at } : null;
+    } catch { return null; }
+  }
+
   async player(path: string, maxAge = 6 * HOUR): Promise<PlayerPage | null> {
     const canonical = Stis.canonicalPlayer(path);
+    // rozparsovaný profil (stránka STIS má 300–600 kB) – zpracování HTML se přeskočí
+    if (maxAge > 0 && this.fetcher.getData) {
+      try {
+        const c = await this.fetcher.getData<PlayerPage>("p:" + canonical);
+        if (c && Date.now() - c.at < maxAge) return revivePlayer(c.data);
+      } catch { /* */ }
+    }
     let page: PlayerPage | null = null;
     try {
       page = Parsers.player(await this.get(canonical, maxAge), canonical);
+      if (page && this.fetcher.putData) this.fetcher.putData("p:" + canonical, page, (await this.fetcher.cachedAt?.(canonical)) ?? Date.now());
     } catch (e) {
       if (canonical === path) throw e;
       page = null;
@@ -91,7 +135,13 @@ export class StisRepository {
   }
 
   async zapis(path: string, maxAge = 30 * DAY): Promise<Zapis | null> {
-    return Parsers.zapis(await this.get(path, maxAge), path);
+    // dohraný a uzavřený zápis je neměnný: uložený zhuštěně, už se nestahuje ani nemaže
+    if (this.fetcher.getData) {
+      try { const c = await this.fetcher.getData<Zapis>("z:" + path); if (c) return reviveZapis(c.data); } catch { /* */ }
+    }
+    const z = Parsers.zapis(await this.get(path, maxAge), path);
+    if (z && this.fetcher.putData && zapisFinal(z)) this.fetcher.putData("z:" + path, z);
+    return z;
   }
 
   /** Katalog všech svazů a soutěží ročníku (jedna stránka oblasti ČAST). */

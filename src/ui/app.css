@@ -181,3 +181,11 @@ button { font-family: inherit; }
 /* vlastní tlačítko × místo nativního u vyhledávacích polí */
 .field input[type="search"]::-webkit-search-cancel-button, .field input[type="search"]::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
 .field input[type="search"] { -webkit-appearance: none; appearance: none; }
+
+/* stav živých dat */
+.livebar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px; font-size: 13px; font-weight: 600; background: #EEF2FA; color: #3D4A63; }
+.livebar.dark { background: rgba(255,255,255,.08); color: #C9D4EA; }
+.livebar.busy { background: #1F4FB8; color: #fff; }
+.livebar.err { background: #FDF1E7; color: #9A4A0B; }
+.spinsvg { animation: spin .8s linear infinite; flex: none; }
+.stale > :not(.livebar):not(.px16) , .stale > .px16 > :not(.livebar) { opacity: .5; transition: opacity .2s; }

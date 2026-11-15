@@ -9,7 +9,7 @@ import { Stats } from "../../core/stats";
 import { Live, MatchFormats } from "../../core/live";
 import { ldtDate, nowLdt, today } from "../../core/dates";
 import type { SearchClub } from "../../core/search";
-import { AppCard, Avatar, C, Chips, Divider, Empty, ListCard, Loading, Muted, OButton, Segmented, Spinner, T, shortTeam } from "../components";
+import { AppCard, Avatar, C, Chips, Divider, Empty, ListCard, LiveStatus, Loading, Muted, OButton, Segmented, Spinner, T, shortTeam } from "../components";
 import { hhmmLdt } from "../fmt";
 import { GameRow, ScoreHeader, lineupsPending } from "./LiveMatch";
 import { useZapisStr } from "./Duel";
@@ -47,8 +47,14 @@ export function LiveBoard() {
   const [msg, setMsg] = useState<string | null>(null);
   useEffect(() => {
     for (const c of comps) { vm.loadCompLos(c); if (!c.mine) vm.loadStrLadder(c.svaz, c.rocnik, c.soutez); }
-    const t = setInterval(() => { for (const c of vm.liveComps()) vm.loadCompLos(c, true); }, 60_000);
-    return () => clearInterval(t);
+    // obnova rozpisů po 3 minutách, jen když je aplikace na obrazovce
+    const tick = () => {
+      if (!vm.appVisible) return;
+      for (const c of vm.liveComps()) if (Date.now() - (vm.compLosAt.get(vm.compKey(c)) ?? 0) >= vm.livePeriod) vm.loadCompLos(c, true);
+    };
+    const t = setInterval(tick, 10_000);
+    document.addEventListener("visibilitychange", tick);
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", tick); };
   }, [comps.length]);
   const day = today() + vm.liveDay;
   const watched = vm.watched();
@@ -57,8 +63,13 @@ export function LiveBoard() {
   const liveKey = livePaths.join(",");
   useEffect(() => {
     for (const p of livePaths) vm.loadZapis(p);
-    const t = setInterval(() => { for (const p of livePaths) vm.loadZapis(p, false, true); }, 60_000);
-    return () => clearInterval(t);
+    const tick = () => {
+      if (!vm.appVisible) return;
+      for (const p of livePaths) if (vm.zapisNeedsPolling(p) && Date.now() - vm.zapisLoadedAt(p) >= vm.livePeriod) vm.loadZapis(p, false, true);
+    };
+    const t = setInterval(tick, 10_000);
+    document.addEventListener("visibilitychange", tick);
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", tick); };
   }, [liveKey]);
   const sel = comps.some((c) => vm.compKey(c) === vm.liveCompSel) ? vm.liveCompSel : "all";
   const sections = comps.filter((c) => sel === "all" || vm.compKey(c) === sel).map((c) => {
@@ -69,8 +80,14 @@ export function LiveBoard() {
     return { c, list, loading: vm.compLosLoading.has(vm.compKey(c)) && !vm.compLos.has(vm.compKey(c)) };
   });
   const any = sections.some((s) => s.list.length);
+  // stav živých dat celé obrazovky: nejstarší z načtených rozpisů
+  const ats = comps.map((c) => vm.compLosAt.get(vm.compKey(c)) ?? 0).filter((x) => x > 0);
+  const boardBusy = comps.some((c) => vm.compLosLoading.has(vm.compKey(c))) || livePaths.some((p) => vm.zapisBusy(p));
+  const boardAt = ats.length ? Math.min(...ats) : 0;
+  const refreshAll = () => { for (const c of comps) vm.loadCompLos(c, true); for (const p of livePaths) vm.loadZapis(p, false, true, true); };
   return (
-    <div className="col g10 px16">
+    <div className={"col g10 px16" + (boardBusy && boardAt ? " stale" : "")}>
+      {vm.liveDay === 0 && any && <LiveStatus busy={boardBusy} first={!boardAt} at={boardAt} period={vm.livePeriod} onRetry={refreshAll} />}
       <div className="row g8">
         <div style={{ flex: 1 }}><Chips options={[["-1", "Včera"], ["0", "Dnes"], ["1", "Zítra"]]} selected={String(vm.liveDay)} onSelect={(k) => { vm.liveDay = parseInt(k, 10); vm.emit(); }} /></div>
         <OButton text="+ Soutěž" onClick={() => setAdding(true)} />

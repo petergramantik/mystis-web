@@ -584,3 +584,36 @@ export function FormPerf({ f, size = 13, dark = false, prefix = true }: { f: For
     </div>
   );
 }
+
+/**
+ * Stav živých dat: zřetelný pruh při načítání (zobrazená data jsou stará), čas stavu ze STIS,
+ * odpočet do další obnovy a chyba s tlačítkem „Zkusit hned“.
+ */
+export function LiveStatus({ busy, at, period, error, onRetry, dark = false, first = false }: {
+  busy: boolean; at: number; period: number; error?: string | null; onRetry: () => void; dark?: boolean; first?: boolean;
+}) {
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(t); }, []);
+  const hm = (t: number) => { const d = new Date(t); return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`; };
+  const left = Math.max(0, Math.round((at + period - Date.now()) / 1000));
+  const mm = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+  if (busy) return (
+    <div className="livebar busy">
+      <svg className="spinsvg" viewBox="0 0 24 24" width={18} height={18}><path d={ICONS.refresh} fill="currentColor" /></svg>
+      <span style={{ flex: 1 }}>{first || !at ? "Načítám průběh utkání ze STIS…" : `Načítám novější stav ze STIS… (zobrazen stav z ${hm(at)})`}</span>
+    </div>
+  );
+  if (error) return (
+    <div className="livebar err">
+      <span style={{ flex: 1 }}>{`Nepodařilo se načíst – zkusím znovu za ${Math.max(1, Math.round(period / 60000))} min.${at ? ` Zobrazen stav z ${hm(at)}.` : ""}`}</span>
+      <button className="chip" style={{ height: 30, flex: "none" }} onClick={onRetry}>Zkusit hned</button>
+    </div>
+  );
+  if (!at) return null;
+  return (
+    <div className={"livebar" + (dark ? " dark" : "")}>
+      <span style={{ flex: 1 }}>{`Stav ze STIS z ${hm(at)} · další obnova za ${mm}`}</span>
+      <span className="clickable" style={{ fontWeight: 700 }} onClick={onRetry}>Obnovit</span>
+    </div>
+  );
+}

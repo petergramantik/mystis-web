@@ -14,6 +14,10 @@ export class FetchError extends Error {
 }
 
 interface Entry { html: string; at: number }
+/** Zpracovaná (neměnná) data uložená vedle stránek – klíč začíná „~“, nemažou se. */
+interface DataEntry { data: unknown; at: number; html?: undefined }
+/** Diagnostika posledního stažení stránky (čas stažení ze STIS, hlavičky STIS, sdílená mezipaměť Workeru). */
+export interface FetchMeta { at: number; stisAt: number; stisCache: string; cache: string }
 
 // ---------------------------------------------------------------- IndexedDB
 const DB = IDB;
@@ -77,7 +81,13 @@ async function idbPrune(maxAge: number) {
   const limit = Date.now() - maxAge;
   try {
     const q = d.transaction(STORE, "readwrite").objectStore(STORE).openCursor();
-    q.onsuccess = () => { const c = q.result; if (!c) return; if (((c.value as Entry).at ?? 0) < limit) c.delete(); c.continue(); };
+    q.onsuccess = () => {
+      const c = q.result; if (!c) return;
+      // „~“ = zpracovaná neměnná data (dohrané zápisy), ta se nemažou; zpracované profily ano
+      const k = String(c.key);
+      if ((!k.startsWith("~z:")) && ((c.value as Entry).at ?? 0) < limit) c.delete();
+      c.continue();
+    };
   } catch { /* */ }
 }
 
@@ -86,6 +96,19 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const MEM_MAX = 150;
 
 export class WebFetcher implements Fetcher {
+  /** Worker verze 2+ (sdílená mezipaměť, X-Max-Age) – zjistí se z první odpovědi */
+  private proxyV = Number((() => { try { return localStorage.getItem(SP + "proxy_v") ?? "0"; } catch { return "0"; } })()) || 0;
+  private metas = new Map<string, FetchMeta>();
+  meta(path: string): FetchMeta | undefined { return this.metas.get(path); }
+  /** Zpracovaná data (neměnné zápisy, rozparsované profily) – rychlejší než znovu zpracovat HTML. */
+  async getData<T>(key: string): Promise<{ data: T; at: number } | null> {
+    const e = (await idbGet("~" + key)) as unknown as DataEntry | undefined;
+    return e && e.data != null ? { data: e.data as T, at: e.at } : null;
+  }
+  putData(key: string, data: unknown, at = Date.now()) {
+    // jen čistá data (bez getterů a mezipamětí tříd)
+    try { void idbPut("~" + key, { data: JSON.parse(JSON.stringify(data, (k, v) => (k.startsWith("_") ? undefined : v))), at } as unknown as Entry); } catch { /* */ }
+  }
   private mem = new Map<string, Entry>();
   private inflight = new Map<string, Promise<string>>();
   private cookie = "";
@@ -127,9 +150,10 @@ export class WebFetcher implements Fetcher {
     try {
       // stejná stránka požadovaná víckrát najednou se stahuje jen jednou
       let pend = this.inflight.get(path);
-      if (!pend) { pend = this.download(path).finally(() => this.inflight.delete(path)); this.inflight.set(path, pend); }
+      if (!pend) { pend = this.download(path, maxAgeMs).finally(() => this.inflight.delete(path)); this.inflight.set(path, pend); }
       const html = await pend;
-      const ne = { html, at: Date.now() };
+      // stáří = kdy data stáhl ze STIS Worker (ze sdílené mezipaměti mohou být o chvíli starší)
+      const ne = { html, at: Math.min(Date.now(), this.metas.get(path)?.stisAt ?? Date.now()) };
       this.remember(path, ne);
       void idbPut(path, ne);
       return html;
@@ -139,8 +163,8 @@ export class WebFetcher implements Fetcher {
     }
   }
 
-  private async download(path: string): Promise<string> {
-    let html = (await this.call(path, null, null))[0];
+  private async download(path: string, maxAgeMs = 0): Promise<string> {
+    let html = (await this.call(path, null, null, maxAgeMs))[0];
     if (Parsers.isGate(html)) {
       const sep = path.includes("?") ? "&" : "?";
       html = (await this.call(path + sep + "nuser=1", null, null))[0];
@@ -153,12 +177,13 @@ export class WebFetcher implements Fetcher {
   private async throttle() {
     const now = Date.now();
     const at = Math.max(now, this.nextSlot);
-    this.nextSlot = at + 300;
+    // Worker 2+ hlídá zátěž STIS sám (sdílená mezipaměť, nejvýš 6 souběžných dotazů) -> rychlejší načítání
+    this.nextSlot = at + (this.proxyV >= 2 ? 100 : 300);
     if (at > now) await sleep(at - now);
   }
 
   /** Jeden požadavek přes proxy. Vrací HTML a cestu, na které požadavek skončil (kvůli přesměrování). */
-  private async call(path: string, referer: string | null, form: Record<string, string> | null): Promise<[string, string]> {
+  private async call(path: string, referer: string | null, form: Record<string, string> | null, maxAgeMs = 0): Promise<[string, string]> {
     const proxy = prefs.proxyUrl;
     if (!proxy) throw new FetchError("Není nastavená adresa proxy pro čtení STIS (Nastavení → Připojení ke STIS).", "noproxy");
     await this.throttle();
@@ -166,6 +191,8 @@ export class WebFetcher implements Fetcher {
     const headers: Record<string, string> = {};
     if (this.cookie) headers["X-Stis-Cookie"] = this.cookie;
     if (referer) headers["X-Stis-Referer"] = referer;
+    // sdílená mezipaměť Workeru: jak stará kopie stačí (jen nový Worker – starý by hlavičku v CORS odmítl)
+    if (this.proxyV >= 2 && !form && maxAgeMs > 0) headers["X-Max-Age"] = String(Math.floor(maxAgeMs / 1000));
     let body: string | undefined;
     if (form) {
       headers["Content-Type"] = "application/x-www-form-urlencoded";
@@ -188,6 +215,10 @@ export class WebFetcher implements Fetcher {
       this.cookie = ck;
       try { sessionStorage.setItem(SP + "cookie", ck); } catch { /* */ }
     }
+    const pv = Number(resp.headers.get("X-Proxy-Version") ?? "0") || 0;
+    if (pv !== this.proxyV) { this.proxyV = pv; try { localStorage.setItem(SP + "proxy_v", String(pv)); } catch { /* */ } }
+    const stisAt = Number(resp.headers.get("X-Fetched-At") ?? "0") || Date.now();
+    this.metas.set(p.split("#")[0], { at: Date.now(), stisAt, stisCache: resp.headers.get("X-Stis-Cache") ?? "", cache: resp.headers.get("X-Cache") ?? "" });
     const status = Number(resp.headers.get("X-Stis-Status") ?? "200");
     if (status >= 400) throw new FetchError(`STIS odpověděl ${status}`, "http");
     const bytes = new Uint8Array(await resp.arrayBuffer());

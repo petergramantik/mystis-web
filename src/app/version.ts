@@ -1,13 +1,24 @@
 // Verze aplikace a „Co je nového“. Produkce: PROD_VERSION; vývojová verze (/dev/): DEV_VERSION (např. 2.15-dev.3).
 import { IS_DEV } from "./channel";
 
-export const PROD_VERSION = "2.15.7";
+export const PROD_VERSION = "2.15.8";
 export const DEV_VERSION = "2.16-dev.1";
 export const APP_VERSION = IS_DEV ? DEV_VERSION : PROD_VERSION;
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.15.8", date: "15. 11. 2026", title: "Rychlejší načítání a spolehlivé živé utkání",
+    items: [
+      "Živé utkání: jasně vidět, kdy se načítá novější stav a z kdy jsou zobrazená data; při chybě „Zkusit hned“",
+      "Živá data se obnovují po 3 minutách a jen při otevřené aplikaci; po návratu do aplikace hned",
+      "Spolehlivě čerstvé zápisy probíhajících utkání",
+      "Výrazně méně stahovaných dat a rychlejší načítání: komprese, sdílená mezipaměť, dohrané zápisy se už znovu nestahují",
+      "Tabulky, žebříčky a profily se stahují znovu jen, když se mohly změnit (po odehraném utkání)",
+      "Po spuštění se hned ukážou uložená data, oddíl se načítá až po Přehledu",
+    ],
+  },
   {
     version: "2.15.7", date: "12. 11. 2026", title: "Poslední utkání na Přehledu",
     items: ["Moje poslední utkání: po návratu na Přehled nebo po novějším utkání se vždy ukáže nejnovější utkání"],

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ModelLink } from "./Model";
 import { SupportStrip } from "../support";
 import { useZapisRefresh } from "../zapis";
+import { IS_DEV } from "../../app/channel";
 import { vm } from "../../app/vm";
 import { Stis, type Match, type PlayerPage, type ZapisGame } from "../../core/models";
 import { Stats, StrModel, sum } from "../../core/stats";
@@ -10,6 +11,7 @@ import { Live } from "../../core/live";
 import { roundScore } from "../../core/search";
 import { HallCard } from "../hall";
 import {
+  LiveStatus,
   AppCard, BigNumber, C, DMY, Divider, Empty, HeaderPlayer, KeyValue, ListCard, Loading, Muted, NavyHeader, ResultBadge, SectionTitle, T, signedInt,
   SetsLine, TeamName,
 } from "../components";
@@ -111,6 +113,21 @@ export function PairScreen({ aId0, aName0, bId0, bName0, pA0 }: { aId0: string; 
   );
 }
 
+/** Dev: diagnostika obnovy živého zápisu (proč se obnovuje/neobnovuje, odkud data jsou). */
+export function DevLiveInfo({ path }: { path: string }) {
+  const z = vm.zapisy.get(path);
+  const m = vm.fetcher.meta(path);
+  const f = z ? vm.fmtOf(z) : null;
+  const hm = (t: number) => (t ? new Date(t).toLocaleTimeString("cs-CZ") : "–");
+  const rows = [
+    `obnova: ${vm.zapisNeedsPolling(path) ? "běží" : "stojí"} · dohráno: ${z ? (vm.finished(z) ? "ano" : "ne") : "?"} · potvrzeno v rozpisu: ${vm.zapisConfirmed(path) ? "ano" : "ne"}`,
+    `načteno ${hm(vm.zapisLoadedAt(path))} · data ze STIS ${hm(m?.stisAt ?? 0)} · Worker: ${m?.cache || "starý / bez údaje"}`,
+    `formát: ${f ? `${f.games} her${f.target != null ? `, do ${f.target}` : ""}` : "?"} · her v zápisu ${z?.games.length ?? 0}`,
+    `hlavičky STIS: ${m?.stisCache || "–"}`,
+  ];
+  return <div style={{ marginTop: 6, fontSize: 11, color: "#7A8499", lineHeight: 1.4, fontFamily: "monospace", wordBreak: "break-word" }}>{rows.map((r, i) => <div key={i}>{r}</div>)}</div>;
+}
+
 export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: string }) {
   useZapisRefresh(path);
   const z = vm.zapisy.get(path);
@@ -142,8 +159,14 @@ export function ZapisDetailScreen({ path, myTeam }: { path: string; myTeam: stri
   const zc = vm.compOfPath(path);
   const openZTeam = (id: string | null, name: string) => { if (zc && id) vm.openTeam({ id, name, ...zc }, z.competition); };
   let h = 0, a = 0;
+  const polling = vm.zapisNeedsPolling(path);
+  const busy = polling && vm.zapisBusy(path);
   return (
-    <div className="col g12">
+    <div className={"col g12" + (busy ? " stale" : "")}>
+      {polling && <div className="px16" style={{ marginTop: 8 }}>
+        <LiveStatus busy={busy} at={vm.zapisDataAt(path)} period={vm.livePeriod} error={vm.zapisErrors.get(path)} onRetry={() => vm.loadZapis(path, false, true, true)} />
+        {IS_DEV && <DevLiveInfo path={path} />}
+      </div>}
       <NavyHeader>
         <Muted text={[z.competition, z.round.trim() ? `${z.round}. kolo` : null].filter((x) => x && x.trim()).join(" · ")} color={C.MutedOnNavy} size={13} />
         <div className="row">

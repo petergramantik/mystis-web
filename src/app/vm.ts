@@ -134,7 +134,7 @@ export class AppVm {
       case "BrowseClub": this.loadClubPage(s.path, true); break;
       case "BrowseComp": this.loadCompBrowse(s, true); break;
       case "Player": if (this.me && s.path === this.me.path) this.refreshAll(); else this.loadPlayer(s.path, true); break;
-      case "ZapisDetail": this.loadZapis(s.path, false, true); break;
+      case "ZapisDetail": this.loadZapis(s.path, false, true, true); break;
       default: this.refreshAll();
     }
   }
@@ -150,6 +150,7 @@ export class AppVm {
     if (s.t === "Opponents") prefs.oppComp = null;
     // Přehled: poslední utkání zase od nejnovějšího
     if (s.t === "Overview") this.lastSel = null;
+    if (s.t === "Ladder" && this.me && !this.club.ladder.length) this.loadClub(false);
     this.stack = [...this.stack.filter((x) => !sameScreen(x, s)), s];
     this.trim(); this.emit(); this.scrollTop();
   }
@@ -311,8 +312,14 @@ export class AppVm {
     this.emit();
     (async () => {
       try {
+        // uložená data hned (s označením stáří), čerstvá se mezitím stahují
+        if (!this.me && !force) {
+          const c = await this.repo.playerCached(path);
+          if (c && !this.me) { this.me = c.page; this.meDataAt = c.at; this.emit(); }
+        }
         const p = await this.repo.player(path, force ? 0 : 6 * HOUR);
         if (p != null) {
+          this.meDataAt = (await this.fetcher.cachedAt(Stis.canonicalPlayer(path))) ?? Date.now();
           this.me = p;
           if (p.path !== path) prefs.playerPath = p.path;
           prefs.addRecent(p.path, p.name);
@@ -324,14 +331,20 @@ export class AppVm {
         this.loadingMe = false; this.emit();
       }
       if (this.me != null) {
-        if (this.club.ladder.length === 0 || force) this.loadClub(force);
         if (this.next.length === 0 || force) this.loadNext(force);
+        // oddíl (soupisky a profily spoluhráčů) je nejtěžší část – až po Přehledu, nebo hned při otevření Žebříčků
+        if (this.club.ladder.length === 0 || force) {
+          if (force || this.current.t === "Ladder") this.loadClub(force);
+          else setTimeout(() => { if (!this.club.ladder.length) this.loadClub(false); }, 6000);
+        }
       }
       this.stepDone();
     })();
   }
 
   refreshAll() { this.loadMe(true); }
+  /** kdy jsou zobrazená data profilu ze STIS (kvůli označení „data z …“ při načítání) */
+  meDataAt = 0;
 
   // ---------- průběh načítání
   progressTotal = 0;
@@ -443,7 +456,7 @@ export class AppVm {
     return ctx.home;
   }
 
-  loadLive(key: string, path: string, force: boolean) {
+  loadLive(key: string, path: string, force: boolean, exact = false) {
     let link = path.trim().replace(/^https?:\/\/[^/]+/, "");
     const h = link.indexOf("#"); if (h >= 0) link = link.substring(0, h);
     if (!link.includes("utkani-") && !link.includes("/zapis/")) { this.liveErrors.set(key, "Vložte odkaz na zápis o utkání (…/zapis/…/utkani-…)."); this.emit(); return; }
@@ -454,10 +467,10 @@ export class AppVm {
     this.emit();
     (async () => {
       try {
-        const z = await this.repo.zapis(link, force ? 0 : 60_000);
+        const z = await this.repo.zapis(link, exact ? 0 : force ? 45_000 : 60_000);
         if (z == null) this.liveErrors.set(key, "Zápis se nepodařilo přečíst.");
         else {
-          this.zapisy.set(link, z);
+          this.zapisy.set(link, z); this.zapisFetched.set(link, Date.now());
           this.liveUpdated.set(key, Date.now());
           this.notifyLive(link, z);
           const ctx = this.next.find((c) => this.teamKey(c) === key);
@@ -1021,15 +1034,35 @@ export class AppVm {
     this.compLoading.set(path, true); this.compErrors.delete(path); this.emit();
     work().catch((e) => { this.compErrors.set(path, err(e)); }).finally(() => { this.compLoading.set(path, false); this.emit(); });
   }
+  /**
+   * Obnova podle rozpisu: tabulka, žebříček STR i výsledky se mění jen po odehraném utkání.
+   * Když od posledního stažení stránky v soutěži (podle rozpisu) nic nebylo, uložená kopie platí až 7 dní.
+   * Výsledky STIS dopisuje s odstupem -> utkání se počítá jako „odehrané“ ještě 6 h po začátku.
+   */
+  async schedAge(c: { svaz: string; rocnik: number; soutez: string }, path: string, fallback: number): Promise<number> {
+    try {
+      const los = this.losForComp(c);
+      const at = await this.fetcher.cachedAt(path);
+      if (!los || !los.length || at == null) return fallback;
+      const now = nowLdt();
+      // čas posledního začátku utkání v soutěži do teď (LDT = minuty)
+      let last = -Infinity;
+      for (const m of los) if (m.dateTime != null && m.dateTime <= now && m.dateTime > last) last = m.dateTime;
+      const d = new Date(at);
+      const atL = ldtOf(d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes());
+      if (last === -Infinity || atL > last + 6 * 60) return 7 * DAY_MS;
+      return fallback;
+    } catch { return fallback; }
+  }
   loadTabulka(svaz: string, rocnik: number, soutez: string, force = false) {
     const path = Stis.tabulka(svaz, rocnik, soutez);
     if (!force && this.tabulky.has(path)) return;
-    this.loadComp(path, async () => { this.tabulky.set(path, await this.repo.tabulka(svaz, rocnik, soutez, force ? 0 : 6 * HOUR)); });
+    this.loadComp(path, async () => { this.tabulky.set(path, await this.repo.tabulka(svaz, rocnik, soutez, force ? 0 : await this.schedAge({ svaz, rocnik, soutez }, path, 6 * HOUR))); });
   }
   loadStrLadder(svaz: string, rocnik: number, soutez: string, force = false) {
     const path = Stis.zebricek(svaz, rocnik, soutez);
     if (!force && this.strLadders.has(path)) return;
-    this.loadComp(path, async () => { this.strLadders.set(path, await this.repo.strLadder(svaz, rocnik, soutez, force ? 0 : 6 * HOUR)); });
+    this.loadComp(path, async () => { this.strLadders.set(path, await this.repo.strLadder(svaz, rocnik, soutez, force ? 0 : await this.schedAge({ svaz, rocnik, soutez }, path, 6 * HOUR))); });
   }
 
   // ---------- predikce konečné tabulky soutěže
@@ -1409,7 +1442,7 @@ export class AppVm {
   private watchTick() {
     for (const w of this.watchedRunning()) {
       if (w.mode === "off" && !(this.current.t === "Watch" && (this.current as { key: string }).key === w.key)) continue;
-      if (w.zapisPath) { this.loadZapis(w.zapisPath, false, true); continue; }
+      if (w.zapisPath) { if (this.zapisNeedsPolling(w.zapisPath)) this.loadZapis(w.zapisPath, false, true); continue; }
       const c = { svaz: w.svaz, rocnik: w.rocnik, soutez: w.soutez };
       this.loadCompLos(c, true);
       const last = this.watchSearched.get(w.key) ?? 0;
@@ -1496,7 +1529,8 @@ export class AppVm {
         const rosters: TeamRoster[] = [];
         for (let i = 0; i < teams.length; i++) {
           this.clubProgress = `Načítám družstvo ${i + 1}/${teams.length}…`;
-          rosters.push(await this.repo.teamRoster(teams[i], force ? 0 : 24 * HOUR));
+          // soupisky se mění zřídka -> jednou týdně
+          rosters.push(await this.repo.teamRoster(teams[i], force ? 0 : 7 * 24 * HOUR));
           this.stepDone(this.clubProgress); pendingSteps--;
         }
         let ladder = Stats.ladder(rosters);
@@ -1510,7 +1544,8 @@ export class AppVm {
           this.clubProgress = `Aktualizuji STR hráčů ${i + 1}/${todo.length}…`;
           this.progressLabel = this.clubProgress;
           try {
-            const p = await this.repo.player(e.path!, force ? 0 : 24 * HOUR);
+            // profily spoluhráčů: STR se mění jen po jejich zápasech -> stačí po 3 dnech (Obnovit = vždy čerstvě)
+            const p = await this.repo.player(e.path!, force ? 0 : 3 * 24 * HOUR);
             if (p) { pages.set(e.id!, p); this.putPlayer(e.path!, p); }
           } catch { /* hráč zůstane s hodnotou ze soupisky */ }
           this.stepDone(); pendingSteps--;
@@ -1837,7 +1872,8 @@ export class AppVm {
     this.loadingPlayers.set(path, true); this.emit();
     (async () => {
       try {
-        const p = await this.repo.player(path, force ? 0 : 24 * HOUR);
+        // cizí profily: STR se mění jen po jejich zápasech -> stačí po 3 dnech (Obnovit na profilu = čerstvě)
+        const p = await this.repo.player(path, force ? 0 : 3 * 24 * HOUR);
         if (p) this.putPlayer(path, p);
       } catch {
         // stránky hráčů se většinou načítají na pozadí (STR soupeřů, změny STR) – chyba se nehlásí globálně;
@@ -1850,6 +1886,44 @@ export class AppVm {
 
   private zapisLoading = new Set<string>();
   private zapisFetched = new Map<string, number>();
+  zapisErrors = new Map<string, string>();
+  zapisBusy(path: string) { return this.zapisLoading.has(path); }
+  /** Kdy jsou zobrazená data zápisu ze STIS (čas stažení Workerem, jinak čas načtení). */
+  zapisDataAt(path: string): number { return this.fetcher.meta(path)?.stisAt ?? this.zapisFetched.get(path) ?? 0; }
+  zapisLoadedAt(path: string): number { return this.zapisFetched.get(path) ?? 0; }
+  /** Obnova živých dat: každé 3 minuty (s náhodným posunem, ať se uživatelé neptají najednou). */
+  readonly livePeriod = 180_000 + Math.floor(Math.random() * 20_000);
+  get appVisible() { return typeof document === "undefined" || document.visibilityState !== "hidden"; }
+  private finishedSeen = new Map<string, number>();
+  /** Výsledek zápisu už potvrdil STIS (je v rozpisu nebo mezi oficiálními zápasy). */
+  zapisConfirmed(path: string): boolean {
+    if (this.me?.matches.some((m) => m.zapisPath === path && !m.unofficial)) return true;
+    const z = this.zapisy.get(path);
+    const fmt = z ? this.fmtOf(z) : null;
+    const lists = [...this.next.map((c) => c.los), ...Array.from(this.compLos.values())];
+    return lists.some((l) => l.some((m) => m.zapisPath === path && m.played && this.scoreFinal(m.score, fmt)));
+  }
+  /**
+   * Zápis se ještě může změnit: utkání běží, nebo je podle aplikace dohrané, ale STIS výsledek
+   * v rozpisu nepotvrdil (pak se ptáme dál nejvýš 2 hodiny – pojistka proti mylně rozpoznanému konci).
+   */
+  zapisNeedsPolling(path: string): boolean {
+    const z = this.zapisy.get(path);
+    if (!z) return true;
+    if (!this.finished(z)) { this.finishedSeen.delete(path); return true; }
+    if (this.zapisConfirmed(path)) return false;
+    let t = this.finishedSeen.get(path);
+    if (t == null) { t = Date.now(); this.finishedSeen.set(path, t); }
+    // jen nedávná utkání (staré nepotvrzené zápisy nepřenačítat)
+    const recent = Date.now() - this.zapisLoadedAt(path) < 6 * 3600_000 || /\b(\d{1,2})\.\s*(\d{1,2})\./.test(z.dateText) && this.zapisToday(z);
+    return recent && Date.now() - t < 2 * 3600_000;
+  }
+  private zapisToday(z: Zapis): boolean {
+    const m = /(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/.exec(z.dateText);
+    if (!m) return false;
+    const d = new Date(+m[3], +m[2] - 1, +m[1]), n = new Date();
+    return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
+  }
   /** Zápis je načtený, ale utkání ještě není dohrané. */
   zapisRunning(path: string): boolean {
     const z = this.zapisy.get(path);
@@ -1859,16 +1933,20 @@ export class AppVm {
    * Načte zápis. Dohraný zápis se bere z mezipaměti (30 dní); rozehraný se stahuje znovu,
    * pokud je starší než minuta ([force] = vždy znovu).
    */
-  loadZapis(path: string, track = false, force = false) {
+  /** [exact] = opravdu čerstvě ze STIS (tlačítko, Zkusit hned); jinak smí Worker vrátit kopii do 45 s (sdílená mezi uživateli). */
+  loadZapis(path: string, track = false, force = false, exact = false) {
     if (!path || this.zapisLoading.has(path)) return;
     const have = this.zapisy.get(path);
-    if (have && !force && (this.finished(have) || Date.now() - (this.zapisFetched.get(path) ?? 0) < 60_000)) return;
+    if (have && !force && (!this.zapisNeedsPolling(path) || Date.now() - (this.zapisFetched.get(path) ?? 0) < 60_000)) return;
     this.zapisLoading.add(path);
     if (track) this.stepsAdd(1, "Načítám zápisy utkání…");
+    this.emit();
     (async () => {
       try {
         let z = have || force ? null : await this.repo.zapis(path);
-        if (!z || !this.finished(z)) z = await this.repo.zapis(path, force ? 0 : 60_000) ?? z;
+        if (z && !have) this.zapisy.set(path, z);
+        if (!z || this.zapisNeedsPolling(path)) z = await this.repo.zapis(path, exact ? 0 : force ? 45_000 : 60_000) ?? z;
+        this.zapisErrors.delete(path);
         if (z) {
           const wasRunning = !!have && !this.finished(have);
           this.zapisy.set(path, z); this.zapisFetched.set(path, Date.now());
@@ -1883,7 +1961,7 @@ export class AppVm {
           this.notifyLive(path, z);
           if (wasRunning && this.finished(z) && this.next.some((c) => c.liveNow && this.zapisBelongs(z!, c))) this.loadNext(false);
         }
-      } catch { /* detail setů je jen doplněk */ }
+      } catch (e) { this.zapisErrors.set(path, err(e)); }
       finally {
         this.zapisLoading.delete(path);
         if (track) this.stepDone(); else this.emit();
@@ -2033,17 +2111,22 @@ export class AppVm {
     // už načtené zápisy probíhajících utkání: zapamatovat dohrané hry, ať se neoznamují
     for (const c of this.next) { const l = this.liveLinks.get(this.teamKey(c)); const z = l ? this.zapisy.get(l) : null; if (l && z && c.liveNow) this.notifyLive(l, z); }
     if (this.liveWatch != null || typeof window === "undefined") return;
-    this.liveWatch = setInterval(() => this.liveWatchTick(), 60_000);
+    this.liveWatch = setInterval(() => this.liveWatchTick(), 20_000);
+    // po návratu do aplikace hned obnovit, co je starší než perioda
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", () => { if (this.appVisible) this.liveWatchTick(); });
   }
+  private lastWatchTick = 0;
   private liveWatchTick() {
-    this.watchTick();
+    // jen když je aplikace na obrazovce; sledovaná utkání po 3 minutách
+    if (!this.appVisible) return;
+    if (Date.now() - this.lastWatchTick >= this.livePeriod - 5_000) { this.lastWatchTick = Date.now(); this.watchTick(); }
     if (prefs.liveMode === "off") return;
     this.next.forEach((c, i) => {
       if (!this.liveRunning(c)) return;
       const key = this.teamKey(c);
       const link = this.liveLinks.get(key);
       if (!link) { this.autoFindZapis(i); return; }
-      if (Date.now() - (this.liveUpdated.get(key) ?? 0) < 50_000) return; // obnovila ho právě obrazovka Živé utkání
+      if (Date.now() - (this.liveUpdated.get(key) ?? 0) < this.livePeriod - 5_000) return; // obnovila ho právě obrazovka Živé utkání
       this.loadLive(key, link, true);
     });
   }

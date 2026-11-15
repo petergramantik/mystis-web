@@ -14,7 +14,7 @@ import { nowLdt } from "../../core/dates";
 import type { NextMatchContext } from "../../core/repository";
 import { type SearchPlayer } from "../../core/search";
 import {
-  AppCard, Avatar, BigNumber, C, Chips, Marquee, Dialog, Empty, ErrorBox, ErrorWithDiagnostics, FormDots, Icon, ListCard, Loading, MatchRow,
+  LiveStatus, AppCard, Avatar, BigNumber, C, Chips, Marquee, Dialog, Empty, ErrorBox, ErrorWithDiagnostics, FormDots, Icon, ListCard, Loading, MatchRow,
   Muted, NavyHeader, Pill, PredictionText, shortTeam, PrimaryButton, ProbBar, ResultBadge, SectionTitle, Sparkline, Spinner, StatTile, T, TextField, TileRow, dec1, f0, signedInt,
   OButton, FormPerf,
 } from "../components";
@@ -111,6 +111,9 @@ export function OverviewScreen() {
             </div>
             <Muted text={[me.clubName, teams || null].filter((x) => x).join(" · ")} color={C.MutedOnNavy} size={14} />
             {vm.busy && !vm.firstLoad && vm.progressLabel && <Muted text={vm.progressLabel} color={C.MutedOnNavy} size={11} maxLines={1} />}
+            {vm.busy && !vm.firstLoad && vm.meDataAt > 0 && Date.now() - vm.meDataAt > 30 * 60_000 && (
+              <Muted color={C.Peach} size={11} maxLines={1} text={`Zobrazena uložená data z ${new Date(vm.meDataAt).toLocaleString("cs-CZ", { day: "numeric", month: "numeric", hour: "numeric", minute: "2-digit" })} – načítám novější`} />
+            )}
           </div>
           <button className="iconbtn" style={{ color: "#fff" }} onClick={() => setSwitching(true)} aria-label="Přepnout hráče"><Icon name="swap" /></button>
         </div>
@@ -552,6 +555,12 @@ function LastUtkaniCard() {
           </div>
         </AppCard>
       </SwipeRow>
+      {(last.running || (last.unofficial && last.zapisPath && vm.zapisNeedsPolling(last.zapisPath))) && last.zapisPath && (() => {
+        const tk = vm.next[liveTeam] ? vm.teamKey(vm.next[liveTeam]) : "";
+        const busy = vm.liveLoadingKeys.get(tk) === true || vm.zapisBusy(last.zapisPath);
+        return <LiveStatus busy={busy} at={vm.zapisDataAt(last.zapisPath)} period={vm.livePeriod} error={vm.liveErrors.get(tk) ?? vm.zapisErrors.get(last.zapisPath)}
+          onRetry={() => (tk && vm.liveLinks.get(tk) === last.zapisPath ? vm.loadLive(tk, last.zapisPath, true, true) : vm.loadZapis(last.zapisPath, false, true, true))} />;
+      })()}
       {pages.length > 1 && (
         <div className="row" style={{ justifyContent: "center", gap: 6 }}>
           {pages.map((_, i) => <div key={i} className="clickable" onClick={() => pick(i)}

@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ModelLink } from "./Model";
 import { SupportStrip } from "../support";
 import { SoundUnlockBar } from "../soundbar";
+import { IS_DEV } from "../../app/channel";
+import { DevLiveInfo } from "./Duel";
 import { vm } from "../../app/vm";
 import { LiveModeSwitch } from "./Records";
 import type { RosterPlayer } from "../../core/models";
@@ -11,6 +13,7 @@ import { Stats, maxBy } from "../../core/stats";
 import { Live, MatchFormats, LiveTimeline, lp, type LiveGame, type LivePlayer, type LiveState, type MyLiveGame, type PlayerLive } from "../../core/live";
 import { nowLdt } from "../../core/dates";
 import {
+  LiveStatus,
   AppCard, BigNumber, C, Divider, Empty, ListCard, Loading, Muted, NavyHeader, OButton, PrimaryButton, ProbBar, SectionTitle, Segmented,
   StatTile, T, TextField, TileRow, dec1,
   SetsLine, CountdownRing, PredictionText, TeamName, shortTeam,
@@ -18,7 +21,7 @@ import {
 import { hhmm, hhmmLdt } from "../fmt";
 
 
-const LIVE_PERIOD = 60_000;
+const LIVE_PERIOD = vm.livePeriod;
 
 export function LiveScreen({ team }: { team: number }) {
   const me = vm.me;
@@ -59,13 +62,14 @@ export function LiveScreen({ team }: { team: number }) {
   useEffect(() => {
     const path = vm.liveLinks.get(tk);
     if (!ctx || mode !== "zapis" || !path) return;
-    // každou sekundu kontrola, zda od poslední aktualizace uplynula minuta (sedí s odpočtem v kolečku)
-    const id = setInterval(() => {
-      const zz = vm.liveZapisFor(tk);
-      if (zz && vm.finished(zz)) { clearInterval(id); return; }
+    // každou sekundu kontrola, zda od poslední aktualizace uplynula perioda (jen když je aplikace na obrazovce)
+    const check = () => {
+      if (!vm.appVisible || !vm.zapisNeedsPolling(path)) return;
       if (!vm.liveLoadingKeys.get(tk) && Date.now() - (vm.liveUpdated.get(tk) ?? 0) >= LIVE_PERIOD) vm.loadLive(tk, path, true);
-    }, 1000);
-    return () => clearInterval(id);
+    };
+    const id = setInterval(check, 1000);
+    document.addEventListener("visibilitychange", check);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", check); };
   }, [tk, mode, found]);
 
   const myRoster = ctx ? vm.fresh(ctx.myRoster) : [];
@@ -77,6 +81,7 @@ export function LiveScreen({ team }: { team: number }) {
   const homeRoster = myHome ? myRoster : oppRoster;
   const awayRoster = myHome ? oppRoster : myRoster;
   const pH = `${tk}|H:`, pA = `${tk}|A:`;
+  const liveBusy = vm.liveLoadingKeys.get(tk) === true;
 
   // výchozí ruční sestavy: stabilní sestava, čtyřhry 1+2 a 3+4
   useEffect(() => {
@@ -138,13 +143,17 @@ export function LiveScreen({ team }: { team: number }) {
         emptyText={pending ? "Sestavy dvouher zatím nejsou zapsané – predikce se ukáže po jejich doplnění." : undefined}
         comp={{ text: [ctx.myTeam.competition, ctx.next?.round ? `${ctx.next.round}. kolo` : null, MatchFormats.short(z ? vm.fmtOf(z) : vm.format)].filter((x) => x).join(" · "),
           onClick: ctx.myTeam.ref ? () => vm.openCompetition(ctx.myTeam.ref!, ctx.myTeam.competition || ctx.myTeam.name, ctx.myTeam.name, "tabulka") : undefined }} />
-      <div className="col g12 px16">
+      <div className={"col g12 px16" + (liveBusy && z ? " stale" : "")}>
         <SoundUnlockBar />
         <Muted text={`Utkání družstva ${ctx.myTeam.name}`} size={13} />
         <Segmented options={[["zapis", "Zápis ze STIS"], ["manual", "Ruční sestavy"]]} selected={mode} onSelect={setMode} />
+        {mode === "zapis" && found && vm.zapisNeedsPolling(found) && <>
+          <LiveStatus busy={liveBusy} first={!z} at={vm.zapisDataAt(found)} period={LIVE_PERIOD} error={vm.liveErrors.get(tk)} onRetry={() => vm.loadLive(tk, found, true, true)} />
+          {IS_DEV && <DevLiveInfo path={found} />}
+        </>}
         {mode === "zapis" ? (
           <AppCard>
-            {!found && <Muted text="Aplikace sama najde online zápis o utkání na STIS (objevuje se pár minut po začátku) a čte sestavy, pořadí her a průběžné výsledky. Obnovuje se každou minutu." size={13} maxLines={5} />}
+            {!found && <Muted text="Aplikace sama najde online zápis o utkání na STIS (objevuje se pár minut po začátku) a čte sestavy, pořadí her a průběžné výsledky. Obnovuje se každé 3 minuty." size={13} maxLines={5} />}
             {found && (!showField || manualLink) && (
               <div className="row g12">
                 <div className="col w1">
@@ -466,10 +475,10 @@ export function LiveTopRing({ team, fallback }: { team: number; fallback: ReactN
   const tk = ctx ? vm.teamKey(ctx) : "";
   const link = ctx ? vm.liveLinks.get(tk) : undefined;
   const z = ctx ? vm.liveZapisFor(tk) : null;
-  if (!ctx || !link || (z && vm.finished(z))) return <>{fallback}</>;
+  if (!ctx || !link || (z && !vm.zapisNeedsPolling(link))) return <>{fallback}</>;
   return (
     <div style={{ width: 44, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
-      <CountdownRing dark next={(vm.liveUpdated.get(tk) ?? 0) + LIVE_PERIOD} period={LIVE_PERIOD} busy={vm.liveLoadingKeys.get(tk) === true} onClick={() => vm.loadLive(tk, link, true)} />
+      <CountdownRing dark next={(vm.liveUpdated.get(tk) ?? 0) + LIVE_PERIOD} period={LIVE_PERIOD} busy={vm.liveLoadingKeys.get(tk) === true} onClick={() => vm.loadLive(tk, link, true, true)} />
     </div>
   );
 }

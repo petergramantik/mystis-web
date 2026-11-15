@@ -538,6 +538,30 @@ async function main() {
   const pred = predictSeason(steams, [{ home: "A", away: "B" }, { home: "B", away: "C" }, { home: "C", away: "A" }], [3, 2, 1], f18b, 2000);
   check("predikce pořadí", pred.teams[0].name === "A" && pred.teams[2].name === "C" && Math.abs(pred.teams[0].posProb.reduce((a, b) => a + b, 0) - 1) < 1e-9 && pred.teams[0].remaining === 2, () => J(pred.teams));
 
+  // neměnné zápisy a rozparsované profily v úložišti zpracovaných dat
+  {
+    const store = new Map<string, { data: unknown; at: number }>();
+    let downloads = 0;
+    const zhtml = (date: string) => `<table class="zapis_H"><tr><td>POŘÁDAJÍCÍ</td><td>A</td></tr><tr><td>HOSTUJÍCÍ</td><td>B</td></tr><tr><td>Datum dle rozpisu</td><td>${date}</td></tr></table>`
+      + `<table class="zapis"><tr>${["1.", "X", "", "Y", "", "5", "6", "7", "", "", "3", "0", "1", "0"].map((x) => `<td>${x}</td>`).join("")}</tr></table>`;
+    const pagesZ: Record<string, string> = { "/zapis/old": zhtml("so 01.11.2025 17:00"), "/zapis/new": zhtml(new Date().toLocaleDateString("cs-CZ").replace(/\s/g, "")) };
+    const df: Fetcher = {
+      async get(p) { downloads++; return pagesZ[p]; },
+      async getData<T>(k: string) { const e = store.get(k); return e ? { data: JSON.parse(JSON.stringify(e.data)) as T, at: e.at } : null; },
+      putData(k, d, at = Date.now()) { store.set(k, { data: JSON.parse(JSON.stringify(d, (kk, v) => (kk.startsWith("_") ? undefined : v))), at }); },
+    };
+    const zr = new StisRepository(df);
+    const z1 = await zr.zapis("/zapis/old", 0);
+    const z2 = await zr.zapis("/zapis/old", 0);
+    check("uzavřený zápis z úložiště", !!z1 && !!z2 && downloads === 1 && z2 instanceof Zapis && z2.games[0] instanceof ZapisGame && z2.games[0].result === 1 && z2.score[0] === 1, () => `${downloads} ${J(z2)}`);
+    await zr.zapis("/zapis/new", 0); await zr.zapis("/zapis/new", 0);
+    check("čerstvý zápis se neukládá", downloads === 3 && !store.has("z:/zapis/new"), () => String(downloads));
+    const pp = synthPlayer();
+    df.putData!("p:" + Stis.canonicalPlayer(pp.path), pp);
+    const back = await zr.player(pp.path);
+    check("profil z úložiště", !!back && back instanceof PlayerPage && back.chronological.length === pp.chronological.length && back.matches[0] instanceof Match && back.currentStr === pp.currentStr, () => J(back?.matches.length));
+  }
+
   console.log(`\nTESTY: ${passes} OK, ${failures} chyb`);
   if (failures > 0) process.exit(1);
 }
