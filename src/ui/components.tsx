@@ -605,7 +605,8 @@ export function LiveStatus({ busy, at, period, error, onRetry, dark = false, fir
   );
   if (error) return (
     <div className="livebar err">
-      <span style={{ flex: 1 }}>{`Nepodařilo se načíst – zkusím znovu za ${Math.max(1, Math.round(period / 60000))} min.${at ? ` Zobrazen stav z ${hm(at)}.` : ""}`}</span>
+      <span style={{ flex: 1 }}>{`Nepodařilo se načíst – zkusím znovu za ${Math.max(1, Math.round(period / 60000))} min.${at ? ` Zobrazen stav z ${hm(at)}.` : ""}`}
+        <span style={{ display: "block", fontSize: 11, fontWeight: 500, opacity: .8 }}>{error}</span></span>
       <button className="chip" style={{ height: 30, flex: "none" }} onClick={onRetry}>Zkusit hned</button>
     </div>
   );

@@ -1,13 +1,17 @@
 // Verze aplikace a „Co je nového“. Produkce: PROD_VERSION; vývojová verze (/dev/): DEV_VERSION (např. 2.15-dev.3).
 import { IS_DEV } from "./channel";
 
-export const PROD_VERSION = "2.15.15";
+export const PROD_VERSION = "2.15.16";
 export const DEV_VERSION = "2.16-dev.1";
 export const APP_VERSION = IS_DEV ? DEV_VERSION : PROD_VERSION;
 
 export interface Release { version: string; date: string; title: string; items: string[] }
 
 export const RELEASES: Release[] = [
+  {
+    version: "2.15.16", date: "15. 11. 2026", title: "Živé utkání",
+    items: ["Při chybě načítání je vidět i její důvod"],
+  },
   {
     version: "2.15.15", date: "15. 11. 2026", title: "Živé utkání",
     items: ["Stav dat a odpočet obnovy i u utkání otevřeného z Živě"],
