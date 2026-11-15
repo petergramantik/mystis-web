@@ -103,6 +103,7 @@ function BrowseView({ soutezeOnly = false }: { soutezeOnly?: boolean }) {
         return (
           <>
             {!ps.length && !cs.length && <Empty text="Nikoho ani žádný oddíl takového STIS nenašel." />}
+            {!ps.length && vm.searchInfo() && <Muted text={`Diagnostika: ${vm.searchInfo()}`} size={11} maxLines={2} />}
             {ps.length > 0 && <SectionTitle text={`Hráči (${ps.length})`} />}
             {ps.length > 0 && (
               <ListCard>

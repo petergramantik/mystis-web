@@ -135,6 +135,7 @@ function PlayerPick({ label, value, name, onPick, offerMe }: { label: string; va
         <div className="row g8"><button className="chip on" style={{ height: 34 }} onClick={search}>{busy ? "Hledám…" : "Hledat"}</button></div>
         {err && <Muted text={err} color={C.OrangeText} size={12} maxLines={3} />}
         {res && !res.length && <Muted text="Nikoho takového STIS nenašel." size={13} />}
+        {(err || (res && !res.length)) && vm.searchInfo() && <Muted text={`Diagnostika: ${vm.searchInfo()}`} size={11} maxLines={2} />}
         {res && res.slice(0, 15).map((r) => (
           <div key={r.path} className="row clickable" style={{ padding: "6px 0" }} onClick={() => pick(r.path, r.name)}>
             <div className="col w1">
