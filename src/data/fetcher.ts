@@ -287,8 +287,9 @@ export class WebFetcher implements Fetcher {
     } catch (e) {
       DebugLog.log("err", `${what} → spojení selhalo (${Date.now() - t0} ms)`, (e as Error)?.name + ": " + (e as Error)?.message);
       if (typeof navigator !== "undefined" && navigator.onLine === false) throw new FetchError("Nejste připojeni k internetu.", "offline");
-      if ((e as Error)?.name === "AbortError") throw new FetchError("STIS neodpovídá, zkuste to za chvíli.", "offline");
-      throw new FetchError("Nepodařilo se spojit se STIS přes proxy. Zkontrolujte připojení a adresu proxy v Nastavení.", "proxy");
+      // sem se dostaneme, jen když selže spojení k Workeru (proxy) – to je úsek telefon → Cloudflare, ne STIS
+      if ((e as Error)?.name === "AbortError") throw new FetchError("Server pro čtení dat (proxy) neodpovídá, zkuste to prosím za chvíli.", "offline");
+      throw new FetchError("Nepodařilo se spojit se serverem pro čtení dat (proxy). Zkontrolujte připojení k internetu.", "proxy");
     }
     const hdr = (k: string) => resp.headers.get(k);
     const info = () => [`Worker ${hdr("X-Proxy-Version") ?? "?"}`, hdr("X-Cache") ? `mezipaměť ${hdr("X-Cache")}` : "", hdr("X-Stale") === "1" ? "STARÁ KOPIE" : "",

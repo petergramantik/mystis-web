@@ -34,14 +34,27 @@ async function runDiag(path: string, ctrl: string) {
     if (!r.ok) { DebugLog.log("err", `Test spojení: Worker vrátil ${r.status}`, (await r.text()).slice(0, 200)); return; }
     const j = await r.json();
     DebugLog.log("info", `Test spojení – Worker ${j.worker}, datové centrum ${j.colo || "?"}`);
-    for (const x of j.results as any[]) {
+    const results = j.results as any[];
+    for (const x of results) {
       const bad = x.error || x.status >= 400 || x.short;
       DebugLog.log(bad ? "err" : "ok", `${x.label}: ${x.error ? "chyba spojení" : `STIS ${x.status}, ${x.bytes} B${x.short ? " (KRÁTKÁ)" : ""}`} (${x.ms} ms)`,
         [x.title ? `titulek „${x.title}“` : "", x.final && x.final !== x.path ? `konečná adresa ${x.final}` : "", x.cookieFromStis ? `STIS nastavil cookie ${x.cookieFromStis}` : "",
           x.stisCache ? `hlavičky ${x.stisCache}` : "", x.error ?? ""].filter(Boolean).join(" · "));
     }
+    // jednoznačný závěr: kde je chyba. Že jsme dostali odpověď z /__diag znamená, že proxy (Worker na Cloudflare) běží a je dosažitelná.
+    const total = results.length;
+    const okCnt = results.filter((x) => !x.error && x.status === 200 && !x.short).length;
+    const refused = results.filter((x) => !x.error && (x.status === 403 || x.status === 429 || x.short)).length;
+    const connErr = results.filter((x) => x.error).length;
+    const where = `Worker ${j.worker}, ${j.colo || "?"}`;
+    let verdict: string, kind: "ok" | "err" = "err";
+    if (okCnt > 0) { verdict = `ZÁVĚR: Proxy běží (${where}) a STIS normálně odpovídá (${okCnt} z ${total} variant OK). Blokace není aktivní.`; kind = "ok"; }
+    else if (refused === total && connErr === 0) verdict = `ZÁVĚR: Proxy běží (${where}) a DOSÁHLA na STIS, ale STIS odmítl všech ${total} variant (403/výzva). Blokace je prokazatelně na straně STIS – ne u tebe ani na proxy.`;
+    else if (connErr > 0) verdict = `ZÁVĚR: Proxy běží (${where}), ale ${connErr} z ${total} variant selhalo už při spojení Worker → STIS. STIS je nedostupný nebo blokuje; chyba není mezi tebou a proxy.`;
+    else verdict = `ZÁVĚR: Proxy běží (${where}); STIS odmítl ${refused} z ${total} variant. Chyba je na straně STIS, ne u tebe.`;
+    DebugLog.log(kind, verdict);
   } catch (e) {
-    DebugLog.log("err", "Test spojení: Worker nedostupný nebo starší než 2.5 (chybí /__diag)", String(e));
+    DebugLog.log("err", "ZÁVĚR: Nepodařilo se spojit ani s proxy (Worker). Chyba je mezi tebou a Cloudflare – síť, ISP nebo adresa proxy – NE na straně STIS. (Nebo je Worker starší než 2.5 a nemá /__diag.)", String(e));
   }
 }
 
