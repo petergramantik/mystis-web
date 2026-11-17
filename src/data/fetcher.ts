@@ -246,7 +246,17 @@ export class WebFetcher implements Fetcher {
     const pv = Number(resp.headers.get("X-Proxy-Version") ?? "0") || 0;
     if (pv !== this.proxyV) { this.proxyV = pv; try { localStorage.setItem(SP + "proxy_v", String(pv)); } catch { /* */ } }
     const status = Number(resp.headers.get("X-Stis-Status") ?? "200");
-    if (status >= 400) throw new FetchError(`STIS odpověděl ${status}`, "http");
+    if (status >= 400) {
+      // diagnostika: co STIS (resp. jeho ochrana Cloudflare) vrátil – titulek stránky / kód chyby (1015 = limit, 1020 = pravidlo…)
+      let why = "";
+      try {
+        const t = new TextDecoder("utf-8", { fatal: false }).decode(new Uint8Array(await resp.arrayBuffer()).slice(0, 6000));
+        const title = /<title[^>]*>([^<]{1,120})<\/title>/i.exec(t)?.[1]?.replace(/\s+/g, " ").trim();
+        const code = /error code:?\s*(\d{3,4})/i.exec(t)?.[1] ?? /Error\s+(10\d\d)/.exec(t)?.[1];
+        why = [title, code ? `kód ${code}` : "", !title && !code ? t.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) : ""].filter(Boolean).join(", ");
+      } catch { /* */ }
+      throw new FetchError(`STIS odpověděl ${status}${why ? ` (${why})` : ""}`, "http");
+    }
     // čas dat jen u úspěšné odpovědi (jinak by stará data vypadala jako čerstvá)
     const stisAt = Number(resp.headers.get("X-Fetched-At") ?? "0") || Date.now();
     this.metas.set(p.split("#")[0], { at: Date.now(), stisAt, stisCache: resp.headers.get("X-Stis-Cache") ?? "", cache: resp.headers.get("X-Cache") ?? "", stale: resp.headers.get("X-Stale") === "1" });
