@@ -316,6 +316,8 @@ export class WebFetcher implements Fetcher {
         why = [title, code ? `kód ${code}` : "", !title && !code ? t.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) : ""].filter(Boolean).join(", ");
       } catch { /* */ }
       DebugLog.log("err", `${what} → STIS ${status} (${Date.now() - t0} ms)${why ? ` · ${why}` : ""}`, info());
+      // 403/429/5xx = STIS odmítá komunikovat (ne chybějící stránka) → upozornit uživatele
+      if ((status === 403 || status === 429 || status >= 500) && this.blockedSince == null) this.blockedSince = Date.now();
       throw new FetchError(`STIS odmítl přístup – chyba ${status}${why ? ` (${why})` : ""}`, "http");
     }
     // čas dat jen u úspěšné odpovědi (jinak by stará data vypadala jako čerstvá)

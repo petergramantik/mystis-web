@@ -186,7 +186,21 @@ function Root() {
   const [menu, setMenu] = useState(false);
   const [sheet, setSheet] = useState<"share" | "app" | "support" | "dev" | null>(null);
   const toast = vm.toastText && <div className="toast">{vm.toastText}</div>;
-  if (vm.onboarding && !vm.guest) return <><OnboardingScreen />{toast}</>;
+  if (vm.onboarding && !vm.guest) {
+    // obrazovku s vysvětlením omezení STIS lze otevřít i před načtením profilu (samostatná hlavička, bez spodní navigace)
+    if (vm.current.t === "Notice") return (
+      <>
+        <div className="topbar">
+          <button className="iconbtn" onClick={goBack} aria-label="Zpět"><Icon name="back" /></button>
+          <div className="title" style={{ paddingLeft: 8 }}>{title({ t: "Notice" })}</div>
+          <div className="spacer44" />
+        </div>
+        <div className="content"><Body s={vm.current} /></div>
+        {toast}
+      </>
+    );
+    return <><OnboardingScreen />{toast}</>;
+  }
   const screen = vm.current;
   const guest = vm.guest;
   const dark = ["Overview", "Club", "H2H", "Player", "Live", "Duel", "ZapisDetail", "Team", "Watch", "Shared", "OtherTeam", "Prediction"].includes(screen.t);
