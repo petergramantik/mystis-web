@@ -270,6 +270,13 @@ export function SettingsScreen() {
             </div>
             <T bold color={C.Blue}>›</T>
           </div>
+          <div className="row clickable" onClick={() => vm.go({ t: "Console" })} style={{ marginTop: 8 }}>
+            <div className="col w1">
+              <T bold>Ladicí konzole</T>
+              <Muted size={13} text="Dotazy na STIS, chyby, test spojení" />
+            </div>
+            <T bold color={C.Blue}>›</T>
+          </div>
         </AppCard>
       )}
       {vm.prefs.proxyUrl && <ProxyRow />}

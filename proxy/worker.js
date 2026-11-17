@@ -15,7 +15,8 @@
 // 2.3: ochrana před limitem STIS – při odmítnutí (403/429/5xx) poslední kopie z mezipaměti (X-Stale: 1),
 //      po odmítnutí minutu přestávka (stránky s kopií se berou z mezipaměti), běžné stránky sdílené i při cookies
 // 2.4: cookies relace se STIS posílají vždy (bez nich STIS odpovídá 403); sdílení mezipaměti zůstává
-const VERSION = "2.4";
+// 2.5: diagnostika – počty odmítnutí STIS ve statistice (KV „rej:den“) a test spojení /__diag (jen s klíčem)
+const VERSION = "2.5";
 
 const BASE = "https://stis.ping-pong.cz";
 
@@ -94,7 +95,7 @@ async function stats(url, env) {
   const vers = {};
   for (const u of users) if (now - u.l < 30 * DAY) vers[u.v || "?"] = (vers[u.v || "?"] || 0) + N;
   if (url.searchParams.get("format") === "json") {
-    return new Response(JSON.stringify({ sample: N, total: users.length * N, today: active(1), d7: active(7), d30: active(30), days, versions: vers }), { headers: { ...CORS, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ sample: N, total: users.length * N, today: active(1), d7: active(7), d30: active(30), days, versions: vers, rej: await rejStats(env) }), { headers: { ...CORS, "Content-Type": "application/json" } });
   }
   const row = (a, b) => `<tr><td>${a}</td><td style="text-align:right"><b>${b}</b></td></tr>`;
   const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MySTIS – uživatelé</title>
@@ -103,9 +104,83 @@ async function stats(url, env) {
 ${row("Celkem zařízení", users.length * N)}${row("Aktivní dnes (24 h)", active(1))}${row("Aktivní za 7 dní", active(7))}${row("Aktivní za 30 dní", active(30))}</table>
 <h3>Posledních 14 dní</h3><table style="width:100%"><tr><th align="left">Den</th><th align="right">Nová</th><th align="right">Naposledy aktivní</th></tr>
 ${days.map(([d, n, a]) => `<tr><td>${d}</td><td align="right">${n}</td><td align="right">${a}</td></tr>`).join("")}</table>
+<h3>Odpovědi STIS (7 dní)</h3><table style="width:100%"><tr><th align="left">Den</th><th align="right">OK</th><th align="right">403</th><th align="right">krátká</th><th align="right">jiná</th></tr>
+${(await rejStats(env)).map((r) => `<tr><td>${r.day}</td><td align="right">${r.ok}</td><td align="right">${r.r403}</td><td align="right">${r.gate}</td><td align="right">${r.other}</td></tr>`).join("")}</table>
 <h3>Verze aplikace (30 dní)</h3><table style="width:100%">${Object.entries(vers).sort().reverse().map(([v, n]) => row(v, n)).join("")}</table>
 ${N > 1 ? `<p style="color:#667;font-size:13px">Odhad ze vzorku: počítá se každé ${N}. zařízení, čísla jsou vynásobená ${N}.</p>` : ""}<p style="color:#667;font-size:13px">Jedno zařízení = jedna instalace / prohlížeč. „Naposledy aktivní“ = zařízení, jehož poslední spuštění připadá na daný den.</p></body>`;
   return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+}
+
+// ---------- počty odpovědí STIS (H2): souhrn za den v KV, zápis nejvýš jednou za 30 min z jedné instance
+const pragueDay = (t) => new Date(t).toLocaleDateString("sv-SE", { timeZone: "Europe/Prague" });
+const pragueHour = (t) => Number(new Date(t).toLocaleString("en-GB", { timeZone: "Europe/Prague", hour: "2-digit", hour12: false }));
+const pageType = (path) => (path.split("?")[0].split("/")[1] || "uvod").split("-")[0] || "uvod";
+let counts = null, lastFlush = Date.now();
+function countResult(path, kind) {
+  // kind: ok | r403 | gate | other
+  const day = pragueDay(Date.now());
+  if (!counts || counts.day !== day) counts = { day, ok: 0, r403: 0, gate: 0, other: 0, types: {}, hours: {} };
+  counts[kind]++;
+  const t = pageType(path);
+  const ty = counts.types[t] || (counts.types[t] = { ok: 0, rej: 0 });
+  if (kind === "ok") ty.ok++; else { ty.rej++; const h = pragueHour(Date.now()); counts.hours[h] = (counts.hours[h] || 0) + 1; }
+}
+async function flushCounts(env, force = false) {
+  if (!counts || !env.MYSTIS_KV || (!force && Date.now() - lastFlush < 30 * 60_000)) return;
+  const c = counts; counts = null; lastFlush = Date.now();
+  try {
+    const key = "rej:" + c.day;
+    const old = (await env.MYSTIS_KV.get(key, "json")) || { ok: 0, r403: 0, gate: 0, other: 0, types: {}, hours: {} };
+    for (const k of ["ok", "r403", "gate", "other"]) old[k] = (old[k] || 0) + c[k];
+    for (const [t, v] of Object.entries(c.types)) { const o = old.types[t] || (old.types[t] = { ok: 0, rej: 0 }); o.ok += v.ok; o.rej += v.rej; }
+    for (const [h, v] of Object.entries(c.hours)) old.hours[h] = (old.hours[h] || 0) + v;
+    await env.MYSTIS_KV.put(key, JSON.stringify(old), { expirationTtl: 60 * 86400 });
+  } catch { /* limit KV – statistika nesmí nic rozbít */ }
+}
+async function rejStats(env) {
+  const out = [];
+  for (let i = 0; i < 7; i++) {
+    const d = pragueDay(Date.now() - i * DAY);
+    let v = null;
+    try { v = await env.MYSTIS_KV.get("rej:" + d, "json"); } catch { /* */ }
+    // k uloženému přičíst i to, co tato instance ještě nezapsala
+    if (counts && counts.day === d) {
+      v = v || { ok: 0, r403: 0, gate: 0, other: 0, types: {}, hours: {} };
+      v = { ...v, ok: v.ok + counts.ok, r403: v.r403 + counts.r403, gate: v.gate + counts.gate, other: v.other + counts.other };
+    }
+    out.push({ day: d, ...(v || { ok: 0, r403: 0, gate: 0, other: 0, types: {}, hours: {} }) });
+  }
+  return out;
+}
+
+// ---------- test spojení (H3): stejná stránka několika způsoby – jen pro ověření, proč STIS odmítá
+async function diag(url, req, env) {
+  if (!env.STATS_KEY || url.searchParams.get("key") !== env.STATS_KEY) return new Response("Forbidden", { status: 403, headers: CORS });
+  const path = url.searchParams.get("path") || "/";
+  const ctrl = url.searchParams.get("ctrl") || "/";
+  if (!path.startsWith("/") || !ctrl.startsWith("/")) return new Response("Bad path", { status: 400, headers: CORS });
+  const jar0 = parseCookies(req.headers.get("X-Stis-Cookie"));
+  const plainUa = APP_UA.replace(/\s*MySTIS\/[\d.]+/, "");
+  const one = async (label, p, jar, ua) => {
+    const t0 = Date.now();
+    try {
+      const r = await fromStis(p, "GET", undefined, new Map(jar), null, ua);
+      const text = new TextDecoder("utf-8", { fatal: false }).decode(new Uint8Array(r.bytes).slice(0, 4000));
+      const title = (/<title[^>]*>([^<]*)<\/title>/i.exec(text) || [])[1] || "";
+      return { label, path: p, status: r.status, bytes: r.bytes.byteLength, short: r.bytes.byteLength < 2000, title: title.trim().slice(0, 100),
+        final: r.finalPath, cookieFromStis: [...r.jar.keys()].filter((k) => !jar.has(k)).join(","), stisCache: r.stisCache, ms: Date.now() - t0 };
+    } catch (e) { return { label, path: p, error: String(e), ms: Date.now() - t0 }; }
+  };
+  const results = [];
+  results.push(await one("a) jako aplikace (MySTIS, s relací)", path, jar0, APP_UA));
+  results.push(await one("b) bez „MySTIS“ v identifikaci (s relací)", path, jar0, plainUa));
+  results.push(await one("c) jako aplikace bez relace", path, new Map(), APP_UA));
+  // d) nová relace: úvodní stránka, pak stránka
+  const s = await fromStis("/?nuser=1", "GET", undefined, new Map(), null, APP_UA).catch(() => null);
+  results.push(await one("d) jako aplikace s novou relací", path, s ? s.jar : new Map(), APP_UA));
+  results.push(await one("e) kontrolní stránka (jako aplikace, s relací)", ctrl, jar0, APP_UA));
+  return new Response(JSON.stringify({ worker: VERSION, at: Date.now(), colo: (req.cf && req.cf.colo) || "", results }, null, 1),
+    { headers: { ...CORS, "Content-Type": "application/json" } });
 }
 
 // ---------- stahování ze STIS
@@ -127,14 +202,15 @@ async function withSlot(fn) {
   try { return await fn(); } finally { active--; const w = waiters.shift(); if (w) w(); }
 }
 
-async function fromStis(path, method0, bodyP, jar, referer) {
+const APP_UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36 MySTIS/1.0";
+async function fromStis(path, method0, bodyP, jar, referer, ua = APP_UA) {
   let method = method0 === "POST" ? "POST" : "GET";
   let body = bodyP ? await bodyP : undefined;
   let target = BASE + path;
   let resp;
   for (let hop = 0; hop < 6; hop++) {
     const h = {
-      "User-Agent": "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36 MySTIS/1.0",
+      "User-Agent": ua,
       "Accept-Language": "cs-CZ,cs;q=0.9",
       "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     };
@@ -179,7 +255,7 @@ function out(body, headers, cacheState) {
 }
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
     const url = new URL(req.url);
     const path = url.pathname + url.search;
@@ -187,7 +263,8 @@ export default {
       return new Response("MySTIS proxy OK", { headers: { ...CORS, "Content-Type": "text/plain" } });
     }
     if (url.pathname === "/__hit") return hit(url, env || {});
-    if (url.pathname === "/__stats") return stats(url, env || {});
+    if (url.pathname === "/__stats") { await flushCounts(env || {}, true); return stats(url, env || {}); }
+    if (url.pathname === "/__diag") return diag(url, req, env || {});
 
     const jar = parseCookies(req.headers.get("X-Stis-Cookie"));
     const referer = req.headers.get("X-Stis-Referer");
@@ -215,6 +292,8 @@ export default {
       if (flightKey) { inflight.set(flightKey, task); task.finally(() => inflight.delete(flightKey)); }
     }
     const r = await task;
+    countResult(path, r.status === 403 ? "r403" : r.status >= 400 ? "other" : r.bytes.byteLength < 2000 ? "gate" : "ok");
+    if (ctx && ctx.waitUntil) ctx.waitUntil(flushCounts(env || {})); else await flushCounts(env || {});
     if (r.status === 403 || r.status === 429 || r.status >= 500) {
       blockedUntil = Date.now() + 60_000;
       // odmítnutí: raději poslední kopii (s jejím časem) než chybu

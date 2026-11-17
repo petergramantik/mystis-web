@@ -8,6 +8,7 @@ import { Parsers } from "../core/parsers";
 import { Stis } from "../core/models";
 import type { Fetcher } from "../core/repository";
 import { prefs } from "./prefs";
+import { DebugLog } from "./debuglog";
 
 export class FetchError extends Error {
   constructor(message: string, readonly kind: "offline" | "proxy" | "http" | "gate" | "noproxy") { super(message); }
@@ -126,6 +127,8 @@ export class WebFetcher implements Fetcher {
   /** poslední chyba konkrétní stránky (smaže ji úspěšné stažení té stránky) */
   errs = new Map<string, { at: number; msg: string }>();
   meta(path: string): FetchMeta | undefined { return this.metas.get(path); }
+  /** aktuální relace STIS (cookie) – pro test spojení v konzoli */
+  get session(): string { return this.cookie; }
   /** Zpracovaná data (neměnné zápisy, rozparsované profily) – rychlejší než znovu zpracovat HTML. */
   async getData<T>(key: string): Promise<{ data: T; at: number } | null> {
     const e = (await idbGet("~" + key)) as unknown as DataEntry | undefined;
@@ -192,7 +195,7 @@ export class WebFetcher implements Fetcher {
       const live = maxAgeMs > 0 && maxAgeMs <= 60_000 || (maxAgeMs === 0 && path.startsWith("/zapis/"));
       this.lastErr = { at: Date.now(), msg: err instanceof Error ? err.message : String(err) };
       this.errs.set(path, this.lastErr);
-      if (e && !live) return e.html;
+      if (e && !live) { DebugLog.log("info", `Použita uložená kopie ${path} z ${new Date(e.at).toLocaleString("cs-CZ")}`, this.lastErr.msg); return e.html; }
       throw err;
     }
   }
@@ -208,6 +211,7 @@ export class WebFetcher implements Fetcher {
     return this.renewing;
   }
   private async doRenew(): Promise<boolean> {
+    DebugLog.log("info", "Zakládám novou relaci STIS (/?nuser=1)");
     this.lastRenew = Date.now();
     this.cookie = "";
     try { sessionStorage.removeItem(SP + "cookie"); } catch { /* */ }
@@ -225,6 +229,7 @@ export class WebFetcher implements Fetcher {
     for (let hop = 0; hop < 2 && Parsers.isGate(html); hop++) {
       const to = gateTarget(html);
       if (!to) break;
+      DebugLog.log("info", `Krátká stránka s přesměrováním → následuji ${to}`);
       html = (await this.call(to, path, null))[0];
     }
     if (Parsers.isGate(html)) {
@@ -267,17 +272,27 @@ export class WebFetcher implements Fetcher {
       body = Object.entries(form).map(([k, v]) => encodeURIComponent(k) + "=" + encodeURIComponent(v)).join("&");
     }
     let resp: Response;
+    const t0 = Date.now();
+    const what = `${form ? "POST" : "GET"} ${p}${this.cookie ? " [relace]" : " [bez relace]"}${headers["X-Max-Age"] ? ` [max ${headers["X-Max-Age"]} s]` : ""}`;
     try {
       const ctl = new AbortController();
       const timer = setTimeout(() => ctl.abort(), 40_000);
       resp = await fetch(proxy + p, { method: form ? "POST" : "GET", headers, body, signal: ctl.signal, cache: "no-store" });
       clearTimeout(timer);
     } catch (e) {
+      DebugLog.log("err", `${what} → spojení selhalo (${Date.now() - t0} ms)`, (e as Error)?.name + ": " + (e as Error)?.message);
       if (typeof navigator !== "undefined" && navigator.onLine === false) throw new FetchError("Nejste připojeni k internetu.", "offline");
       if ((e as Error)?.name === "AbortError") throw new FetchError("STIS neodpovídá, zkuste to za chvíli.", "offline");
       throw new FetchError("Nepodařilo se spojit se STIS přes proxy. Zkontrolujte připojení a adresu proxy v Nastavení.", "proxy");
     }
-    if (!resp.ok) throw new FetchError(`Proxy odpověděla ${resp.status}`, "proxy");
+    const hdr = (k: string) => resp.headers.get(k);
+    const info = () => [`Worker ${hdr("X-Proxy-Version") ?? "?"}`, hdr("X-Cache") ? `mezipaměť ${hdr("X-Cache")}` : "", hdr("X-Stale") === "1" ? "STARÁ KOPIE" : "",
+      hdr("X-Final-Url") && hdr("X-Final-Url") !== p ? `přesměrováno na ${hdr("X-Final-Url")}` : "", hdr("X-Stis-Cookie") ? "STIS poslal cookie" : "",
+      hdr("X-Stis-Cache") ? `hlavičky STIS: ${hdr("X-Stis-Cache")}` : "", hdr("X-Fetched-At") ? `staženo ${new Date(Number(hdr("X-Fetched-At"))).toLocaleTimeString("cs-CZ")}` : ""].filter(Boolean).join(" · ");
+    if (!resp.ok) {
+      DebugLog.log("err", `${what} → proxy ${resp.status} (${Date.now() - t0} ms)`, info());
+      throw new FetchError(`Proxy odpověděla ${resp.status}`, "proxy");
+    }
     const ck = resp.headers.get("X-Stis-Cookie");
     if (ck != null && ck !== "") {
       this.cookie = ck;
@@ -295,6 +310,7 @@ export class WebFetcher implements Fetcher {
         const code = /error code:?\s*(\d{3,4})/i.exec(t)?.[1] ?? /Error\s+(10\d\d)/.exec(t)?.[1];
         why = [title, code ? `kód ${code}` : "", !title && !code ? t.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) : ""].filter(Boolean).join(", ");
       } catch { /* */ }
+      DebugLog.log("err", `${what} → STIS ${status} (${Date.now() - t0} ms)${why ? ` · ${why}` : ""}`, info());
       throw new FetchError(`STIS odmítl přístup – chyba ${status}${why ? ` (${why})` : ""}`, "http");
     }
     // čas dat jen u úspěšné odpovědi (jinak by stará data vypadala jako čerstvá)
@@ -302,7 +318,11 @@ export class WebFetcher implements Fetcher {
     this.metas.set(p.split("#")[0], { at: Date.now(), stisAt, stisCache: resp.headers.get("X-Stis-Cache") ?? "", cache: resp.headers.get("X-Cache") ?? "", stale: resp.headers.get("X-Stale") === "1" });
     const bytes = new Uint8Array(await resp.arrayBuffer());
     const final = (resp.headers.get("X-Final-Url") ?? p).split("?")[0];
-    return [Html.decodeMixed(bytes), final];
+    const html = Html.decodeMixed(bytes);
+    const short = Parsers.isGate(html);
+    DebugLog.log(short ? "err" : "ok", `${what} → STIS ${status}, ${bytes.length} B${short ? " (KRÁTKÁ ODPOVĚĎ)" : ""} (${Date.now() - t0} ms)`,
+      info() + (short ? ` · obsah: ${gateSummary(html)}` : ""));
+    return [html, final];
   }
 
   /**

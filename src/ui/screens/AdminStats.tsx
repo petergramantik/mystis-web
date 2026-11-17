@@ -8,7 +8,8 @@ const KEY = SP + "stats_key";
 export function statsKey(): string | null { try { return localStorage.getItem(KEY); } catch { return null; } }
 function setStatsKey(k: string | null) { try { if (k) localStorage.setItem(KEY, k); else localStorage.removeItem(KEY); } catch { /* soukromý režim */ } }
 
-interface StatsData { total: number; today: number; d7: number; d30: number; days: [string, number, number][]; versions: Record<string, number> }
+interface RejDay { day: string; ok: number; r403: number; gate: number; other: number; types: Record<string, { ok: number; rej: number }>; hours: Record<string, number> }
+interface StatsData { total: number; today: number; d7: number; d30: number; days: [string, number, number][]; versions: Record<string, number>; rej?: RejDay[] }
 
 async function loadStats(key: string): Promise<StatsData> {
   const proxy = vm.prefs.proxyUrl;
@@ -29,7 +30,7 @@ export function StatsUnlock({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const go = async () => {
     setBusy(true); setMsg(null);
-    try { await loadStats(k.trim()); setStatsKey(k.trim()); onDone(); vm.go({ t: "AdminStats" }); }
+    try { await loadStats(k.trim()); setStatsKey(k.trim()); onDone(); vm.go({ t: "Console" }); }
     catch (e) { setMsg((e as Error).message); }
     setBusy(false);
   };
@@ -118,6 +119,25 @@ export function AdminStatsScreen() {
           </div>
         ))}
       </AppCard>
+      <AppCard>
+        <T bold>Odpovědi STIS (7 dní)</T>
+        <Muted size={12} maxLines={3} text={data.rej ? "OK / odmítnuto 403 / krátká (uvítací) stránka / jiná chyba. Počítá Worker 2.5+ (zápis souhrnu jednou za 30 min)." : "Worker zatím počty neposílá (je potřeba verze 2.5)."} />
+        {(data.rej ?? []).map((r) => {
+          const rej = r.r403 + r.gate + r.other;
+          const types = Object.entries(r.types).filter(([, v]) => v.rej > 0).sort((a, b) => b[1].rej - a[1].rej).slice(0, 4).map(([t, v]) => `${t} ${v.rej}/${v.ok + v.rej}`).join(", ");
+          const hours = Object.entries(r.hours).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([h, n]) => `${h}h:${n}`).join(", ");
+          return (
+            <div key={r.day} className="col" style={{ borderTop: "1px solid #E3E8F0", paddingTop: 6 }}>
+              <div className="row">
+                <Muted size={13} text={`${+r.day.slice(8, 10)}. ${+r.day.slice(5, 7)}.`} style={{ flex: 1 }} />
+                <T size={13}>{`OK ${r.ok} · 403 ${r.r403} · krátká ${r.gate} · jiná ${r.other}`}</T>
+              </div>
+              {rej > 0 && <Muted size={11} maxLines={2} text={`odmítnuto podle typu: ${types || "–"}${hours ? ` · nejvíc v ${hours}` : ""}`} />}
+            </div>
+          );
+        })}
+      </AppCard>
+      <OButton text="Ladicí konzole ›" onClick={() => vm.go({ t: "Console" })} />
       <OButton text="Obnovit" onClick={() => { setData(null); setTick(tick + 1); }} />
     </div>
   );

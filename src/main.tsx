@@ -1,6 +1,8 @@
 import { BrowseClubScreen, BrowseCompScreen, CompsScreen, PlayersScreen } from "./ui/screens/Browse";
 import { IS_DEV, SP } from "./app/channel";
 import { AdminStatsScreen } from "./ui/screens/AdminStats";
+import { ConsoleScreen } from "./ui/screens/Console";
+import { DebugLog } from "./data/debuglog";
 import { followChannelChoice, switchChannel } from "./app/switch";
 // aplikace z plochy otevře naposledy zvolenou verzi (běžná / vývojová)
 const redirecting = followChannelChoice();
@@ -57,6 +59,7 @@ function title(s: Screen): string {
     case "Watch": return "Živé utkání";
     case "About": return "O aplikaci";
     case "AdminStats": return "Statistiky uživatelů";
+    case "Console": return "Ladicí konzole";
     case "Live": return "Živé utkání";
     case "Duel": return "Vzájemné zápasy";
     case "ZapisDetail": return "Zápis o utkání";
@@ -89,6 +92,7 @@ function Body({ s }: { s: Screen }) {
     case "Watch": return <WatchScreen k={s.key} />;
     case "About": return <AboutScreen />;
     case "AdminStats": return <AdminStatsScreen />;
+    case "Console": return <ConsoleScreen />;
     case "Live": return <LiveScreen team={s.team} />;
     case "Duel": return <PairScreen aId0={s.aId} aName0={s.aName} bId0={s.bId} bName0={s.bName} pA0={s.pA} />;
     case "ZapisDetail": return <ZapisDetailScreen path={s.path} myTeam={s.myTeam} />;
@@ -260,7 +264,10 @@ function Root() {
   );
 }
 
-if (!redirecting) createRoot(document.getElementById("app")!).render(<Root />);
+if (!redirecting) {
+  DebugLog.log("info", `Start MySTIS ${APP_VERSION}`, `${navigator.userAgent} · proxy ${vm.prefs.proxyUrl ?? "?"} · ${typeof navigator !== "undefined" && navigator.onLine === false ? "offline" : "online"}`);
+  createRoot(document.getElementById("app")!).render(<Root />);
+}
 
 if ("serviceWorker" in navigator && location.protocol === "https:") {
   // nová verze aplikace převezme řízení -> jednou obnovit stránku, aby běžel nový kód
