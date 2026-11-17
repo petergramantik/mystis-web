@@ -124,6 +124,9 @@ export class WebFetcher implements Fetcher {
   /** poslední úspěšné stažení ze STIS a poslední chyba (kvůli informaci o stavu dat) */
   lastOk = 0;
   lastErr: { at: number; msg: string } | null = null;
+  /** STIS odmítá komunikovat: poslední odpověď byla stará kopie (Worker nedosáhl na STIS) nebo výzva/403.
+   *  Vynuluje se, jakmile přijde čerstvá odpověď. null = STIS odpovídá normálně. */
+  blockedSince: number | null = null;
   /** poslední chyba konkrétní stránky (smaže ji úspěšné stažení té stránky) */
   errs = new Map<string, { at: number; msg: string }>();
   meta(path: string): FetchMeta | undefined { return this.metas.get(path); }
@@ -195,6 +198,8 @@ export class WebFetcher implements Fetcher {
       const live = maxAgeMs > 0 && maxAgeMs <= 60_000 || (maxAgeMs === 0 && path.startsWith("/zapis/"));
       this.lastErr = { at: Date.now(), msg: err instanceof Error ? err.message : String(err) };
       this.errs.set(path, this.lastErr);
+      // výzva STIS / 403 bez uložené kopie u Workeru = STIS odmítá komunikovat
+      if (err instanceof FetchError && (err.kind === "http" || err.kind === "gate") && this.blockedSince == null) this.blockedSince = Date.now();
       if (e && !live) { DebugLog.log("info", `Použita uložená kopie ${path} z ${new Date(e.at).toLocaleString("cs-CZ")}`, this.lastErr.msg); return e.html; }
       throw err;
     }
@@ -315,7 +320,11 @@ export class WebFetcher implements Fetcher {
     }
     // čas dat jen u úspěšné odpovědi (jinak by stará data vypadala jako čerstvá)
     const stisAt = Number(resp.headers.get("X-Fetched-At") ?? "0") || Date.now();
-    this.metas.set(p.split("#")[0], { at: Date.now(), stisAt, stisCache: resp.headers.get("X-Stis-Cache") ?? "", cache: resp.headers.get("X-Cache") ?? "", stale: resp.headers.get("X-Stale") === "1" });
+    const stale = resp.headers.get("X-Stale") === "1";
+    this.metas.set(p.split("#")[0], { at: Date.now(), stisAt, stisCache: resp.headers.get("X-Stis-Cache") ?? "", cache: resp.headers.get("X-Cache") ?? "", stale });
+    // stará kopie = Worker nedosáhl na STIS (STIS odmítá); čerstvá odpověď = STIS komunikuje, blokace pominula
+    if (stale) { if (this.blockedSince == null) this.blockedSince = Date.now(); }
+    else this.blockedSince = null;
     const bytes = new Uint8Array(await resp.arrayBuffer());
     const final = (resp.headers.get("X-Final-Url") ?? p).split("?")[0];
     const html = Html.decodeMixed(bytes);

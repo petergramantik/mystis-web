@@ -44,6 +44,7 @@ export type Screen =
   | { t: "About" }
   | { t: "AdminStats" }
   | { t: "Console" }
+  | { t: "Notice" }
   | { t: "Shared"; path: string }
   | { t: "OtherTeam"; ref: TeamRef; comp: string }
   | { t: "Prediction"; data: string }

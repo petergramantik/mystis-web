@@ -2,6 +2,7 @@ import { BrowseClubScreen, BrowseCompScreen, CompsScreen, PlayersScreen } from "
 import { IS_DEV, SP } from "./app/channel";
 import { AdminStatsScreen } from "./ui/screens/AdminStats";
 import { ConsoleScreen } from "./ui/screens/Console";
+import { NoticeScreen } from "./ui/screens/Notice";
 import { DebugLog } from "./data/debuglog";
 import { followChannelChoice, switchChannel } from "./app/switch";
 // aplikace z plochy otevře naposledy zvolenou verzi (běžná / vývojová)
@@ -60,6 +61,7 @@ function title(s: Screen): string {
     case "About": return "O aplikaci";
     case "AdminStats": return "Statistiky uživatelů";
     case "Console": return "Ladicí konzole";
+    case "Notice": return "Přístup k datům STIS";
     case "Live": return "Živé utkání";
     case "Duel": return "Vzájemné zápasy";
     case "ZapisDetail": return "Zápis o utkání";
@@ -93,6 +95,7 @@ function Body({ s }: { s: Screen }) {
     case "About": return <AboutScreen />;
     case "AdminStats": return <AdminStatsScreen />;
     case "Console": return <ConsoleScreen />;
+    case "Notice": return <NoticeScreen />;
     case "Live": return <LiveScreen team={s.team} />;
     case "Duel": return <PairScreen aId0={s.aId} aName0={s.aName} bId0={s.bId} bName0={s.bName} pA0={s.pA} />;
     case "ZapisDetail": return <ZapisDetailScreen path={s.path} myTeam={s.myTeam} />;

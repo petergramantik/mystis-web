@@ -177,6 +177,7 @@ export function OverviewScreen() {
           </div>
         )}
       </NavyHeader>
+      <StisBlockNotice />
       <InstallBanner />
       {vm.error != null && <div className="px16"><ErrorBox text={vm.error} onRetry={() => vm.loadMe(true)} /></div>}
       <div className="col g12 px16">
@@ -477,6 +478,21 @@ function PreviousCard({ ctx, prev, back, total, onHome }: { ctx: NextMatchContex
 
 /** Karta Poslední utkání: mé družstvo – výsledek – soupeř, mé zápasy a celková změna STR; více soutěží = posouvání. */
 /** Kdy byla data naposledy úspěšně stažena ze STIS (a případná chyba posledního pokusu). */
+/** Upozornění na Přehledu – jen když STIS aktivně odmítá komunikovat (Worker vrací staré kopie / výzvu). */
+function StisBlockNotice() {
+  if (vm.fetcher.blockedSince == null) return null;
+  return (
+    <div className="px16" style={{ paddingTop: 2 }}>
+      <div className="row g8 clickable" onClick={() => vm.go({ t: "Notice" })} style={{
+        alignItems: "center", background: C.LossTint, border: `1px solid ${C.Peach}`, borderRadius: 12, padding: "10px 12px",
+      }}>
+        <Icon name="info" size={20} color={C.Orange} />
+        <T semi size={14} color={C.OrangeText} style={{ flex: 1 }}>STIS omezuje přístup – čtěte dál ›</T>
+      </div>
+    </div>
+  );
+}
+
 function DataFreshness() {
   const f = vm.fetcher;
   const when = (t: number) => {
