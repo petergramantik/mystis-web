@@ -99,6 +99,9 @@ export class WebFetcher implements Fetcher {
   /** Worker verze 2+ (sdílená mezipaměť, X-Max-Age) – zjistí se z první odpovědi */
   private proxyV = Number((() => { try { return localStorage.getItem(SP + "proxy_v") ?? "0"; } catch { return "0"; } })()) || 0;
   private metas = new Map<string, FetchMeta>();
+  /** poslední úspěšné stažení ze STIS a poslední chyba (kvůli informaci o stavu dat) */
+  lastOk = 0;
+  lastErr: { at: number; msg: string } | null = null;
   meta(path: string): FetchMeta | undefined { return this.metas.get(path); }
   /** Zpracovaná data (neměnné zápisy, rozparsované profily) – rychlejší než znovu zpracovat HTML. */
   async getData<T>(key: string): Promise<{ data: T; at: number } | null> {
@@ -152,6 +155,7 @@ export class WebFetcher implements Fetcher {
       let pend = this.inflight.get(path);
       if (!pend) { pend = this.download(path, maxAgeMs).finally(() => this.inflight.delete(path)); this.inflight.set(path, pend); }
       const html = await pend;
+      this.lastOk = Date.now();
       // stáří = kdy data stáhl ze STIS Worker (ze sdílené mezipaměti mohou být o chvíli starší)
       const ne = { html, at: Math.min(Date.now(), this.metas.get(path)?.stisAt ?? Date.now()) };
       this.remember(path, ne);
@@ -162,6 +166,7 @@ export class WebFetcher implements Fetcher {
       // živá a ručně obnovovaná data (krátká platnost) nesmí potichu vrátit starou kopii – volající ukáže chybu
       // jen živá data (zápis / rozpis s platností do 1 min) chybu přiznají; ostatní (i ruční Obnovit) vezmou uloženou kopii
       const live = maxAgeMs > 0 && maxAgeMs <= 60_000 || (maxAgeMs === 0 && path.startsWith("/zapis/"));
+      this.lastErr = { at: Date.now(), msg: err instanceof Error ? err.message : String(err) };
       if (e && !live) return e.html;
       throw err;
     }

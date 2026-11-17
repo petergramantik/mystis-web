@@ -289,7 +289,7 @@ export class AppVm {
           prefs.playerPath = p.path;
           prefs.addRecent(p.path, p.name);
           if (switching) prefs.lastMatchCount = -1;
-          this.me = p;
+          this.me = p; this.meDataAt = Date.now();
           this.resetManual(); this.clearOther();
           this.nextSelectedByUser = false; this.nextSelected = 0;
           this.resetTo(S.Overview);
@@ -1962,7 +1962,8 @@ export class AppVm {
         if (z && !have) this.zapisy.set(path, z);
         if (!z || this.zapisNeedsPolling(path)) z = await this.repo.zapis(path, exact ? 0 : force ? 45_000 : 60_000) ?? z;
         // Worker při odmítnutí STIS vrátí poslední kopii – přiznat to
-        if (this.fetcher.meta(path)?.stale) this.zapisErrors.set(path, "STIS teď dočasně odmítá dotazy – zobrazena poslední dostupná kopie.");
+        if (!z) this.zapisErrors.set(path, "zápis se nepodařilo přečíst");
+        else if (this.fetcher.meta(path)?.stale) this.zapisErrors.set(path, "STIS teď dočasně odmítá dotazy – zobrazena poslední dostupná kopie.");
         else {
           this.zapisErrors.delete(path);
           // úspěšné načtení ruší i chybu živého sledování stejného zápisu (jinak by zůstala viset)

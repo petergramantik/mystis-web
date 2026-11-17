@@ -259,7 +259,8 @@ export function OverviewScreen() {
           {recent.map((m, i) => <MatchRow key={i + m.opponentKey + m.seq} m={m} onClick={() => vm.go({ t: "H2H", key: m.opponentKey })} />)}
         </ListCard>
       </div>
-      <Muted text={`Data: stis.ping-pong.cz${vm.loadingMe || vm.loadingClub ? " · aktualizuji…" : ""}${vm.clubProgress ? " · " + vm.clubProgress : ""}`} size={12} style={{ paddingLeft: 20, paddingBottom: 12 }} />
+      <Muted text={`Data: stis.ping-pong.cz${vm.loadingMe || vm.loadingClub ? " · aktualizuji…" : ""}${vm.clubProgress ? " · " + vm.clubProgress : ""}`} size={12} style={{ paddingLeft: 20 }} />
+      <DataFreshness />
       <div className="px16" style={{ paddingBottom: 20 }}><SupportStrip /></div>
     </div>
   );
@@ -475,6 +476,24 @@ function PreviousCard({ ctx, prev, back, total, onHome }: { ctx: NextMatchContex
 }
 
 /** Karta Poslední utkání: mé družstvo – výsledek – soupeř, mé zápasy a celková změna STR; více soutěží = posouvání. */
+/** Kdy byla data naposledy úspěšně stažena ze STIS (a případná chyba posledního pokusu). */
+function DataFreshness() {
+  const f = vm.fetcher;
+  const when = (t: number) => {
+    const d = new Date(t), n = new Date();
+    const hm = `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+    return d.toDateString() === n.toDateString() ? `dnes ${hm}` : `${d.getDate()}. ${d.getMonth() + 1}. ${hm}`;
+  };
+  const prof = vm.meDataAt;
+  const err = f.lastErr && f.lastErr.at > f.lastOk ? f.lastErr : null;
+  return (
+    <div style={{ paddingLeft: 20, paddingRight: 20, paddingBottom: 12 }}>
+      <Muted size={12} maxLines={2} text={`Profil ze STIS: ${prof ? when(prof) : "–"}${f.lastOk ? ` · poslední úspěšné stažení: ${when(f.lastOk)}` : ""}`} />
+      {err && <Muted size={12} maxLines={3} color={C.Peach} text={`Poslední pokus ${when(err.at)} se nepovedl (${err.msg}) – zobrazena uložená data.`} />}
+    </div>
+  );
+}
+
 function LastUtkaniCard() {
   // každý návrat na Přehled (i šipkou Zpět) začíná nejnovějším utkáním
   useState(() => { vm.lastSel = null; return 0; });

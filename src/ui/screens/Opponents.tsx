@@ -223,7 +223,13 @@ function H2HMatch({ m, myId, oppId }: { m: Match; myId: string; oppId: string })
               return <Pill key={i} text={iWon ? `${other}:${pts}` : `${pts}:${other}`} bg={iWon ? C.WinTint : C.LossTint} fg={iWon ? C.Win : "#B23A0B"} />;
             })}
           </div>
-        ) : m.zapisPath && !z ? <Muted text="načítám sety…" size={12} /> : null}
+        ) : m.zapisPath && !z ? (
+          vm.zapisBusy(m.zapisPath) || !vm.zapisErrors.get(m.zapisPath) ? <Muted text="načítám sety…" size={12} />
+            : <div className="row g8" style={{ alignItems: "center" }}>
+              <Muted text={`Sety se nepodařilo načíst (${vm.zapisErrors.get(m.zapisPath)})`} size={12} maxLines={2} style={{ flex: 1 }} />
+              <span className="clickable" style={{ color: C.Blue, fontSize: 12, fontWeight: 700 }} onClick={() => vm.loadZapis(m.zapisPath, false, true, true)}>Zkusit znovu</span>
+            </div>
+        ) : null}
       </div>
       <Divider />
     </>
