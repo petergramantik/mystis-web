@@ -186,7 +186,7 @@ export class WebFetcher implements Fetcher {
     let html: string;
     try { html = (await this.call(path, null, null, maxAgeMs))[0]; }
     catch (e) {
-      if (!(e instanceof FetchError && e.kind === "http" && /403/.test(e.message)) || !(await this.renewSession())) throw e;
+      if (!(e instanceof FetchError && e.kind === "http" && /chyba 403/.test(e.message)) || !(await this.renewSession())) throw e;
       html = (await this.call(path, null, null, maxAgeMs))[0];
     }
     if (Parsers.isGate(html)) {
@@ -194,7 +194,11 @@ export class WebFetcher implements Fetcher {
       html = (await this.call(path + sep + "nuser=1", null, null))[0];
       const m = this.metas.get(path + sep + "nuser=1"); if (m) this.metas.set(path, m);
     }
-    if (Parsers.isGate(html)) throw new FetchError("STIS vrátil prázdnou stránku", "gate");
+    if (Parsers.isGate(html)) {
+      // diagnostika: co přesně ta krátká odpověď obsahuje (přesměrování, skript, hláška…)
+      const raw = html.replace(/\s+/g, " ").trim();
+      throw new FetchError(`STIS místo stránky poslal krátkou odpověď (${html.length} znaků): ${raw.slice(0, 220) || "prázdná"}`, "gate");
+    }
     return html;
   }
 
@@ -255,7 +259,7 @@ export class WebFetcher implements Fetcher {
         const code = /error code:?\s*(\d{3,4})/i.exec(t)?.[1] ?? /Error\s+(10\d\d)/.exec(t)?.[1];
         why = [title, code ? `kód ${code}` : "", !title && !code ? t.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) : ""].filter(Boolean).join(", ");
       } catch { /* */ }
-      throw new FetchError(`STIS odpověděl ${status}${why ? ` (${why})` : ""}`, "http");
+      throw new FetchError(`STIS odmítl přístup – chyba ${status}${why ? ` (${why})` : ""}`, "http");
     }
     // čas dat jen u úspěšné odpovědi (jinak by stará data vypadala jako čerstvá)
     const stisAt = Number(resp.headers.get("X-Fetched-At") ?? "0") || Date.now();

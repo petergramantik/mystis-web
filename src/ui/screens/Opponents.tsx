@@ -1,7 +1,7 @@
 import { ModelToggle } from "../modelToggle";
 import { useEffect, useState } from "react";
 import { vm } from "../../app/vm";
-import type { Match } from "../../core/models";
+import { Stis, type Match } from "../../core/models";
 import { ClubStat, OpponentStat, Stats, StrModel, sum } from "../../core/stats";
 import {
   AppCard, Avatar, BigNumber, C, Chips, DMY, Divider, Empty, HeaderPlayer, ListCard, Loading, Muted, NavyHeader, OButton, Pill, ProbBar,
@@ -227,7 +227,10 @@ function H2HMatch({ m, myId, oppId }: { m: Match; myId: string; oppId: string })
           vm.zapisBusy(m.zapisPath) || !vm.zapisErrors.get(m.zapisPath) ? <Muted text="načítám sety…" size={12} />
             : <div className="row g8" style={{ alignItems: "center" }}>
               <Muted text={`Sety se nepodařilo načíst (${vm.zapisErrors.get(m.zapisPath)})`} size={12} maxLines={2} style={{ flex: 1 }} />
-              <span className="clickable" style={{ color: C.Blue, fontSize: 12, fontWeight: 700 }} onClick={() => vm.loadZapis(m.zapisPath, false, true, true)}>Zkusit znovu</span>
+              <div className="col" style={{ alignItems: "flex-end", gap: 4 }}>
+                <span className="clickable" style={{ color: C.Blue, fontSize: 12, fontWeight: 700 }} onClick={() => vm.loadZapis(m.zapisPath, false, true, true)}>Zkusit znovu</span>
+                <a href={Stis.BASE + m.zapisPath} target="_blank" rel="noopener" style={{ color: C.Blue, fontSize: 12, fontWeight: 600, textDecoration: "none" }}>Zápis na STIS ↗</a>
+              </div>
             </div>
         ) : null}
       </div>
