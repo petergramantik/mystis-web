@@ -95,6 +95,27 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** Stránek v paměti nejvýš tolik (zbytek je v IndexedDB). */
 const MEM_MAX = 150;
 
+/** Cíl přesměrování v krátké stránce STIS (meta refresh nebo skript), jen v rámci STIS. */
+export function gateTarget(html: string): string | null {
+  const m = /http-equiv=["']?refresh["']?[^>]*content=["']?\s*\d+\s*;\s*url=([^"'>\s]+)/i.exec(html)
+    ?? /content=["']?\s*\d+\s*;\s*url=([^"'>\s]+)["']?[^>]*http-equiv=["']?refresh/i.exec(html)
+    ?? /location(?:\.href)?\s*=\s*["']([^"']+)["']/i.exec(html)
+    ?? /location\.(?:replace|assign)\(\s*["']([^"']+)["']/i.exec(html);
+  if (!m) return null;
+  let u = m[1].replace(/&amp;/g, "&");
+  if (/^https?:\/\//i.test(u)) { if (!u.includes("stis.ping-pong.cz")) return null; u = u.replace(/^https?:\/\/[^/]+/i, ""); }
+  return u.startsWith("/") ? u : "/" + u;
+}
+/** Čitelné shrnutí krátké stránky pro hlášku: přesměrování, skript, text. */
+export function gateSummary(html: string): string {
+  const to = gateTarget(html);
+  const title = /<title[^>]*>([^<]*)<\/title>/i.exec(html)?.[1]?.trim();
+  const script = /<script[^>]*>([\s\S]*?)<\/script>/i.exec(html)?.[1]?.replace(/\s+/g, " ").trim();
+  const body = /<body[^>]*>([\s\S]*?)<\/body>/i.exec(html)?.[1]?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const parts = [to ? `přesměrování na ${to}` : "", title ? `titulek „${title}“` : "", script ? `skript: ${script.slice(0, 160)}` : "", body ? `text: ${body.slice(0, 120)}` : ""].filter(Boolean);
+  return parts.length ? parts.join(" · ") : html.replace(/\s+/g, " ").slice(-200);
+}
+
 export class WebFetcher implements Fetcher {
   /** Worker verze 2+ (sdílená mezipaměť, X-Max-Age) – zjistí se z první odpovědi */
   private proxyV = Number((() => { try { return localStorage.getItem(SP + "proxy_v") ?? "0"; } catch { return "0"; } })()) || 0;
@@ -189,16 +210,18 @@ export class WebFetcher implements Fetcher {
       if (!(e instanceof FetchError && e.kind === "http" && /chyba 403/.test(e.message)) || !(await this.renewSession())) throw e;
       html = (await this.call(path, null, null, maxAgeMs))[0];
     }
+    // krátká stránka s přesměrováním (meta refresh / skript) -> následovat (nejvýš 2×)
+    for (let hop = 0; hop < 2 && Parsers.isGate(html); hop++) {
+      const to = gateTarget(html);
+      if (!to) break;
+      html = (await this.call(to, path, null))[0];
+    }
     if (Parsers.isGate(html)) {
       const sep = path.includes("?") ? "&" : "?";
       html = (await this.call(path + sep + "nuser=1", null, null))[0];
       const m = this.metas.get(path + sep + "nuser=1"); if (m) this.metas.set(path, m);
     }
-    if (Parsers.isGate(html)) {
-      // diagnostika: co přesně ta krátká odpověď obsahuje (přesměrování, skript, hláška…)
-      const raw = html.replace(/\s+/g, " ").trim();
-      throw new FetchError(`STIS místo stránky poslal krátkou odpověď (${html.length} znaků): ${raw.slice(0, 220) || "prázdná"}`, "gate");
-    }
+    if (Parsers.isGate(html)) throw new FetchError(`STIS místo stránky poslal krátkou odpověď (${html.length} znaků): ${gateSummary(html)}`, "gate");
     return html;
   }
 
