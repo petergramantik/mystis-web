@@ -123,6 +123,8 @@ export class WebFetcher implements Fetcher {
   /** poslední úspěšné stažení ze STIS a poslední chyba (kvůli informaci o stavu dat) */
   lastOk = 0;
   lastErr: { at: number; msg: string } | null = null;
+  /** poslední chyba konkrétní stránky (smaže ji úspěšné stažení té stránky) */
+  errs = new Map<string, { at: number; msg: string }>();
   meta(path: string): FetchMeta | undefined { return this.metas.get(path); }
   /** Zpracovaná data (neměnné zápisy, rozparsované profily) – rychlejší než znovu zpracovat HTML. */
   async getData<T>(key: string): Promise<{ data: T; at: number } | null> {
@@ -177,6 +179,7 @@ export class WebFetcher implements Fetcher {
       if (!pend) { pend = this.download(path, maxAgeMs).finally(() => this.inflight.delete(path)); this.inflight.set(path, pend); }
       const html = await pend;
       this.lastOk = Date.now();
+      this.errs.delete(path);
       // stáří = kdy data stáhl ze STIS Worker (ze sdílené mezipaměti mohou být o chvíli starší)
       const ne = { html, at: Math.min(Date.now(), this.metas.get(path)?.stisAt ?? Date.now()) };
       this.remember(path, ne);
@@ -188,6 +191,7 @@ export class WebFetcher implements Fetcher {
       // jen živá data (zápis / rozpis s platností do 1 min) chybu přiznají; ostatní (i ruční Obnovit) vezmou uloženou kopii
       const live = maxAgeMs > 0 && maxAgeMs <= 60_000 || (maxAgeMs === 0 && path.startsWith("/zapis/"));
       this.lastErr = { at: Date.now(), msg: err instanceof Error ? err.message : String(err) };
+      this.errs.set(path, this.lastErr);
       if (e && !live) return e.html;
       throw err;
     }
@@ -195,8 +199,15 @@ export class WebFetcher implements Fetcher {
 
   private lastRenew = 0;
   /** STIS odpovídá 403 bez platné relace (cookie) – založit novou (nejvýš jednou za 20 s) a zkusit znovu. */
-  private async renewSession(): Promise<boolean> {
-    if (Date.now() - this.lastRenew < 20_000) return false;
+  private renewing: Promise<boolean> | null = null;
+  private async renewSession(wait = false): Promise<boolean> {
+    // souběžné požadavky počkají na jednu obnovu relace
+    if (this.renewing) return wait ? this.renewing : false;
+    if (Date.now() - this.lastRenew < 20_000) return wait;
+    this.renewing = this.doRenew().finally(() => { this.renewing = null; });
+    return this.renewing;
+  }
+  private async doRenew(): Promise<boolean> {
     this.lastRenew = Date.now();
     this.cookie = "";
     try { sessionStorage.removeItem(SP + "cookie"); } catch { /* */ }
@@ -221,6 +232,8 @@ export class WebFetcher implements Fetcher {
       html = (await this.call(path + sep + "nuser=1", null, null))[0];
       const m = this.metas.get(path + sep + "nuser=1"); if (m) this.metas.set(path, m);
     }
+    // pořád uvítací stránka STIS: založit novou relaci (cookie) a zkusit stránku znovu
+    if (Parsers.isGate(html) && await this.renewSession(true)) html = (await this.call(path, null, null))[0];
     if (Parsers.isGate(html)) throw new FetchError(`STIS místo stránky poslal krátkou odpověď (${html.length} znaků): ${gateSummary(html)}`, "gate");
     return html;
   }

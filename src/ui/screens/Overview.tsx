@@ -485,11 +485,13 @@ function DataFreshness() {
     return d.toDateString() === n.toDateString() ? `dnes ${hm}` : `${d.getDate()}. ${d.getMonth() + 1}. ${hm}`;
   };
   const prof = vm.meDataAt;
-  const err = f.lastErr && f.lastErr.at > f.lastOk ? f.lastErr : null;
+  // chyba stažení profilu (i když se jiné stránky mezitím stáhly), jinak poslední obecná chyba
+  const profErr = vm.me ? f.errs.get(Stis.canonicalPlayer(vm.me.path)) : undefined;
+  const err = profErr ?? (f.lastErr && f.lastErr.at > f.lastOk ? f.lastErr : null);
   return (
     <div style={{ paddingLeft: 20, paddingRight: 20, paddingBottom: 12 }}>
       <Muted size={12} maxLines={2} text={`Profil ze STIS: ${prof ? when(prof) : "–"}${f.lastOk ? ` · poslední úspěšné stažení: ${when(f.lastOk)}` : ""}`} />
-      {err && <Muted size={12} maxLines={3} color={C.Peach} text={`Poslední pokus ${when(err.at)} se nepovedl (${err.msg}) – zobrazena uložená data.`} />}
+      {err && <Muted size={12} maxLines={3} color={C.Peach} text={`${profErr ? "Profil se" : "Poslední pokus"} ${when(err.at)} ${profErr ? "nepodařilo stáhnout" : "se nepovedl"} (${err.msg}) – zobrazena uložená data.`} />}
     </div>
   );
 }
